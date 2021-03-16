@@ -10,10 +10,12 @@ struct Opts {
 }
 
 fn main() {
+    env_logger::init();
+
     let opts: Opts = Opts::parse();
     let f = opts.input;
 
-    let content = fs::read(&f).expect(&format!("error: failed to open slide file {}", &f));
+    let content = fs::read(&f).expect(&format!("error: failed to open bab file {}", &f));
     let input = String::from_utf8_lossy(&content);
 
     let expr = run_single(&input);
