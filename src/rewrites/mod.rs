@@ -11,7 +11,6 @@ pub use rotate::*;
 pub use crate::Rewrite;
 pub use egg::rewrite as rw;
 
-/*
 pub fn base_rw() -> Vec<Rewrite> {
     vec![
         rw!("scale-base-circle"; "circle" => "(scale 1 circle)"),
@@ -20,4 +19,3 @@ pub fn base_rw() -> Vec<Rewrite> {
         rw!("move-base-line"; "line" => "(move 0 0 line)"),
     ]
 }
-*/

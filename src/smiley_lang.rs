@@ -44,7 +44,7 @@ impl CostFunction<Smiley> for ToySize {
         C: FnMut(Id) -> Self::Cost,
     {
         let op_cost = match enode {
-            Smiley::Scale(_) | Smiley::Rotate(_) | Smiley::Move(_) => 10.0,
+            Smiley::Scale(_) | Smiley::Rotate(_) | Smiley::Move(_) => 16.0,
             _ => 1.0,
         };
         enode.fold(op_cost, |sum, id| sum + costs(id))
@@ -68,9 +68,9 @@ pub fn run_single(expr: &str) -> RecExpr<Smiley> {
     let expr = expr.parse().unwrap();
     let runner = Runner::default()
         // .with_scheduler(SimpleScheduler)
-        .with_iter_limit(1_000)
-        .with_node_limit(1_000_000)
-        .with_time_limit(core::time::Duration::from_secs(20))
+        // .with_iter_limit(1_000)
+        // .with_node_limit(1_000_000)
+        // .with_time_limit(core::time::Duration::from_secs(20))
         .with_expr(&expr)
         .run(rules);
     let (egraph, root) = (runner.egraph, runner.roots[0]);
