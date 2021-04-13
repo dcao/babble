@@ -48,24 +48,40 @@ intersection: *_2 -> [([q2r2, q3r3], q1r1)]
 
 */
 
+// For eclass anti-unification, we have to change some things about the algorithm.
+// 1. We have to do more complex intersection to get places where we should insert
+// arguments.
+// After doing our intersection, if a referenced state doesn't exist, we have to create it
+// as an argument.
+// 2. We add an extra step after intersection which introduces the new intersected egraph as
+// a let-bound function; the eclasses should each contain a new AST node which applies
+// the let-bound function to the correct arguments.
+// 3. We want to add some procedure to automatically pick eclasses to anti-unify. Our rule
+// should be that we shouldn't try to anti-unify an eclass with another eclass which is a
+// transitive child of the first eclass. (we only want to anti-unify distinct programs)
+
 use egg::*;
 use std::collections::HashMap;
+use indexmap::IndexMap;
 use std::string::String;
 
 // type Transition = (Vec<Id>, Id);
-type Transition<L: Language> = (L, Id);
-type ProdTransition<L: Language> = (Transition<L>, Transition<L>);
-type ProdWorklist<L: Language> = HashMap<String, Vec<ProdTransition<L>>>;
+type Transition<L> = (L, Id);
+type ProdTransition<L> = (Transition<L>, Transition<L>);
+// We use an IndexMap since we want to iterate from root to leaf in the eclasses.
+type ProdWorklist<L> = IndexMap<String, Vec<ProdTransition<L>>>;
 
 fn enode_hash<L: Language>(enode: &L) -> String {
     format!("{}_{}", enode.display_op(), enode.len())
 }
 
+// We return an IndexMap so that all of the leaf nodes (nodes which don't
+// reference other eclasses) are at the bottom.
 fn enode_map<L: Language, N: Analysis<L>>(
     g: &EGraph<L, N>,
     s: &EClass<L, N::Data>,
-) -> HashMap<String, Vec<Transition<L>>> {
-    let mut map: HashMap<String, Vec<Transition<L>>> = HashMap::new();
+) -> IndexMap<String, Vec<Transition<L>>> {
+    let mut map: IndexMap<String, Vec<Transition<L>>> = IndexMap::new();
     // The list of eclasses we still need to visit.
     let mut wrk: Vec<&EClass<L, N::Data>> = vec![s];
     while let Some(class) = wrk.pop() {
@@ -101,12 +117,19 @@ pub fn intersect<L: Language, N: Analysis<L>>(
     }
 
     // construct ProdWorklist
+    // Since we're anti-unifying eclasses within the same egraph, we know that
+    // references to identical expressions will have the same Id. (i.e. any
+    // given expression won't appear twice with two different Ids in a given
+    // egraph). Because of this, to anti-unify, we only want to push entries
+    // where the enodes have different Ids.
     let mut worklist: ProdWorklist<L> = ProdWorklist::new();
     for (key, value_a) in &map_a {
         if let Some(value_b) = map_b.get(key) {
             for (t_a, t_b) in itertools::iproduct!(value_a.iter(), value_b.iter()) {
-                let vals = worklist.entry(key.clone()).or_insert(vec![]);
-                vals.push((t_a.clone(), t_b.clone()));
+                if t_a.1 != t_b.1 {
+                    let vals = worklist.entry(key.clone()).or_insert(vec![]);
+                    vals.push((t_a.clone(), t_b.clone()));
+                }
             }
         }
     }
@@ -117,10 +140,9 @@ pub fn intersect<L: Language, N: Analysis<L>>(
     let mut prod_ids: HashMap<(Id, Id), Id> = HashMap::new();
     let mut did_something = true;
 
-    let mut iteration = 0;
     while did_something {
         did_something = false;
-        for (key, value) in &mut worklist {
+        for (_, value) in &mut worklist {
             let mut finished_idxs = vec![];
             for (idx, ((en1, parent_ec1), (en2, parent_ec2))) in value.iter().enumerate() {
                 let children_inhabited = en1
@@ -131,7 +153,7 @@ pub fn intersect<L: Language, N: Analysis<L>>(
                 if children_inhabited {
                     println!("map: {:?}", prod_ids);
                     /* add to new egraph */
-                    let mut new_children: Vec<Id> = en1
+                    let new_children: Vec<Id> = en1
                         .children()
                         .iter()
                         .zip(en2.children())
@@ -177,7 +199,6 @@ pub fn intersect<L: Language, N: Analysis<L>>(
                 value.remove(finished_idxs.pop().unwrap());
             }
         }
-        iteration += 1;
     }
     intersection
 }
@@ -194,7 +215,7 @@ mod tests {
         let rules: &[Rewrite] = &[];
 
         // First, parse the expression and build an egraph from it
-        let expr = "(+ circle line)".parse().unwrap();
+        let expr = "(+ (scale 0.5 (+ line circle)) (+ circle circle))".parse().unwrap();
         let runner = Runner::default()
         // .with_scheduler(SimpleScheduler)
         // .with_iter_limit(1_000)
@@ -204,6 +225,6 @@ mod tests {
             .run(rules);
         let (egraph, _root) = (runner.egraph, runner.roots[0]);
 
-        println!("{:#?}", intersect(&egraph, &egraph[0.into()], &egraph[1.into()]));
+        println!("{:#?}", intersect(&egraph, &egraph[4.into()], &egraph[5.into()]));
     }
 }
