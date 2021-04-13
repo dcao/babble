@@ -60,7 +60,7 @@ intersection: *_2 -> [([q2r2, q3r3], q1r1)]
 // should be that we shouldn't try to anti-unify an eclass with another eclass which is a
 // transitive child of the first eclass. (we only want to anti-unify distinct programs)
 
-use egg::*;
+use egg::{Language, Analysis, EGraph, EClass, Id};
 use std::collections::HashMap;
 use indexmap::IndexMap;
 use std::string::String;
@@ -88,7 +88,7 @@ fn enode_map<L: Language, N: Analysis<L>>(
         for node in class.iter() {
             let hash = enode_hash(node);
             // TODO: do we need to keep track of nodes/classes we've already seen?
-            let vals = map.entry(hash).or_insert(vec![]);
+            let vals = map.entry(hash).or_insert_with(Vec::new);
             // vals.push((node.children().to_vec(), class.id));
             vals.push((node.clone(), class.id));
 
@@ -142,7 +142,7 @@ pub fn intersect<L: Language, N: Analysis<L>>(
 
     while did_something {
         did_something = false;
-        for (_, value) in &mut worklist {
+        for value in worklist.values_mut() {
             let mut finished_idxs = vec![];
             for (idx, ((en1, parent_ec1), (en2, parent_ec2))) in value.iter().enumerate() {
                 let children_inhabited = en1

@@ -1,7 +1,7 @@
 //! The AST defining the smiley language.
 
-use crate::rewrites::*;
-use egg::*;
+use crate::rewrites::{adjacent_rw, anti_unif_rw, intro_fn, rotate_rw};
+use egg::{CostFunction, Extractor, Id, Language, RecExpr, Runner, define_language, test_fn};
 use ordered_float::NotNan;
 
 pub type EGraph = egg::EGraph<Smiley, ()>;
@@ -32,6 +32,7 @@ define_language! {
     }
 }
 
+#[must_use]
 pub fn rules() -> Vec<Rewrite> {
     [intro_fn(), anti_unif_rw(), rotate_rw(), adjacent_rw()].concat()
 }
@@ -51,7 +52,7 @@ impl CostFunction<Smiley> for ToySize {
     }
 }
 
-/// Execute EGraph building and program extraction on a single expression
+/// Execute `EGraph` building and program extraction on a single expression
 /// containing all of the programs to extract common fragments out of.
 ///
 /// Programs should be in the form:
@@ -60,6 +61,10 @@ impl CostFunction<Smiley> for ToySize {
 /// let e2 = (...)
 /// let e3 = (...)
 /// ```
+///
+/// # Panics
+/// Panics if `expr` is not a valid smiley expression.
+#[must_use]
 pub fn run_single(expr: &str) -> RecExpr<Smiley> {
     // Our list of rewrite rules is here
     let rules: &[Rewrite] = &rules();

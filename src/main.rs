@@ -1,4 +1,18 @@
-use babble::smiley_lang::*;
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    clippy::cargo,
+    anonymous_parameters,
+    elided_lifetimes_in_paths,
+    missing_copy_implementations,
+    missing_debug_implementations,
+    single_use_lifetimes,
+    trivial_casts,
+    unreachable_pub,
+    unused_lifetimes,
+)]
+
+use babble::smiley_lang;
 use clap::Clap;
 use std::fs;
 
@@ -15,10 +29,10 @@ fn main() {
     let opts: Opts = Opts::parse();
     let f = opts.input;
 
-    let content = fs::read(&f).expect(&format!("error: failed to open bab file {}", &f));
+    let content = fs::read(&f).unwrap_or_else(|e| panic!("failed to open bab file {} error {}", &f, e));
     let input = String::from_utf8_lossy(&content);
 
-    let expr = run_single(&input);
+    let expr = smiley_lang::run_single(&input);
 
     println!("output:");
     println!("{}", expr);

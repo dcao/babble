@@ -1,5 +1,5 @@
-use crate::smiley_lang::{EGraph, Rewrite, Smiley};
-use egg::{rewrite as rw, *};
+use crate::smiley_lang::Rewrite;
+use egg::rewrite as rw;
 
 /*
 struct IntroFresh;
