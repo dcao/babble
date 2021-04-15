@@ -1,7 +1,7 @@
 //! The AST defining the smiley language.
 
-use crate::rewrites::{adjacent_rw, anti_unif_rw, intro_fn, rotate_rw};
-use egg::{CostFunction, Extractor, Id, Language, RecExpr, Runner, define_language, test_fn};
+use crate::rewrites;
+use egg::{define_language, test_fn, CostFunction, Extractor, Id, Language, RecExpr, Runner};
 use ordered_float::NotNan;
 
 pub type EGraph = egg::EGraph<Smiley, ()>;
@@ -34,7 +34,12 @@ define_language! {
 
 #[must_use]
 pub fn rules() -> Vec<Rewrite> {
-    [intro_fn(), anti_unif_rw(), rotate_rw(), adjacent_rw()].concat()
+    let mut rules = Vec::new();
+    rules.extend_from_slice(&rewrites::INTRO_FN);
+    rules.extend_from_slice(&rewrites::ANTI_UNIFY);
+    rules.extend_from_slice(&rewrites::ROTATE_FN);
+    rules.extend_from_slice(&rewrites::ADJACENT);
+    rules
 }
 
 struct ToySize;

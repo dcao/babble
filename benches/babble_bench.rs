@@ -1,6 +1,6 @@
 use babble::smiley_lang::*;
-use egg::*;
 use criterion::*;
+use egg::*;
 
 // Lifted from egg
 macro_rules! bench_fn {
@@ -72,7 +72,7 @@ bench_fn! {
     anti_unif_1, rules(),
     "(let s1 (rotate 50 (move 2 4 (scale 3 circle))) (let s2 (rotate 50 (move 2 4 (scale 3 line))) (+ s1 s2)))"
     =>
-    "(let f (fn c (rotate 50 (move 2 4 (scale 3 c)))) (let s1 (app f circle) (let s2 (app f line) (+ s1 s2))))" 
+    "(let f (fn c (rotate 50 (move 2 4 (scale 3 c)))) (let s1 (app f circle) (let s2 (app f line) (+ s1 s2))))"
 }
 
 fn criterion_benchmark(_c: &mut Criterion) {

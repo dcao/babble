@@ -7,19 +7,19 @@
 // Their code is licensed under MIT; it is reproduced below:
 //
 // MIT License
-// 
+//
 // Copyright (c) 2020 UW PLSE
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -60,16 +60,23 @@ intersection: *_2 -> [([q2r2, q3r3], q1r1)]
 // should be that we shouldn't try to anti-unify an eclass with another eclass which is a
 // transitive child of the first eclass. (we only want to anti-unify distinct programs)
 
-use egg::{Language, Analysis, EGraph, EClass, Id};
-use std::collections::HashMap;
+use egg::{Analysis, EClass, EGraph, Id, Language};
 use indexmap::IndexMap;
-use std::string::String;
+use std::{collections::HashMap, convert::identity, string::String};
 
 // type Transition = (Vec<Id>, Id);
 type Transition<L> = (L, Id);
 type ProdTransition<L> = (Transition<L>, Transition<L>);
 // We use an IndexMap since we want to iterate from root to leaf in the eclasses.
 type ProdWorklist<L> = IndexMap<String, Vec<ProdTransition<L>>>;
+
+fn enode_children<L: Language>(enode: &L) -> Vec<Id> {
+    let mut children = Vec::with_capacity(enode.len());
+    enode.for_each(|child| {
+        children.push(child);
+    });
+    children
+}
 
 fn enode_hash<L: Language>(enode: &L) -> String {
     format!("{}_{}", enode.display_op(), enode.len())
@@ -92,8 +99,8 @@ fn enode_map<L: Language, N: Analysis<L>>(
             // vals.push((node.children().to_vec(), class.id));
             vals.push((node.clone(), class.id));
 
-            for child in node.children() {
-                wrk.push(&g[*child]);
+            for child in enode_children(node) {
+                wrk.push(&g[child]);
             }
         }
     }
@@ -145,28 +152,31 @@ pub fn intersect<L: Language, N: Analysis<L>>(
         for value in worklist.values_mut() {
             let mut finished_idxs = vec![];
             for (idx, ((en1, parent_ec1), (en2, parent_ec2))) in value.iter().enumerate() {
-                let children_inhabited = en1
-                    .children()
-                    .iter()
-                    .zip(en2.children())
-                    .all(|(c1, c2)| prod_ids.contains_key(&(*c1, *c2)));
-                if children_inhabited {
+                let children_pairs: Vec<_> = enode_children(en1)
+                    .into_iter()
+                    .zip(enode_children(en2))
+                    .map(|(c1, c2)| prod_ids.get(&(c1, c2)))
+                    .collect();
+                if children_pairs.iter().all(Option::is_some) {
                     println!("map: {:?}", prod_ids);
                     /* add to new egraph */
-                    let new_children: Vec<Id> = en1
-                        .children()
-                        .iter()
-                        .zip(en2.children())
-                        .map(|(c1, c2)| *prod_ids.get(&(*c1, *c2)).unwrap())
+                    let new_children: Vec<Id> = children_pairs
+                        .into_iter()
+                        .filter_map(identity)
+                        .copied()
                         .collect();
                     // for (c1, c2) in en1.children().iter().zip(en2.children()) {
                     //   new_children.insert(c1, prod_ids[&(*c1, *c2)]);
                     // }
                     // let new_en1 = en1.clone().map_children(|c1| new_children[&c1]);
                     let mut new_en1 = en1.clone();
-                    for (i, c) in new_en1.children_mut().iter_mut().enumerate() {
-                        *c = new_children[i];
-                    }
+                    let mut i = 0;
+                    new_en1.update_children(|_child| {
+                        let new_child = new_children[i];
+                        i += 1;
+                        new_child
+                    });
+
                     println!("Adding node: {:?}", &new_en1);
                     println!("  old -> new: {:?}", new_children);
                     let prod_parent = intersection.add(new_en1);
@@ -195,8 +205,8 @@ pub fn intersect<L: Language, N: Analysis<L>>(
                     }
                 }
             }
-            while !finished_idxs.is_empty() {
-                value.remove(finished_idxs.pop().unwrap());
+            while let Some(idx) = finished_idxs.pop() {
+                value.remove(idx);
             }
         }
     }
@@ -215,16 +225,21 @@ mod tests {
         let rules: &[Rewrite] = &[];
 
         // First, parse the expression and build an egraph from it
-        let expr = "(+ (scale 0.5 (+ line circle)) (+ circle circle))".parse().unwrap();
+        let expr = "(+ (scale 0.5 (+ line circle)) (+ circle circle))"
+            .parse()
+            .unwrap();
         let runner = Runner::default()
-        // .with_scheduler(SimpleScheduler)
-        // .with_iter_limit(1_000)
-        // .with_node_limit(1_000_000)
-        // .with_time_limit(core::time::Duration::from_secs(20))
+            // .with_scheduler(SimpleScheduler)
+            // .with_iter_limit(1_000)
+            // .with_node_limit(1_000_000)
+            // .with_time_limit(core::time::Duration::from_secs(20))
             .with_expr(&expr)
             .run(rules);
         let (egraph, _root) = (runner.egraph, runner.roots[0]);
 
-        println!("{:#?}", intersect(&egraph, &egraph[4.into()], &egraph[5.into()]));
+        println!(
+            "{:#?}",
+            intersect(&egraph, &egraph[4.into()], &egraph[5.into()])
+        );
     }
 }
