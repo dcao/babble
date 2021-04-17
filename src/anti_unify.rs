@@ -62,7 +62,7 @@ intersection: *_2 -> [([q2r2, q3r3], q1r1)]
 
 use egg::{Analysis, EClass, EGraph, Id, Language};
 use indexmap::IndexMap;
-use std::{collections::HashMap, convert::identity, string::String};
+use std::{collections::HashMap, string::String};
 
 // type Transition = (Vec<Id>, Id);
 type Transition<L> = (L, Id);
@@ -163,7 +163,7 @@ pub fn intersect<L: Language, N: Analysis<L>>(
                     /* add to new egraph */
                     let new_children: Vec<Id> = children_pairs
                         .into_iter()
-                        .filter_map(identity)
+                        .flatten()
                         .copied()
                         .collect();
                     // for (c1, c2) in en1.children().iter().zip(en2.children()) {
