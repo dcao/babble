@@ -1,11 +1,12 @@
 //! Rewrites which enable anti-unification.
 
-use crate::rewrite_rules;
+use babble_macros::rewrite_rules;
 use lazy_static::lazy_static;
 
 pub use crate::Rewrite;
 
 lazy_static! {
+    /// Rewrite rules for graphics primitives.
     pub static ref BASE: &'static [Rewrite] = rewrite_rules! {
         scale_base_circle: "circle" => "(scale 1 circle)";
         scale_base_line: "line" => "(scale 1 line)";
@@ -14,6 +15,7 @@ lazy_static! {
     }
     .leak();
 
+    /// Rewrite rules introducing identity function applications.
     pub static ref INTRO_FN: &'static [Rewrite] = rewrite_rules! {
         intro_fn_circle: "circle" => "(app (fn s s) circle)";
         intro_fn_line: "line" => "(app (fn s s) line)";
@@ -31,7 +33,7 @@ lazy_static! {
     }
     .leak();
 
-    // Rewrite rules for rotating a function up.
+    /// Rewrite rules for rotating a function up.
     // TODO: Do we need a custom searcher to also match:
     // (anything [varargs] (app (fn ?f ?b) ?a) [varargs])
     // or
@@ -81,6 +83,7 @@ lazy_static! {
     }
     .leak();
 
+    /// Rewrite rules for anti-unification.
     pub static ref ANTI_UNIFY: &'static [Rewrite] = rewrite_rules! {
         anti_unify_zero: "(let ?v1 ?a (let ?v2 ?a ?r))" => "(let f ?a (let ?v1 f (let ?v2 f ?r)))";
         anti_unify_one: "(let ?v1 (app (fn ?a ?f) ?a1) (let ?v2 (app (fn ?a ?f) ?a2) ?r))"

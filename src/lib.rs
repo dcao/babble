@@ -1,3 +1,7 @@
+//! Library learning using [anti-unification] of e-graphs.
+//!
+//! [anti-unification]: https://en.wikipedia.org/wiki/Anti-unification_(computer_science)
+
 #![warn(
     clippy::all,
     clippy::pedantic,
@@ -8,14 +12,11 @@
     single_use_lifetimes,
     trivial_casts,
     unreachable_pub,
-    unused_lifetimes
+    unused_lifetimes,
+    missing_docs
 )]
-#![allow(clippy::multiple_crate_versions)]
-
-//! babble root library
 
 pub mod anti_unify;
-mod macros;
 pub mod rewrites;
 pub mod smiley_lang;
 

@@ -107,6 +107,7 @@ fn enode_map<L: Language, N: Analysis<L>>(
     map
 }
 
+/// Compute the intersection of two [`EClass`]es.
 pub fn intersect<L: Language, N: Analysis<L>>(
     g: &EGraph<L, N>,
     a: &EClass<L, N::Data>,
