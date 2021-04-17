@@ -217,7 +217,7 @@ pub fn intersect<L: Language, N: Analysis<L>>(
 #[cfg(test)]
 mod tests {
     use super::intersect;
-    use crate::smiley_lang::*;
+    use crate::smiley_lang::Rewrite;
     use egg::Runner;
 
     #[test]
