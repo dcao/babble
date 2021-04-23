@@ -65,7 +65,7 @@ use indexmap::IndexMap;
 use std::{collections::HashMap, string::String};
 
 // type Transition = (Vec<Id>, Id);
-type Transition<L> = (L, Id);
+type Transition<L, I> = (L, I);
 type ProdTransition<L> = (Transition<L>, Transition<L>);
 // We use an IndexMap since we want to iterate from root to leaf in the eclasses.
 type ProdWorklist<L> = IndexMap<String, Vec<ProdTransition<L>>>;
@@ -107,12 +107,38 @@ fn enode_map<L: Language, N: Analysis<L>>(
     map
 }
 
+trait BetterLanguage: Language {
+    type Var: Eq;
+
+    fn variant(&self) -> Var;
+}
+
+enum OpOrPhi<O, S> {
+    Op {
+        op: O,
+        args: Vec<S>
+    },
+    Phi(S)
+}
+
+type DFTA<O, S> = Map<(O, Vec<S>), S>;
+type EGraphDFTA<L> = DFTA<L::Var, Id>;
+
+fn intersect_two<O: Eq, S1, S2>((op1, args1, out1): (O, &[S1], S1), (op2, args2, out2): (O, &[S2], S2)) -> (OpOrPhi<O, (S1, S2)>, (S1, S2)) {
+    use OpOrPhi::*;
+    if op1 == op2 {
+        (Op { op: op1, args: args1.iter().zip(args2.iter()) }, (out1, out2))
+    } else {
+        (Phi((out1, out2)), (out1, out2))
+    }
+}
+
 /// Compute the intersection of two [`EClass`]es.
 pub fn intersect<L: Language, N: Analysis<L>>(
     g: &EGraph<L, N>,
     a: &EClass<L, N::Data>,
     b: &EClass<L, N::Data>,
-) -> EGraph<L, ()> {
+) -> Vec<Transition<L>> {
     let map_a = enode_map(g, a);
     println!("A map:");
     for (key, value) in &map_a {
@@ -219,6 +245,11 @@ mod tests {
     use super::intersect;
     use crate::smiley_lang::Rewrite;
     use egg::Runner;
+
+    #[test]
+    fn test_anti_unif() {
+        let expr = "(+ (scale 0.5 line) (scale 0.5 circle))".parse().unwrap();
+    }
 
     #[test]
     fn test_anti_unif_1() {
