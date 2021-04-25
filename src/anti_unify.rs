@@ -62,7 +62,8 @@ fn enode_children<L: Language>(enode: &L) -> Vec<Id> {
 pub struct IdPair(Id, Id);
 
 impl IdPair {
-    /// Creates a new IdPair.
+    /// Creates a new `IdPair`.
+    #[must_use]
     pub fn new(a: Id, b: Id) -> Self {
         if a < b {
             Self(a, b)
@@ -72,10 +73,10 @@ impl IdPair {
     }
 }
 
-/// An IdInterner stores a two-way mapping between pairs of states and fresh
+/// An `IdInterner` stores a two-way mapping between pairs of states and fresh
 /// states used in their place. In order to avoid DFTAs having state arguments
 /// and outputs of variable length, we instead generate fresh states using
-/// the IdInterner from the two states that are being combined.
+/// the `IdInterner` from the two states that are being combined.
 ///
 /// Note that these Ids have no relation to any egraph whatsoever!
 #[derive(Debug)]
@@ -85,8 +86,8 @@ pub struct IdInterner {
 }
 
 impl IdInterner {
-    /// Creates a new IdInterner.
-    pub fn init(start: Id) -> Self {
+    /// Creates a new `IdInterner`.
+    #[must_use] pub fn init(start: Id) -> Self {
         Self {
             states: BiHashMap::new(),
             counter: start,
@@ -94,8 +95,8 @@ impl IdInterner {
     }
 
     /// Gets the Id corresponding to the pair of two Ids given, if it exists.
-    pub fn get_id(&self, a: Id, b: Id) -> Option<Id> {
-        self.states.get_by_right(&IdPair::new(a, b)).map(|x| *x)
+    #[must_use] pub fn get_id(&self, a: Id, b: Id) -> Option<Id> {
+        self.states.get_by_right(&IdPair::new(a, b)).copied()
     }
 
     /// Generates the Id corresponding to the pair of two Ids given.
@@ -109,11 +110,7 @@ impl IdInterner {
     /// Gets the Id corresponding to the pair of two Ids given if it exists;
     /// otherwise, generates this Id.
     pub fn get_or_gen(&mut self, a: Id, b: Id) -> Id {
-        if let Some(res) = self.get_id(a, b) {
-            res
-        } else {
-            self.gen_id(a, b)
-        }
+        self.get_id(a, b).map_or_else(|| self.gen_id(a, b), |res| res)
     }
 }
 
@@ -125,7 +122,7 @@ impl IdInterner {
 /// Note that while the transitions and states reference language nodes,
 /// these language nodes and the Ids they reference may or may not be
 /// in the actual target egraph; indeed, the Ids they reference might be
-/// a part of an IdInterner, which generates new Ids to stand in for
+/// a part of an `IdInterner`, which generates new Ids to stand in for
 /// pairs of Ids.
 ///
 /// Additionally, every state contains an implicit transition from "Phi",
@@ -134,13 +131,13 @@ impl IdInterner {
 /// should be replaced with values from the first state for the first expr
 /// and values from the second state for the right expr.
 #[derive(Debug)]
-pub struct DFTA<L> {
+pub struct Dfta<L> {
     states: HashMap<Id, Vec<L>>,
 }
 
-impl<L: Language> DFTA<L> {
-    /// Builds a new DFTA from an EGraph.
-    pub fn build<N: Analysis<L>>(g: &EGraph<L, N>) -> DFTA<L> {
+impl<L: Language> Dfta<L> {
+    /// Builds a new `Dfta` from an `EGraph`.
+    pub fn build<N: Analysis<L>>(g: &EGraph<L, N>) -> Dfta<L> {
         let mut states = HashMap::new();
         for class in g.classes() {
             for node in class.iter() {
@@ -161,17 +158,17 @@ impl<L: Language> DFTA<L> {
     }
 
     /// Checks if a state has been visited.
-    pub fn has_visited(&self, s: Id) -> bool {
+    #[must_use] pub fn has_visited(&self, s: Id) -> bool {
         self.states.contains_key(&s)
     }
 
     /// Get all the transitions which have this state as an output.
-    pub fn get_by_state(&self, s: Id) -> Option<&Vec<L>> {
+    #[must_use] pub fn get_by_state(&self, s: Id) -> Option<&Vec<L>> {
         self.states.get(&s)
     }
 }
 
-/// An AntiUnifier stores the state of an anti-unification invocation.
+/// An `AntiUnifier` stores the state of an anti-unification invocation.
 /// This struct should take in a single egraph with every program (both
 /// library functions and synthesis solutions) compiled together.
 /// After running anti-unification, we have a new egraph which contains
@@ -180,7 +177,7 @@ impl<L: Language> DFTA<L> {
 pub struct AntiUnifier<L: Language, N: Analysis<L>> {
     graph: EGraph<L, N>,
 
-    dfta: DFTA<L>,
+    dfta: Dfta<L>,
     interner: IdInterner,
     worklist: Vec<(Id, Id)>,
 
@@ -203,13 +200,13 @@ pub struct AntiUnifier<L: Language, N: Analysis<L>> {
 
 // TODO: go back from DFTA to EGraph with lambdas etc introduced
 impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
-    /// Initialize an AntiUnifier from an egraph.
+    /// Initialize an `AntiUnifier` from an `EGraph`.
     /// We first rebuild this egraph to make sure all its invariants hold.
     /// We then create a DFTA from it which we will use for anti-unification
     /// work.
     pub fn new(mut g: EGraph<L, N>) -> Self {
         g.rebuild();
-        let dfta = DFTA::build(&g);
+        let dfta = Dfta::build(&g);
 
         let worklist = Self::get_initial_worklist(&g);
 
@@ -217,8 +214,7 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
             .classes()
             .map(|x| x.id)
             .max()
-            .map(|x| (Into::<usize>::into(x) + 1).into())
-            .unwrap_or(0.into());
+            .map_or_else(|| 0.into(), |x| (Into::<usize>::into(x) + 1).into());
 
         Self {
             graph: g,
@@ -230,19 +226,26 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
     }
 
     fn get_initial_worklist(g: &EGraph<L, N>) -> Vec<(Id, Id)> {
-        let mut map: HashMap<::std::mem::Discriminant<L>, HashSet<Id>> = HashMap::new();
+        // TODO: Normally we'd use ::std::mem::Discriminant as an
+        // enode hash, but clippy rejects it cause technically L isn't
+        // always guaranteed to be an enum so...
+        fn enode_hash<L: Language>(enode: &L) -> String {
+            format!("{}_{}", enode.display_op(), enode.len())
+        }
+
+        let mut map: HashMap<String, HashSet<Id>> = HashMap::new();
         for class in g.classes() {
             for node in class.iter() {
-                let hash = ::std::mem::discriminant(node);
-                let vals = map.entry(hash).or_insert(HashSet::new());
+                let hash = enode_hash(node);
+                let vals = map.entry(hash).or_insert_with(HashSet::new);
                 vals.insert(class.id);
             }
         }
 
         let mut res = vec![];
         for (_d, ids) in map {
-            for a in ids.iter() {
-                for b in ids.iter() {
+            for a in &ids {
+                for b in &ids {
                     if a < b {
                         res.push((*a, *b));
                     }
@@ -264,11 +267,11 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
     }
 
     fn anti_unif_ids(&mut self, a: Id, b: Id) {
-        let tas = self.dfta.get_by_state(a).unwrap().clone();
-        let tbs = self.dfta.get_by_state(b).unwrap().clone();
+        let a_rules = self.dfta.get_by_state(a).unwrap().clone();
+        let b_rules = self.dfta.get_by_state(b).unwrap().clone();
 
-        for ta in &tas {
-            for tb in &tbs {
+        for ta in &a_rules {
+            for tb in &b_rules {
                 if let Some(t) = self.anti_unif_transitions((ta, a), (tb, b)) {
                     self.dfta.push(t)
                 } else {
@@ -308,15 +311,11 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
     }
 
     fn has_visited_immut(&self, a: Id, b: Id) -> bool {
-        if let Some(i) = self.interner.get_id(a, b) {
-            self.dfta.has_visited(i)
-        } else {
-            false
-        }
+        self.interner.get_id(a, b).map_or(false, |i| self.dfta.has_visited(i))
     }
 }
 
-/// Anti-unifies within a given EGraph, returning an AntiUnifier as output.
+/// Anti-unifies within a given `EGraph`, returning an `AntiUnifier` as output.
 pub fn anti_unify<L: Language, N: Analysis<L>>(g: EGraph<L, N>) -> AntiUnifier<L, N> {
     let mut a = AntiUnifier::new(g);
     a.anti_unify();
