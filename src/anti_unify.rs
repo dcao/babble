@@ -1,75 +1,54 @@
-//! Implements anti-unification between eclasses.
+//! Implements anti-unification between two egraphs.
 
-// This code is heavily adapted from the unscramble code:
-// github.com/uwplse/unscramble
-// with the main difference being that this code tries to anti-unify eclasses, rather than
-// trying to anti-unify egraphs.
-// Their code is licensed under MIT; it is reproduced below:
-//
-// MIT License
-//
-// Copyright (c) 2020 UW PLSE
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+use bimap::BiHashMap;
+use egg::{Analysis, EGraph, Id, Language};
+use std::collections::{HashMap, HashSet};
 
-/*
+// Central idea of anti-unification technique:
+// 1. Compile all programs into one central egraph
+// 2. Turn egraph into DFTA, rebuilding it first to get our egraph invariants back
+// 3. Select some pairs of eclasses to try to anti-unify
+//    Do we only select pairs from different exprs? Or can we have pairs within the same expr?
+//    (i.e. where one eclass is the parent of another)
+//    This informs what pairs will initially populate the queue
+// 4. TODO: After this first round of anti-unification, we start to anti-unify the
+//    anti-unifications, thus producing anti-unifications between 3 exprs.
+//    We try anti-unifying these new anti-unified pairs (somehow we have to
+//    look for pairs we can anti-unify, but only out of the newly inserted
+//    ones?) Is this something we even want to do?
 
-1. Construct mapping from cross product of ids to new ids in intersection. (id1, id2) -> id3
-2. Construct a vector of vectors of enodes, with identical enode operators (using L.matches())???
-3. Construct cross products of each [vector of enodes with identical ops] in the vector. Use mapping from step 1 to construct new child ids and destination eclass
+// Idea: turn anti-unified DFTAs back into egraph using rewrite rules!
+// 1. Compile all programs into one central egraph
+// 2. Pick anti-unification targets and anti-unify everything
+// 3. e.g.
+//    output DFTA: (+ q1 q2) -> q3
+//                 1 -> q1
+//                 phi((+ 1 2), 2) -> q3
+// 4. Turn this into a rewrite rule to rewrite (+ 1 2) to (app f 2)
 
-[*(q2,q3)->q1, *(q3,q2)->q1] in egraph1: *_2 -> [([q2, q3], q1), ([q3, q2], q1)]
+// How does this play into synthesis?
+// see https://web.eecs.umich.edu/~xwangsd/pubs/oopsla17.pdf, sec 5.1 for inspo
+// Synthesizing a program for a given input-output pair comes down
+// to starting with an egraph containing only an output, applying all the rewrites
+// until saturation, then finding an expression which a) is written in terms of the
+// input, and b) is the smallest/otherwise most optimal program possible.
+// To synthesize a program for multiple input-output pairs, we just have to run
+// the egraph stuff for each input/output, then get the intersection between all
+// egraphs.
+// Thus, the interplay between synthesis and library learning comes down to how
+// the library learning process interacts w the rewrites used during synthesis:
+// 1. When we define functions, this should turn into a rewrite rule.
+//    e.g. and True True = True, and _ _ = False
+//    becomes rewrite rules
+//    and True True => True, and x y => False, True => and True True, False => and x y
+//    (we need both for equality - bidirectional!)
+// 2. When we learn library functions, we have to add new rewrite rules from the library
+//    learned functions to their equivalent expressions:
+//    e.g. lets say we learned xor:
+//    (or (and ?a (not ?b)) (and (not ?a) ?b)) => (app (fn "xor") ?a ?b)
+//    (app (fn "xor") ?a ?b) => (or (and ?a (not ?b)) (and (not ?a) ?b))
 
-[*(r2,r3)->r1, *(r3,r2)->r1] in egraph2: *_2 -> [([r2, r3], r1), ([r3,r2], r1)]
-
-intersection: *_2 -> [([q2r2, q3r3], q1r1)]
-
-[
-  *(q2,q3)->q1 x *(r2,r3)->r1 -> *(q2r2, q3r3)->q1r1
-]
-
-[defer] cycles might be bad since we need to do bottom up
-
-*/
-
-// For eclass anti-unification, we have to change some things about the algorithm.
-// 1. We have to do more complex intersection to get places where we should insert
-// arguments.
-// After doing our intersection, if a referenced state doesn't exist, we have to create it
-// as an argument.
-// 2. We add an extra step after intersection which introduces the new intersected egraph as
-// a let-bound function; the eclasses should each contain a new AST node which applies
-// the let-bound function to the correct arguments.
-// 3. We want to add some procedure to automatically pick eclasses to anti-unify. Our rule
-// should be that we shouldn't try to anti-unify an eclass with another eclass which is a
-// transitive child of the first eclass. (we only want to anti-unify distinct programs)
-
-use egg::{Analysis, EClass, EGraph, Id, Language};
-use indexmap::IndexMap;
-use std::{collections::HashMap, string::String};
-
-// type Transition = (Vec<Id>, Id);
-type Transition<L, I> = (L, I);
-type ProdTransition<L> = (Transition<L>, Transition<L>);
-// We use an IndexMap since we want to iterate from root to leaf in the eclasses.
-type ProdWorklist<L> = IndexMap<String, Vec<ProdTransition<L>>>;
-
+// TODO: Because we don't have .children()
 fn enode_children<L: Language>(enode: &L) -> Vec<Id> {
     let mut children = Vec::with_capacity(enode.len());
     enode.for_each(|child| {
@@ -78,178 +57,277 @@ fn enode_children<L: Language>(enode: &L) -> Vec<Id> {
     children
 }
 
-fn enode_hash<L: Language>(enode: &L) -> String {
-    format!("{}_{}", enode.display_op(), enode.len())
-}
+/// An order-independent pair of Ids.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct IdPair(Id, Id);
 
-// We return an IndexMap so that all of the leaf nodes (nodes which don't
-// reference other eclasses) are at the bottom.
-fn enode_map<L: Language, N: Analysis<L>>(
-    g: &EGraph<L, N>,
-    s: &EClass<L, N::Data>,
-) -> IndexMap<String, Vec<Transition<L>>> {
-    let mut map: IndexMap<String, Vec<Transition<L>>> = IndexMap::new();
-    // The list of eclasses we still need to visit.
-    let mut wrk: Vec<&EClass<L, N::Data>> = vec![s];
-    while let Some(class) = wrk.pop() {
-        for node in class.iter() {
-            let hash = enode_hash(node);
-            // TODO: do we need to keep track of nodes/classes we've already seen?
-            let vals = map.entry(hash).or_insert_with(Vec::new);
-            // vals.push((node.children().to_vec(), class.id));
-            vals.push((node.clone(), class.id));
-
-            for child in enode_children(node) {
-                wrk.push(&g[child]);
-            }
+impl IdPair {
+    /// Creates a new IdPair.
+    pub fn new(a: Id, b: Id) -> Self {
+        if a < b {
+            Self(a, b)
+        } else {
+            Self(b, a)
         }
     }
-    map
 }
 
-trait BetterLanguage: Language {
-    type Var: Eq;
-
-    fn variant(&self) -> Var;
+/// An IdInterner stores a two-way mapping between pairs of states and fresh
+/// states used in their place. In order to avoid DFTAs having state arguments
+/// and outputs of variable length, we instead generate fresh states using
+/// the IdInterner from the two states that are being combined.
+///
+/// Note that these Ids have no relation to any egraph whatsoever!
+#[derive(Debug)]
+pub struct IdInterner {
+    states: BiHashMap<Id, IdPair>,
+    counter: Id,
 }
 
-enum OpOrPhi<O, S> {
-    Op {
-        op: O,
-        args: Vec<S>
-    },
-    Phi(S)
-}
-
-type DFTA<O, S> = Map<(O, Vec<S>), S>;
-type EGraphDFTA<L> = DFTA<L::Var, Id>;
-
-fn intersect_two<O: Eq, S1, S2>((op1, args1, out1): (O, &[S1], S1), (op2, args2, out2): (O, &[S2], S2)) -> (OpOrPhi<O, (S1, S2)>, (S1, S2)) {
-    use OpOrPhi::*;
-    if op1 == op2 {
-        (Op { op: op1, args: args1.iter().zip(args2.iter()) }, (out1, out2))
-    } else {
-        (Phi((out1, out2)), (out1, out2))
-    }
-}
-
-/// Compute the intersection of two [`EClass`]es.
-pub fn intersect<L: Language, N: Analysis<L>>(
-    g: &EGraph<L, N>,
-    a: &EClass<L, N::Data>,
-    b: &EClass<L, N::Data>,
-) -> Vec<Transition<L>> {
-    let map_a = enode_map(g, a);
-    println!("A map:");
-    for (key, value) in &map_a {
-        println!("  {}: {:?}", key, value);
-    }
-    let map_b = enode_map(g, b);
-    println!("B map:");
-    for (key, value) in &map_b {
-        println!("  {}: {:?}", key, value);
-    }
-
-    // construct ProdWorklist
-    // Since we're anti-unifying eclasses within the same egraph, we know that
-    // references to identical expressions will have the same Id. (i.e. any
-    // given expression won't appear twice with two different Ids in a given
-    // egraph). Because of this, to anti-unify, we only want to push entries
-    // where the enodes have different Ids.
-    let mut worklist: ProdWorklist<L> = ProdWorklist::new();
-    for (key, value_a) in &map_a {
-        if let Some(value_b) = map_b.get(key) {
-            for (t_a, t_b) in itertools::iproduct!(value_a.iter(), value_b.iter()) {
-                if t_a.1 != t_b.1 {
-                    let vals = worklist.entry(key.clone()).or_insert(vec![]);
-                    vals.push((t_a.clone(), t_b.clone()));
-                }
-            }
+impl IdInterner {
+    /// Creates a new IdInterner.
+    pub fn init(start: Id) -> Self {
+        Self {
+            states: BiHashMap::new(),
+            counter: start,
         }
     }
 
-    println!("generated worklist: {:?}", worklist);
+    /// Gets the Id corresponding to the pair of two Ids given, if it exists.
+    pub fn get_id(&self, a: Id, b: Id) -> Option<Id> {
+        self.states.get_by_right(&IdPair::new(a, b)).map(|x| *x)
+    }
 
-    let mut intersection: EGraph<L, ()> = EGraph::new(()); /* TODO: transfer analysis */
-    let mut prod_ids: HashMap<(Id, Id), Id> = HashMap::new();
-    let mut did_something = true;
+    /// Generates the Id corresponding to the pair of two Ids given.
+    pub fn gen_id(&mut self, a: Id, b: Id) -> Id {
+        let res = self.counter;
+        self.states.insert(self.counter, IdPair::new(a, b));
+        self.counter = (Into::<usize>::into(self.counter) + 1).into();
+        res
+    }
 
-    while did_something {
-        did_something = false;
-        for value in worklist.values_mut() {
-            let mut finished_idxs = vec![];
-            for (idx, ((en1, parent_ec1), (en2, parent_ec2))) in value.iter().enumerate() {
-                let children_pairs: Vec<_> = enode_children(en1)
-                    .into_iter()
-                    .zip(enode_children(en2))
-                    .map(|(c1, c2)| prod_ids.get(&(c1, c2)))
-                    .collect();
-                if children_pairs.iter().all(Option::is_some) {
-                    println!("map: {:?}", prod_ids);
-                    /* add to new egraph */
-                    let new_children: Vec<Id> = children_pairs
-                        .into_iter()
-                        .flatten()
-                        .copied()
-                        .collect();
-                    // for (c1, c2) in en1.children().iter().zip(en2.children()) {
-                    //   new_children.insert(c1, prod_ids[&(*c1, *c2)]);
-                    // }
-                    // let new_en1 = en1.clone().map_children(|c1| new_children[&c1]);
-                    let mut new_en1 = en1.clone();
-                    let mut i = 0;
-                    new_en1.update_children(|_child| {
-                        let new_child = new_children[i];
-                        i += 1;
-                        new_child
-                    });
+    /// Gets the Id corresponding to the pair of two Ids given if it exists;
+    /// otherwise, generates this Id.
+    pub fn get_or_gen(&mut self, a: Id, b: Id) -> Id {
+        if let Some(res) = self.get_id(a, b) {
+            res
+        } else {
+            self.gen_id(a, b)
+        }
+    }
+}
 
-                    println!("Adding node: {:?}", &new_en1);
-                    println!("  old -> new: {:?}", new_children);
-                    let prod_parent = intersection.add(new_en1);
-                    /* for (_, idv) in prod_ids.iter_mut() {
-                      *idv = intersection.find(*idv);
-                    } */
-                    println!(
-                        "  from: {:?}[{}] {:?}[{}]",
-                        &en1, parent_ec1, &en2, parent_ec2
-                    );
-                    println!("  new parent: {}", &prod_parent);
-                    did_something = true;
-                    finished_idxs.push(idx);
-                    let parent_inhabited = prod_ids.get(&(*parent_ec1, *parent_ec2));
-                    if let Some(intersected_parent) = parent_inhabited {
-                        println!("Merging {} and {}", prod_parent, intersected_parent);
-                        let (new_parent, _) = intersection.union(prod_parent, *intersected_parent);
-                        // go through prod_ids map and recanonicalize
-                        /* for (_, idv) in prod_ids.iter_mut() {
-                          *idv = intersection.find(*idv);
-                        } */
-                        prod_ids.insert((*parent_ec1, *parent_ec2), new_parent);
-                        println!("  to {}", new_parent);
-                    } else {
-                        prod_ids.insert((*parent_ec1, *parent_ec2), prod_parent);
+/// Conceptually, a DFTA is a list (or rather, a map) of transition rules from
+/// an operand and its argument states to an output state. In practice, we
+/// store this DFTA in "reverse", as a mapping from the output state to
+/// all of the operand/argument pairs which map to it.
+///
+/// Note that while the transitions and states reference language nodes,
+/// these language nodes and the Ids they reference may or may not be
+/// in the actual target egraph; indeed, the Ids they reference might be
+/// a part of an IdInterner, which generates new Ids to stand in for
+/// pairs of Ids.
+///
+/// Additionally, every state contains an implicit transition from "Phi",
+/// which denotes that a function argument could be introduced to reach
+/// this state. If the state is a stand-in for two different states, Phi
+/// should be replaced with values from the first state for the first expr
+/// and values from the second state for the right expr.
+#[derive(Debug)]
+pub struct DFTA<L> {
+    states: HashMap<Id, Vec<L>>,
+}
+
+impl<L: Language> DFTA<L> {
+    /// Builds a new DFTA from an EGraph.
+    pub fn build<N: Analysis<L>>(g: &EGraph<L, N>) -> DFTA<L> {
+        let mut states = HashMap::new();
+        for class in g.classes() {
+            for node in class.iter() {
+                states.entry(class.id).or_insert_with(Vec::new).push(node.clone());
+            }
+        }
+        Self { states }
+    }
+
+    /// Adds a new transition to the DFTA.
+    pub fn push(&mut self, (l, s): (L, Id)) {
+        self.states.entry(s).or_insert_with(Vec::new).push(l);
+    }
+
+    /// Marks the given state as visited in the DFTA.
+    pub fn push_empty(&mut self, s: Id) {
+        self.states.entry(s).or_insert_with(Vec::new);
+    }
+
+    /// Checks if a state has been visited.
+    pub fn has_visited(&self, s: Id) -> bool {
+        self.states.contains_key(&s)
+    }
+
+    /// Get all the transitions which have this state as an output.
+    pub fn get_by_state(&self, s: Id) -> Option<&Vec<L>> {
+        self.states.get(&s)
+    }
+}
+
+/// An AntiUnifier stores the state of an anti-unification invocation.
+/// This struct should take in a single egraph with every program (both
+/// library functions and synthesis solutions) compiled together.
+/// After running anti-unification, we have a new egraph which contains
+/// all possible libraries we could learn from the
+#[derive(Debug)]
+pub struct AntiUnifier<L: Language, N: Analysis<L>> {
+    graph: EGraph<L, N>,
+
+    dfta: DFTA<L>,
+    interner: IdInterner,
+    worklist: Vec<(Id, Id)>,
+
+    // A map of all newly-added nodes that we want to try to anti-unify
+    // on the next iteration.
+    // To avoid exponential blow-up, we purposely limit ourselves to
+    // only anti-unifying newly added nodes together with each other,
+    // rather than allowing ourselves to anti-unify new nodes with
+    // old nodes.
+    // TODO: is this a good optimization
+    // TODO:
+    // (1, 3) -> a1
+    // (2, 4) -> a2
+    // (1, 2) -> a3
+    // (3, 4) -> a4
+    // (a1, a2), (a3, a4) are equivalent, but we can't tell that...
+    // TODO: For now, we only anti unify between pairs. Is this what we want?
+    // newly_added: HashMap<::std::mem::Discriminant<L>, HashSet<Id>>,
+}
+
+// TODO: go back from DFTA to EGraph with lambdas etc introduced
+impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
+    /// Initialize an AntiUnifier from an egraph.
+    /// We first rebuild this egraph to make sure all its invariants hold.
+    /// We then create a DFTA from it which we will use for anti-unification
+    /// work.
+    pub fn new(mut g: EGraph<L, N>) -> Self {
+        g.rebuild();
+        let dfta = DFTA::build(&g);
+
+        let worklist = Self::get_initial_worklist(&g);
+
+        let max_id = g
+            .classes()
+            .map(|x| x.id)
+            .max()
+            .map(|x| (Into::<usize>::into(x) + 1).into())
+            .unwrap_or(0.into());
+
+        Self {
+            graph: g,
+            dfta,
+            interner: IdInterner::init(max_id),
+            worklist,
+            // newly_added: HashMap::new(),
+        }
+    }
+
+    fn get_initial_worklist(g: &EGraph<L, N>) -> Vec<(Id, Id)> {
+        let mut map: HashMap<::std::mem::Discriminant<L>, HashSet<Id>> = HashMap::new();
+        for class in g.classes() {
+            for node in class.iter() {
+                let hash = ::std::mem::discriminant(node);
+                let vals = map.entry(hash).or_insert(HashSet::new());
+                vals.insert(class.id);
+            }
+        }
+
+        let mut res = vec![];
+        for (_d, ids) in map {
+            for a in ids.iter() {
+                for b in ids.iter() {
+                    if a < b {
+                        res.push((*a, *b));
                     }
                 }
             }
-            while let Some(idx) = finished_idxs.pop() {
-                value.remove(idx);
+        }
+        res
+    }
+
+    /// Perform one iteration of anti-unification.
+    // TODO: should our worklist be on the granularity of transitions, not Ids?
+    pub fn anti_unify(&mut self) {
+        
+        while let Some((a, b)) = self.worklist.pop() {
+            if !self.has_visited_immut(a, b) {
+                self.anti_unif_ids(a, b);
             }
         }
     }
-    intersection
+
+    fn anti_unif_ids(&mut self, a: Id, b: Id) {
+        let tas = self.dfta.get_by_state(a).unwrap().clone();
+        let tbs = self.dfta.get_by_state(b).unwrap().clone();
+
+        for ta in &tas {
+            for tb in &tbs {
+                if let Some(t) = self.anti_unif_transitions((ta, a), (tb, b)) {
+                    self.dfta.push(t)
+                } else {
+                    let ns = self.interner.get_or_gen(a, b);
+                    // So that we don't pop this off the worklist again.
+                    self.dfta.push_empty(ns);
+                }
+            }
+        }
+    }
+
+    /// Anti-unifies two transition rules, potentially producing a new rule.
+    /// If the operations in the two cases differ, we cannot anti-unify further,
+    /// and will return None. Otherwise, if the operations are the same, we produce
+    /// a new rule that anti-unifies within the arguments.
+    fn anti_unif_transitions(&mut self, (la, sa): (&L, Id), (lb, sb): (&L, Id)) -> Option<(L, Id)> {
+        if la.matches(&lb) {
+            let out_state = self.interner.get_or_gen(sa, sb);
+            // TODO: this hacky business is b/c we don't have .children(_mut) :/
+            let children: HashMap<Id, (Id, Id)> = enode_children(la)
+                .into_iter()
+                .zip(enode_children(lb))
+                .map(|(a, b)| (a, (a, b)))
+                .collect();
+            let mut lres = la.clone();
+            lres.for_each_mut(|t| {
+                let (a, b) = children[t];
+                *t = self.interner.get_or_gen(a, b);
+                // Unconditionally push to the worklist;
+                // we check if we've already visited here in the worklist anyways.
+                self.worklist.push((a, b));
+            });
+            Some((lres, out_state))
+        } else {
+            None
+        }
+    }
+
+    fn has_visited_immut(&self, a: Id, b: Id) -> bool {
+        if let Some(i) = self.interner.get_id(a, b) {
+            self.dfta.has_visited(i)
+        } else {
+            false
+        }
+    }
+}
+
+/// Anti-unifies within a given EGraph, returning an AntiUnifier as output.
+pub fn anti_unify<L: Language, N: Analysis<L>>(g: EGraph<L, N>) -> AntiUnifier<L, N> {
+    let mut a = AntiUnifier::new(g);
+    a.anti_unify();
+    a
 }
 
 #[cfg(test)]
 mod tests {
-    use super::intersect;
+    use super::*;
     use crate::smiley_lang::Rewrite;
     use egg::Runner;
-
-    #[test]
-    fn test_anti_unif() {
-        let expr = "(+ (scale 0.5 line) (scale 0.5 circle))".parse().unwrap();
-    }
 
     #[test]
     fn test_anti_unif_1() {
@@ -257,7 +335,7 @@ mod tests {
         let rules: &[Rewrite] = &[];
 
         // First, parse the expression and build an egraph from it
-        let expr = "(+ (scale 0.5 (+ line circle)) (+ circle circle))"
+        let expr = "(+ (scale 0.5 line) (scale 0.5 circle))"
             .parse()
             .unwrap();
         let runner = Runner::default()
@@ -269,9 +347,11 @@ mod tests {
             .run(rules);
         let (egraph, _root) = (runner.egraph, runner.roots[0]);
 
+        let res = anti_unify(egraph);
+
         println!(
             "{:#?}",
-            intersect(&egraph, &egraph[4.into()], &egraph[5.into()])
+            res.dfta
         );
     }
 }
