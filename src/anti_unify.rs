@@ -2,7 +2,7 @@
 
 use bimap::BiHashMap;
 use egg::{Analysis, EGraph, Id, Language};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 // Central idea of anti-unification technique:
 // 1. Compile all programs into one central egraph
@@ -24,7 +24,8 @@ use std::collections::{HashMap, HashSet};
 //    output DFTA: (+ q1 q2) -> q3
 //                 1 -> q1
 //                 phi((+ 1 2), 2) -> q3
-// 4. Turn this into a rewrite rule to rewrite (+ 1 2) to (app f 2)
+// 4. Turn this into a rewrite rule to rewrite (+ 1 2) to (app f 2)?
+//    or specifically apply this to the eclasses in question?
 
 // How does this play into synthesis?
 // see https://web.eecs.umich.edu/~xwangsd/pubs/oopsla17.pdf, sec 5.1 for inspo
@@ -82,6 +83,48 @@ impl IdPair {
 #[derive(Debug)]
 pub struct IdInterner {
     states: BiHashMap<Id, IdPair>,
+    // TODO:
+    // switch to:
+    // state_sets: BiHashMap<Id, HashSet<Id>>,
+    // the main problem is depending on how we encode phi args in the Dfta,
+    // we may or may not need to record the order that we anti-unify in
+    // (i.e. whether we use the right or left arg). If we just use
+    // plain rewrite rules, then we don't need to worry about order at
+    // all and can just use HashSets. Otherwise, we have to somehow encode
+    // both order and depth ((1, 4) anti-unify (2, 3)) versus (((1, 4), 2) anti-unify 3)
+    //
+    // If we're just coming up with rewrite rules, there has to be a simpler
+    // way to encode this in the egraph... HM.
+    // e.g. if we come up with an anti-unification (+ x 2), with the pure egraph
+    // approach, we would:
+    // 1. add the corresponding expression (+ x 2) into the egraph: e = g.add_expr((+ x 2))
+    // 2. add a lambda binding for it: e = g.add_expr(let fname e)
+    // 3. add a new rewrite into this library fn: (+ ?a 2) -> (app fname ?a)
+    //
+    // problem: at some point, we would have to turn into transitions rules
+    // to be able to do the intersection... or would we?
+    // 1. generate initial eclass target pairs in worklist through same method as before - finding
+    // matching ops.
+    // 2. for each pair in worklist:
+    // 2a. loop through nodes. for each pair of nodes that matches:
+    // 2a1. zip together children nodes
+    // 2a2. recursively anti-unify children here - we need to get back the list of ids from anti-unification!
+    // 2a3. add a new node: op(zipped children)...
+    // 2b. union together all added nodes for this pair. if no nodes were added, add in a phi value and return the id of that?
+    // this process is the same as what we'd have to do with explicitly constructing the Dfta transitions
+    // and then getting the egraph from it, but we never explicitly hold the list of transitions within the Dfta
+    // or a list of Id mappings - the former is unnecessary, the latter is handled by the egraph.
+    // additionally, you might think that adding the phi value over and over might be wasteful or whatever, but
+    // we'll only ever add an actual phi value once - we'll just repeatedly use the id of that over and over again,
+    // since nodes are shared in the egraph
+    //
+    // also, we shouldn't bother trying to anti-unify all pairs of nodes, because we know if there's no shared
+    // structure at the top level, the cost of doing this would be strictly worse than not doing anything at all.
+    // i.e.
+    // anti-unify x, (+ 1 y) yields (\a. a) x, (\a. a) (+ 1 y), which yields no gains whatsoever
+    //
+    // we also need a way to add rewrite rules, either after the fact or during the process. this applies
+    // for either the dfta method or the egraph method
     counter: Id,
 }
 
@@ -114,6 +157,7 @@ impl IdInterner {
     }
 }
 
+// TODO: would encoding this directly as an egraph be more efficient?
 /// Conceptually, a DFTA is a list (or rather, a map) of transition rules from
 /// an operand and its argument states to an output state. In practice, we
 /// store this DFTA in "reverse", as a mapping from the output state to
@@ -179,8 +223,6 @@ pub struct AntiUnifier<L: Language, N: Analysis<L>> {
 
     dfta: Dfta<L>,
     interner: IdInterner,
-    worklist: Vec<(Id, Id)>,
-
     // A map of all newly-added nodes that we want to try to anti-unify
     // on the next iteration.
     // To avoid exponential blow-up, we purposely limit ourselves to
@@ -196,6 +238,9 @@ pub struct AntiUnifier<L: Language, N: Analysis<L>> {
     // (a1, a2), (a3, a4) are equivalent, but we can't tell that...
     // TODO: For now, we only anti unify between pairs. Is this what we want?
     // newly_added: HashMap<::std::mem::Discriminant<L>, HashSet<Id>>,
+    // we won't do multiple iterations - we just generate every possibility
+    // from the worklist
+    // init_worklist(egraph, size)
 }
 
 // TODO: go back from DFTA to EGraph with lambdas etc introduced
@@ -208,8 +253,6 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
         g.rebuild();
         let dfta = Dfta::build(&g);
 
-        let worklist = Self::get_initial_worklist(&g);
-
         let max_id = g
             .classes()
             .map(|x| x.id)
@@ -220,12 +263,11 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
             graph: g,
             dfta,
             interner: IdInterner::init(max_id),
-            worklist,
             // newly_added: HashMap::new(),
         }
     }
 
-    fn get_initial_worklist(g: &EGraph<L, N>) -> Vec<(Id, Id)> {
+    fn init_worklist(g: &EGraph<L, N>) -> Vec<((L, Id), (L, Id))> {
         // TODO: Normally we'd use ::std::mem::Discriminant as an
         // enode hash, but clippy rejects it cause technically L isn't
         // always guaranteed to be an enum so...
@@ -233,12 +275,12 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
             format!("{}_{}", enode.display_op(), enode.len())
         }
 
-        let mut map: HashMap<String, HashSet<Id>> = HashMap::new();
+        let mut map: HashMap<String, Vec<(L, Id)>> = HashMap::new();
         for class in g.classes() {
             for node in class.iter() {
                 let hash = enode_hash(node);
-                let vals = map.entry(hash).or_insert_with(HashSet::new);
-                vals.insert(class.id);
+                let vals = map.entry(hash).or_insert_with(Vec::new);
+                vals.push((node.clone(), class.id));
             }
         }
 
@@ -246,8 +288,8 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
         for (_d, ids) in map {
             for a in &ids {
                 for b in &ids {
-                    if a < b {
-                        res.push((*a, *b));
+                    if a.1 < b.1 {
+                        res.push((a.clone(), b.clone()));
                     }
                 }
             }
@@ -256,30 +298,11 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
     }
 
     /// Perform one iteration of anti-unification.
-    // TODO: should our worklist be on the granularity of transitions, not Ids?
     pub fn anti_unify(&mut self) {
-        
-        while let Some((a, b)) = self.worklist.pop() {
-            if !self.has_visited_immut(a, b) {
-                self.anti_unif_ids(a, b);
-            }
-        }
-    }
+        let mut worklist = Self::init_worklist(&self.graph);
 
-    fn anti_unif_ids(&mut self, a: Id, b: Id) {
-        let a_rules = self.dfta.get_by_state(a).unwrap().clone();
-        let b_rules = self.dfta.get_by_state(b).unwrap().clone();
-
-        for ta in &a_rules {
-            for tb in &b_rules {
-                if let Some(t) = self.anti_unif_transitions((ta, a), (tb, b)) {
-                    self.dfta.push(t)
-                } else {
-                    let ns = self.interner.get_or_gen(a, b);
-                    // So that we don't pop this off the worklist again.
-                    self.dfta.push_empty(ns);
-                }
-            }
+        while let Some((a, b)) = worklist.pop() {
+            self.anti_unif_transitions(a, b);
         }
     }
 
@@ -287,31 +310,24 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
     /// If the operations in the two cases differ, we cannot anti-unify further,
     /// and will return None. Otherwise, if the operations are the same, we produce
     /// a new rule that anti-unifies within the arguments.
-    fn anti_unif_transitions(&mut self, (la, sa): (&L, Id), (lb, sb): (&L, Id)) -> Option<(L, Id)> {
-        if la.matches(&lb) {
-            let out_state = self.interner.get_or_gen(sa, sb);
-            // TODO: this hacky business is b/c we don't have .children(_mut) :/
-            let children: HashMap<Id, (Id, Id)> = enode_children(la)
-                .into_iter()
-                .zip(enode_children(lb))
-                .map(|(a, b)| (a, (a, b)))
-                .collect();
-            let mut lres = la.clone();
-            lres.for_each_mut(|t| {
-                let (a, b) = children[t];
-                *t = self.interner.get_or_gen(a, b);
-                // Unconditionally push to the worklist;
-                // we check if we've already visited here in the worklist anyways.
-                self.worklist.push((a, b));
-            });
-            Some((lres, out_state))
-        } else {
-            None
-        }
-    }
-
-    fn has_visited_immut(&self, a: Id, b: Id) -> bool {
-        self.interner.get_id(a, b).map_or(false, |i| self.dfta.has_visited(i))
+    ///
+    /// This function assumes the two transitions match.
+    fn anti_unif_transitions(&mut self, (la, sa): (L, Id), (lb, sb): (L, Id)) -> (L, Id) {
+        assert!(la.matches(&lb));
+        
+        let out_state = self.interner.get_or_gen(sa, sb);
+        // TODO: this hacky business is b/c we don't have .children(_mut) :/
+        let children: HashMap<Id, (Id, Id)> = enode_children(&la)
+            .into_iter()
+            .zip(enode_children(&lb))
+            .map(|(a, b)| (a, (a, b)))
+            .collect();
+        let mut lres = la.clone();
+        lres.for_each_mut(|t| {
+            let (a, b) = children[t];
+            *t = self.interner.get_or_gen(a, b);
+        });
+        (lres, out_state)
     }
 }
 
@@ -334,14 +350,11 @@ mod tests {
         let rules: &[Rewrite] = &[];
 
         // First, parse the expression and build an egraph from it
-        let expr = "(+ (scale 0.5 line) (scale 0.5 circle))"
-            .parse()
-            .unwrap();
+        let expr = r"
+(let s1 (+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line))))
+  (let s2 (+ (move 4 4 (scale 2 circle)) (+ (move 3 2 circle) (+ (move 4 3 (scale 9 circle)) (move 5 2 circle))))
+    (+ s1 s2)))".parse().unwrap();
         let runner = Runner::default()
-            // .with_scheduler(SimpleScheduler)
-            // .with_iter_limit(1_000)
-            // .with_node_limit(1_000_000)
-            // .with_time_limit(core::time::Duration::from_secs(20))
             .with_expr(&expr)
             .run(rules);
         let (egraph, _root) = (runner.egraph, runner.roots[0]);
