@@ -110,7 +110,9 @@ impl IdInterner {
     /// Generates the Id corresponding to the pair of two Ids given.
     pub fn gen_id(&mut self, a: Id, b: Id) -> Id {
         let res = self.counter;
-        self.states.insert(self.counter, self.lookup(a, b));
+        let new_id = self.lookup(a, b);
+        self.states.insert(self.counter, new_id.clone());
+        self.sets.insert(new_id, self.counter);
         self.counter = (Into::<usize>::into(self.counter) + 1).into();
         res
     }
@@ -214,6 +216,7 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
         }
     }
 
+    // TODO: init_worklist at depths larger than 2
     fn init_worklist(g: &EGraph<L, N>) -> Vec<((L, Id), (L, Id))> {
         fn enode_hash<L: Language>(enode: &L) -> String {
             format!("{}_{}", enode.display_op(), enode.len())
@@ -258,7 +261,7 @@ impl<L: Language, N: Analysis<L>> AntiUnifier<L, N> {
     ///
     /// This function assumes the two transitions match.
     fn anti_unif_transitions(&mut self, (la, sa): (L, Id), (lb, sb): (L, Id)) -> (L, Id) {
-        assert!(la.matches(&lb));
+        debug_assert!(la.matches(&lb));
         
         let out_state = self.interner.get_or_gen(sa, sb);
         // TODO: this hacky business is b/c we don't have .children(_mut) :/
