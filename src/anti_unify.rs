@@ -296,8 +296,8 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
 
     /// Checks if this is a phi anti-unif.
     #[must_use]
-    pub fn is_phi(&self) -> bool {
-        self.phi
+    pub fn is_invalid(&self) -> bool {
+        self.phi || self.args.is_empty()
     }
 
     /// Extends this anti-unification with another anti-unification; i.e. adds
@@ -478,15 +478,11 @@ where
                 self.dfta.get_by_state(c).map(std::convert::AsRef::as_ref)
             });
             for prog in self.memo.get(&c).unwrap().value() {
-                if prog.is_phi() {
+                if prog.is_invalid() {
                     continue;
                 }
                 let searcher_rec: RecExpr<ENodeOrVar<L>> = prog.pattern.clone().into();
                 let applier_rec: RecExpr<ENodeOrVar<L>> = prog.lambdify().into();
-                // Pretty print rewrite
-                // println!("args: {:?}", prog.args);
-                // println!("recexpr1: {:?}", searcher_rec);
-                // println!("recexpr2: {:?}", applier_rec);
                 // println!("rewrite:\n{}\n=>\n{}\n", searcher_rec.pretty(80), applier_rec.pretty(80));
                 // println!("");
                 let searcher: Pattern<L> = searcher_rec.into();
@@ -623,7 +619,7 @@ mod tests {
         let runner = Runner::default().with_expr(&expr).run(rules);
         let (egraph, _root) = (runner.egraph, runner.roots[0]);
 
-        let res = anti_unify(egraph);
+        let _res = anti_unify(egraph);
 
         // println!("{:#?}", res.dfta);
     }
