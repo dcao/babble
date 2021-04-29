@@ -69,7 +69,8 @@ fn enode_children<L: Language>(enode: &L) -> Vec<Id> {
 pub struct IdInterner {
     states: HashMap<Id, SmallVec<[Id; 4]>>,
     sets: HashMap<SmallVec<[Id; 4]>, Id>,
-    start: Id,
+    /// The start Id
+    pub start: Id,
     counter: Id,
 }
 
@@ -404,9 +405,9 @@ where
 
     // TODO: init_worklist at depths larger than 2
     fn init_worklist(g: &EGraph<L, N>) -> Vec<((L, Id), (L, Id))> {
-        fn enode_hash<L: Language>(enode: &L) -> std::mem::Discriminant<L> {
-            #[allow(clippy::mem_discriminant_non_enum)]
-            std::mem::discriminant(enode)
+        // TODO: this is an easy performance opt
+        fn enode_hash<L: Language>(enode: &L) -> String {
+            format!("{}_{}", enode.display_op(), enode.len())
         }
 
         let mut map: HashMap<_, Vec<(L, Id)>> = HashMap::new();
@@ -507,31 +508,35 @@ where
                         vec![(smallvec![], AntiUnification::new())];
                     let mut cur = Vec::new();
                     let children = enode_children(l);
-                    // For each of the children, we need to enumerate each of them. We can
-                    // then include their anti-unifications in our anti-unification.
-                    for c in children.clone() {
-                        self.enumerate(c, get_nodes);
-                        for child_au in self.memo.get(&c).unwrap().value() {
-                            for (mut pre_children, pre) in prev.clone() {
-                                let mut pre: AntiUnification<L> = pre;
-                                pre.extend(child_au);
-                                pre_children.push(pre.pattern.len() - 1);
-                                cur.push((pre_children, pre));
+                    // Pruning optimization:
+                    // If none of the children are in the egraph, just give up
+                    if children.iter().any(|x| x < &self.interner.start) {
+                        // For each of the children, we need to enumerate each of them. We can
+                        // then include their anti-unifications in our anti-unification.
+                        for c in children.clone() {
+                            self.enumerate(c, get_nodes);
+                            for child_au in self.memo.get(&c).unwrap().value() {
+                                for (mut pre_children, pre) in prev.clone() {
+                                    let mut pre: AntiUnification<L> = pre;
+                                    pre.extend(child_au);
+                                    pre_children.push(pre.pattern.len() - 1);
+                                    cur.push((pre_children, pre));
+                                }
                             }
+                            prev = cur;
+                            cur = Vec::new();
                         }
-                        prev = cur;
-                        cur = Vec::new();
-                    }
 
-                    res.extend(prev.into_iter().map(|(au_children, mut anti_unif)| {
-                        let children_map = children
-                            .iter()
-                            .zip(au_children.iter())
-                            .collect::<HashMap<_, _>>();
-                        let new_l = l.clone().map_children(|c| (*children_map[&c]).into());
-                        anti_unif.pattern.push(ENodeOrVar::ENode(new_l));
-                        anti_unif
-                    }));
+                        res.extend(prev.into_iter().map(|(au_children, mut anti_unif)| {
+                            let children_map = children
+                                .iter()
+                                .zip(au_children.iter())
+                                .collect::<HashMap<_, _>>();
+                            let new_l = l.clone().map_children(|c| (*children_map[&c]).into());
+                            anti_unif.pattern.push(ENodeOrVar::ENode(new_l));
+                            anti_unif
+                        }));
+                    }
                 }
                 res
             } else {
