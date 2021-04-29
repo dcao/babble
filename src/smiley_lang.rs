@@ -50,7 +50,7 @@ impl AntiUnifTgt for Smiley {
     }
 
     fn lambda_arg(ix: usize) -> Self {
-        Self::Symbol(egg::Symbol::from(ix.to_string()))
+        Self::Symbol(egg::Symbol::from(format!("arg_{}", ix.to_string())))
     }
 }
 
@@ -120,93 +120,3 @@ pub fn run_single(expr: &str) -> RecExpr<Smiley> {
     best
 }
 
-#[allow(missing_docs)]
-mod test {
-    use super::*;
-    use egg::test_fn;
-
-    test_fn! {
-        test_intro_fn, rules(),
-        "(let s1 (rotate 50 (move 2 4 (scale 3 line))) (let s2 (rotate 100 (move 2 4 (scale 3 circle))) (+ s1 s2)))"
-        =>
-        "(let s1 (app (fn s (app (fn r (rotate r (move 2 4 (scale 3 s)))) 50)) line) (let s2 (app (fn s (app (fn r (rotate r (move 2 4 (scale 3 s)))) 100)) circle) (+ s1 s2)))",
-    }
-
-    test_fn! {
-        test_swap_fn, rules(),
-        "(let s1 (app (fn s (app (fn r (rotate r (move 2 4 (scale 3 s)))) 50)) line) (let s2 (app (fn s (app (fn r (rotate r (move 2 4 (scale 3 s)))) 100)) circle) (+ s1 s2)))"
-        =>
-        "(let s1 (app (app (fn s (fn r (rotate r (move 2 4 (scale 3 s))))) line) 50) (let s2 (app (app (fn s (fn r (rotate r (move 2 4 (scale 3 s))))) circle) 100) (+ s1 s2)))",
-    }
-
-    test_fn! {
-        test_extract_fn, rules(),
-        "(let s1 (app (app (fn s (fn r (rotate r (move 2 4 (scale 3 s))))) line) 50) (let s2 (app (app (fn s (fn r (rotate r (move 2 4 (scale 3 s))))) circle) 100) (+ s1 s2)))"
-        =>
-        "(let f (fn s (fn r (rotate r (move 2 4 (scale 3 s))))) (let s1 (app (app f line) 50) (let s2 (app (app f circle) 100) (+ s1 s2))))",
-    }
-
-    test_fn! {
-        test_swap_fn2, rules(),
-        "(let s1 (rotate 50 (move 2 4 (scale 3 (app (fn s s) line)))) (let s2 (rotate 100 (move 2 4 (scale 3 (app (fn s s) circle)))) (+ s1 s2)))"
-        =>
-        "(let s1 (app (app (fn s (fn r (rotate r (move 2 4 (scale 3 s))))) line) 50) (let s2 (app (app (fn s (fn r (rotate r (move 2 4 (scale 3 s))))) circle) 100) (+ s1 s2)))",
-    }
-
-    test_fn! {
-        test_paper_1, rules(),
-        runner = Runner::default()
-            // .with_scheduler(SimpleScheduler)
-            .with_iter_limit(1000)
-            .with_node_limit(1_000_000),
-        r#"
-(let s1 (+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line))))
-  (let s2 (+ (move 4 4 (scale 2 circle)) (+ (move 3 2 circle) (+ (move 4 3 (scale 9 circle)) (move 5 2 circle))))
-    (+ s1 s2)))
-"#
-        =>
-        r#"
-(let s1 (+ (move 4 4 (scale 2 (app (fn s s) line))) (+ (move 3 2 (app (fn s s) line)) (+ (move 4 3 (scale 9 circle)) (move 5 2 (app (fn s s) line)))))
-  (let s2 (+ (move 4 4 (scale 2 (app (fn s s) circle))) (+ (move 3 2 (app (fn s s) circle)) (+ (move 4 3 (scale 9 circle)) (move 5 2 (app (fn s s) circle)))))
-    (+ s1 s2)))
-"#
-    }
-
-    test_fn! {
-        test_paper_2, rules(),
-        runner = Runner::default()
-            // .with_scheduler(SimpleScheduler)
-            .with_iter_limit(1000)
-            .with_node_limit(1_000_000),
-        r#"
-(let s1 (+ (move 4 4 (scale 2 (app (fn s s) line))) (+ (move 3 2 (app (fn s s) line)) (+ (move 4 3 (scale 9 circle)) (move 5 2 (app (fn s s) line)))))
-  (let s2 (+ (move 4 4 (scale 2 (app (fn s s) circle))) (+ (move 3 2 (app (fn s s) circle)) (+ (move 4 3 (scale 9 circle)) (move 5 2 (app (fn s s) circle)))))
-    (+ s1 s2)))
-"#
-        =>
-        r#"
-(let s1 (app (fn s (app (fn s (+ (move 4 4 (scale 2 s)) (+ (move 3 2 s) (+ (move 4 3 (scale 9 circle)) (move 5 2 (app (fn s s) line)))))) line)) line)
-  (let s2 (+ (move 4 4 (scale 2 (app (fn s s) circle))) (+ (move 3 2 (app (fn s s) circle)) (+ (move 4 3 (scale 9 circle)) (move 5 2 (app (fn s s) circle)))))
-    (+ s1 s2)))
-"#
-    }
-
-    test_fn! {
-        test_paper_3, rules(),
-        runner = Runner::default()
-            // .with_scheduler(SimpleScheduler)
-            .with_iter_limit(1000)
-            .with_node_limit(1_000_000),
-        r#"
-(let s1 (app (fn s (app (fn s (+ (move 4 4 (scale 2 s)) (+ (move 3 2 s) (+ (move 4 3 (scale 9 circle)) (move 5 2 (app (fn s s) line)))))) line)) line)
-  (let s2 (+ (move 4 4 (scale 2 (app (fn s s) circle))) (+ (move 3 2 (app (fn s s) circle)) (+ (move 4 3 (scale 9 circle)) (move 5 2 (app (fn s s) circle)))))
-    (+ s1 s2)))
-"#
-        =>
-        r#"
-(let s1 (app (fn s (+ (move 4 4 (scale 2 s)) (+ (move 3 2 s) (+ (move 4 3 (scale 9 circle)) (move 5 2 s))))) line)
-  (let s2 (+ (move 4 4 (scale 2 (app (fn s s) circle))) (+ (move 3 2 (app (fn s s) circle)) (+ (move 4 3 (scale 9 circle)) (move 5 2 (app (fn s s) circle)))))
-    (+ s1 s2)))
-"#
-    }
-}

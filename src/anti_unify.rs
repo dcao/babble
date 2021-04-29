@@ -263,6 +263,8 @@ pub struct AntiUnification<L> {
     /// lambdas. At the end, we generate de Brujin indices by getting the
     /// index of each Id in this list.
     pub args: SmallVec<[Id; 32]>,
+
+    phi: bool,
 }
 
 impl<L> Default for AntiUnification<L> {
@@ -270,6 +272,7 @@ impl<L> Default for AntiUnification<L> {
         Self {
             pattern: Vec::default(),
             args: SmallVec::new(),
+            phi: false,
         }
     }
 }
@@ -287,7 +290,14 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
         Self {
             pattern: vec![ENodeOrVar::Var(id_to_pvar(c))],
             args: smallvec![c],
+            phi: true,
         }
+    }
+
+    /// Checks if this is a phi anti-unif.
+    #[must_use]
+    pub fn is_phi(&self) -> bool {
+        self.phi
     }
 
     /// Extends this anti-unification with another anti-unification; i.e. adds
@@ -346,14 +356,12 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
 
         // And then finally, we introduce applications.
         // Make sure we iterate in the right order for our de brujin indices :))
-        let mut cur_lam = res.len() - 1;
         for arg_id in self.args.iter().rev() {
             res.push(ENodeOrVar::Var(id_to_pvar(*arg_id)));
             res.push(ENodeOrVar::ENode(L::app(
-                cur_lam.into(),
+                (res.len() - 2).into(),
                 (res.len() - 1).into(),
             )));
-            cur_lam -= 1;
         }
 
         res
@@ -405,9 +413,12 @@ where
 
     // TODO: init_worklist at depths larger than 2
     fn init_worklist(g: &EGraph<L, N>) -> Vec<((L, Id), (L, Id))> {
-        // TODO: this is an easy performance opt
-        fn enode_hash<L: Language>(enode: &L) -> String {
-            format!("{}_{}", enode.display_op(), enode.len())
+        // TODO: technically this might be incorrect versus the previous
+        // enode_hash impl, but it's way faster and doesn't appear to be
+        // giving any incorrect behavior so...
+        fn enode_hash<L: Language>(enode: &L) -> std::mem::Discriminant<L> {
+            #[allow(clippy::mem_discriminant_non_enum)]
+            std::mem::discriminant(enode)
         }
 
         let mut map: HashMap<_, Vec<(L, Id)>> = HashMap::new();
@@ -467,8 +478,17 @@ where
                 self.dfta.get_by_state(c).map(std::convert::AsRef::as_ref)
             });
             for prog in self.memo.get(&c).unwrap().value() {
+                if prog.is_phi() {
+                    continue;
+                }
                 let searcher_rec: RecExpr<ENodeOrVar<L>> = prog.pattern.clone().into();
                 let applier_rec: RecExpr<ENodeOrVar<L>> = prog.lambdify().into();
+                // Pretty print rewrite
+                // println!("args: {:?}", prog.args);
+                // println!("recexpr1: {:?}", searcher_rec);
+                // println!("recexpr2: {:?}", applier_rec);
+                // println!("rewrite:\n{}\n=>\n{}\n", searcher_rec.pretty(80), applier_rec.pretty(80));
+                // println!("");
                 let searcher: Pattern<L> = searcher_rec.into();
                 let applier: Pattern<L> = applier_rec.into();
                 let name = c.to_string();
@@ -508,35 +528,34 @@ where
                         vec![(smallvec![], AntiUnification::new())];
                     let mut cur = Vec::new();
                     let children = enode_children(l);
-                    // Pruning optimization:
-                    // If none of the children are in the egraph, just give up
-                    if children.iter().any(|x| x < &self.interner.start) {
-                        // For each of the children, we need to enumerate each of them. We can
-                        // then include their anti-unifications in our anti-unification.
-                        for c in children.clone() {
-                            self.enumerate(c, get_nodes);
-                            for child_au in self.memo.get(&c).unwrap().value() {
-                                for (mut pre_children, pre) in prev.clone() {
-                                    let mut pre: AntiUnification<L> = pre;
-                                    pre.extend(child_au);
-                                    pre_children.push(pre.pattern.len() - 1);
-                                    cur.push((pre_children, pre));
-                                }
-                            }
-                            prev = cur;
-                            cur = Vec::new();
-                        }
 
-                        res.extend(prev.into_iter().map(|(au_children, mut anti_unif)| {
-                            let children_map = children
-                                .iter()
-                                .zip(au_children.iter())
-                                .collect::<HashMap<_, _>>();
-                            let new_l = l.clone().map_children(|c| (*children_map[&c]).into());
-                            anti_unif.pattern.push(ENodeOrVar::ENode(new_l));
-                            anti_unif
-                        }));
+                    // TODO: pruning optimization
+                    
+                    // For each of the children, we need to enumerate each of them. We can
+                    // then include their anti-unifications in our anti-unification.
+                    for c in children.clone() {
+                        self.enumerate(c, get_nodes);
+                        for child_au in self.memo.get(&c).unwrap().value() {
+                            for (mut pre_children, pre) in prev.clone() {
+                                let mut pre: AntiUnification<L> = pre;
+                                pre.extend(child_au);
+                                pre_children.push(pre.pattern.len() - 1);
+                                cur.push((pre_children, pre));
+                            }
+                        }
+                        prev = cur;
+                        cur = Vec::new();
                     }
+
+                    res.extend(prev.into_iter().map(|(au_children, mut anti_unif)| {
+                        let children_map = children
+                            .iter()
+                            .zip(au_children.iter())
+                            .collect::<HashMap<_, _>>();
+                        let new_l = l.clone().map_children(|c| (*children_map[&c]).into());
+                        anti_unif.pattern.push(ENodeOrVar::ENode(new_l));
+                        anti_unif
+                    }));
                 }
                 res
             } else {
@@ -557,8 +576,6 @@ where
     ///
     /// This function assumes the two transitions match.
     fn anti_unif_transitions(&mut self, (la, sa): (L, Id), (lb, sb): (L, Id)) -> (L, Id) {
-        debug_assert!(la.matches(&lb));
-
         let out_state = self.interner.get_or_gen(sa, sb);
         // TODO: this hacky business is b/c we don't have .children(_mut) :/
         let children: HashMap<Id, (Id, Id)> = enode_children(&la)
@@ -608,6 +625,6 @@ mod tests {
 
         let res = anti_unify(egraph);
 
-        println!("{:#?}", res.dfta);
+        // println!("{:#?}", res.dfta);
     }
 }
