@@ -3,7 +3,7 @@
 // TODO: Remove this once define_language! allows doc strings
 #![allow(missing_docs)]
 
-use crate::rewrites;
+use crate::{anti_unify::AntiUnifTgt, rewrites};
 use egg::{define_language, CostFunction, Extractor, Id, Language, RecExpr, Runner};
 use ordered_float::NotNan;
 
@@ -21,7 +21,7 @@ define_language! {
     pub enum Smiley {
         // Meta:
         "let" = Let([Id; 3]),
-        "fn" = Fn([Id; 2]),
+        "fn" = Fn(Id),
         "app" = App([Id; 2]),
         "var" = Var(Id),
 
@@ -37,6 +37,20 @@ define_language! {
         Signed(i32),
         Float(Constant),
         Symbol(egg::Symbol),
+    }
+}
+
+impl AntiUnifTgt for Smiley {
+    fn lambda(body: Id) -> Self {
+        Self::Fn(body)
+    }
+
+    fn app(lambda: Id, arg: Id) -> Self {
+        Self::App([lambda, arg])
+    }
+
+    fn lambda_arg(ix: usize) -> Self {
+        Self::Symbol(egg::Symbol::from(ix.to_string()))
     }
 }
 

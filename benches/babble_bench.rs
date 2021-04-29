@@ -1,5 +1,5 @@
-use babble::smiley_lang::*;
 use babble::anti_unify::*;
+use babble::smiley_lang::*;
 use criterion::*;
 
 // Lifted from egg
@@ -20,7 +20,7 @@ use criterion::*;
 //             $(@check $check_fn)?
 //         }
 //     };
-// 
+//
 //     (
 //         $(#[$meta:meta])*
 //         $name:ident, $rules:expr,
@@ -36,7 +36,7 @@ use criterion::*;
 //             let name = stringify!($name);
 //             let start: $crate::RecExpr<_> = $start.parse().unwrap();
 //             let rules = $rules;
-// 
+//
 //             let runner: $crate::Runner<_, _, ()> = $crate::test::run(name, || {
 //                 let mut runner = $runner.with_expr(&start);
 //                 if let Some(lim) = $crate::test::env_var("EGG_NODE_LIMIT") {
@@ -51,23 +51,23 @@ use criterion::*;
 //                 runner.run(&rules)
 //             }).report(|r| &r.iterations);
 //             runner.print_report();
-// 
+//
 //             let goals = &[$(
 //                 $goal.parse().unwrap()
 //             ),+];
-// 
+//
 //             // NOTE this is a bit of hack, we rely on the fact that the
 //             // initial root is the last expr added by the runner. We can't
 //             // use egraph.find_expr(start) because it may have been pruned
 //             // away
 //             let id = runner.egraph.find(*runner.roots.last().unwrap());
 //             runner.egraph.check_goals(id, goals);
-// 
+//
 //             $( ($check_fn)(runner) )?
 //         }
 //     };
 // }
-// 
+//
 // bench_fn! {
 //     anti_unif_1, rules(),
 //     "(let s1 (rotate 50 (move 2 4 (scale 3 circle))) (let s2 (rotate 50 (move 2 4 (scale 3 line))) (+ s1 s2)))"
