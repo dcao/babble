@@ -45,6 +45,13 @@ impl AntiUnifTgt for Smiley {
         Self::Fn(body)
     }
 
+    fn is_lambda(node: &Self) -> bool {
+        match node {
+            Self::Fn(_) => true,
+            _ => false,
+        }
+    }
+
     fn app(lambda: Id, arg: Id) -> Self {
         Self::App([lambda, arg])
     }
@@ -119,4 +126,3 @@ pub fn run_single(expr: &str) -> RecExpr<Smiley> {
     // Return the best program
     best
 }
-
