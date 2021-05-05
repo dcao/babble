@@ -323,13 +323,16 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
 
         // Then, extend the args list.
         for arg in &other.args {
-            self.args.push(*arg);
+            if !self.args.contains(arg) {
+                self.args.push(*arg);
+            }
         }
     }
 
     /// Turns this anti-unification into a lambda, applied to each of the args.
+    /// Also returns a hash of the lambda itself, so we don't insert duplicate lambdas.
     #[must_use]
-    pub fn lambdify(&self) -> Vec<ENodeOrVar<L>> {
+    pub fn lambdify(&self) -> (u64, Vec<ENodeOrVar<L>>) {
         // We first create a map from the stringified Id to its de Brujin index.
         let mut res = vec![];
         let arg_map: HashMap<Var, _> = self
@@ -355,6 +358,10 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
             res.push(ENodeOrVar::ENode(L::lambda((res.len() - 1).into())));
         }
 
+        // Hash our function first!
+        let mut h = AHasher::default();
+        res.hash(&mut h);
+
         // And then finally, we introduce applications.
         // Make sure we iterate in the right order for our de brujin indices :))
         for arg_id in self.args.iter().rev() {
@@ -365,7 +372,7 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
             )));
         }
 
-        res
+        (h.finish(), res)
     }
 }
 
@@ -482,18 +489,18 @@ where
                     continue;
                 }
                 let searcher_rec: RecExpr<ENodeOrVar<L>> = prog.pattern.clone().into();
-                let applier_rec: RecExpr<ENodeOrVar<L>> = prog.lambdify().into();
+                let (hash, applier_rec): (u64, RecExpr<ENodeOrVar<L>>) = {
+                    let l = prog.lambdify();
+                    (l.0, l.1.into())
+                };
 
                 // println!("rewrite:\n{}\n=>\n{}\n", searcher_rec.pretty(80), applier_rec.pretty(80));
-
-                let mut h = AHasher::default();
-                applier_rec.hash(&mut h);
 
                 let searcher: Pattern<L> = searcher_rec.into();
                 let applier: Pattern<L> = applier_rec.into();
                 let name = c.to_string();
 
-                let _res = rewrites.try_insert(h.finish(), Rewrite::new(name, searcher, applier).unwrap());
+                let _res = rewrites.try_insert(hash, Rewrite::new(name, searcher, applier).unwrap());
             }
         }
 
