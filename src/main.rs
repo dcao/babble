@@ -32,8 +32,5 @@ fn main() {
         fs::read(&f).unwrap_or_else(|e| panic!("failed to open bab file {} error {}", &f, e));
     let input = String::from_utf8_lossy(&content);
 
-    let expr = smiley_lang::run_single(&input);
-
-    println!("output:");
-    println!("{}", expr);
+    smiley_lang::run_single(&input);
 }

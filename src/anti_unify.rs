@@ -242,6 +242,16 @@ pub trait AntiUnifTgt: Language + Sync + Send + 'static {
 
     /// Return a node representing a de Brujin index for a lambda.
     fn lambda_arg(ix: usize) -> Self;
+
+    /// Return a node representing a reference to a named fn.
+    fn fn_sym(hash: u64) -> Self;
+
+    /// Return a node representing a new learned library fn.
+    fn lib(name: Id, lam: Id, body: Id) -> Self;
+
+    /// Returns a list of rewrites which lifts lets to the top level
+    /// of the expression in some order.
+    fn lift_lets() -> Vec<Rewrite<Self, ()>>;
 }
 
 /// Converts an Id to a pattern variable.
@@ -357,12 +367,18 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
         for _ in 0..self.args.len() {
             res.push(ENodeOrVar::ENode(L::lambda((res.len() - 1).into())));
         }
+        let fn_id = res.len() - 1;
 
-        // Hash our function first!
+        // Hash our function!
         let mut h = AHasher::default();
         res.hash(&mut h);
+        let hash = h.finish();
 
-        // And then finally, we introduce applications.
+        // Push a symbol representing our hashed function to the lambda.
+        let sym_id = res.len();
+        res.push(ENodeOrVar::ENode(L::fn_sym(hash)));
+
+        // Then we introduce applications
         // Make sure we iterate in the right order for our de brujin indices :))
         for arg_id in self.args.iter().rev() {
             res.push(ENodeOrVar::Var(id_to_pvar(*arg_id)));
@@ -372,7 +388,10 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
             )));
         }
 
-        (h.finish(), res)
+        // Finally, introduce a let.
+        res.push(ENodeOrVar::ENode(L::lib(sym_id.into(), fn_id.into(), (res.len() - 1).into())));
+
+        (hash, res)
     }
 }
 
@@ -382,8 +401,8 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
 /// After running anti-unification, we have a new egraph which contains
 /// all possible libraries we could learn from the
 #[derive(Debug)]
-pub struct AntiUnifier<L: Language, N: Analysis<L>> {
-    graph: EGraph<L, N>,
+pub struct AntiUnifier<L: Language> {
+    graph: EGraph<L, ()>,
 
     dfta: Dfta<L>,
     interner: IdInterner,
@@ -392,15 +411,12 @@ pub struct AntiUnifier<L: Language, N: Analysis<L>> {
     memo: DashMap<Id, Vec<AntiUnification<L>>>,
 }
 
-impl<L: AntiUnifTgt, N: Analysis<L> + Default + Clone> AntiUnifier<L, N>
-where
-    <N as Analysis<L>>::Data: Clone,
-{
+impl<L: AntiUnifTgt> AntiUnifier<L> {
     /// Initialize an `AntiUnifier` from an `EGraph`.
     /// We first rebuild this egraph to make sure all its invariants hold.
     /// We then create a DFTA from it which we will use for anti-unification
     /// work.
-    pub fn new(mut g: EGraph<L, N>) -> Self {
+    pub fn new(mut g: EGraph<L, ()>) -> Self {
         g.rebuild();
         let dfta = Dfta::build(&g);
 
@@ -419,7 +435,7 @@ where
     }
 
     // TODO: init_worklist at depths larger than 2
-    fn init_worklist(g: &EGraph<L, N>) -> Vec<((L, Id), (L, Id))> {
+    fn init_worklist(g: &EGraph<L, ()>) -> Vec<((L, Id), (L, Id))> {
         // TODO: technically this might be incorrect versus the previous
         // enode_hash impl, but it's way faster and doesn't appear to be
         // giving any incorrect behavior so...
@@ -454,7 +470,7 @@ where
     ///
     /// # Panics
     /// Technically can panic, but shouldn't given fn invariants.
-    pub fn anti_unify(&mut self) {
+    pub fn anti_unify(&mut self, root: Id) {
         // We first build our worklist from the graph.
         let worklist = Self::init_worklist(&self.graph);
 
@@ -479,7 +495,7 @@ where
         // TODO: parallelize this?
         // We then enumerate our transitions as well, additionally converting these
         // anti-unifications into rewrites which we will apply to the egraph.
-        let mut rewrites: HashMap<u64, Rewrite<L, N>> = HashMap::new();
+        let mut rewrites: HashMap<u64, Rewrite<L, ()>> = HashMap::new();
         for c in self.interner.states().collect::<Vec<_>>() {
             self.enumerate(c, |c| {
                 self.dfta.get_by_state(c).map(std::convert::AsRef::as_ref)
@@ -494,35 +510,39 @@ where
                     (l.0, l.1.into())
                 };
 
-                // println!("rewrite:\n{}\n=>\n{}\n", searcher_rec.pretty(80), applier_rec.pretty(80));
+                println!("rewrite:\n{}\n=>\n{}\n", searcher_rec.pretty(80), applier_rec.pretty(80));
 
+                let name = applier_rec.to_string();
                 let searcher: Pattern<L> = searcher_rec.into();
                 let applier: Pattern<L> = applier_rec.into();
-                let name = c.to_string();
 
                 let _res = rewrites.try_insert(hash, Rewrite::new(name, searcher, applier).unwrap());
             }
         }
 
+        // println!("final: {:#?}", rewrites);
+
         // Finally, run the rewrites!
-        let _runner = Runner::default()
-            //  .with_scheduler(SimpleScheduler)
-            //  .with_iter_limit(1_000)
-            //  .with_node_limit(1_000_000)
-            //  .with_time_limit(core::time::Duration::from_secs(20))
+        let runner = Runner::default()
+            // .with_scheduler(egg::SimpleScheduler)
+            // .with_iter_limit(1_000)
+            // .with_node_limit(10_000_000)
+            // .with_time_limit(core::time::Duration::from_secs(40))
             .with_egraph(self.graph.clone())
-            .run(rewrites.values());
-            // .run(&[]);
+            .run(rewrites.values().chain(L::lift_lets().iter()));
+            // .run(rewrites.values());
+
+        println!("{:?}", runner.stop_reason);
 
         // TODO: find the root properly lol
-        // let (mut egraph, root) = (runner.egraph, Into::<Id>::into(26));
-        // egraph.rebuild();
+        let mut egraph = runner.egraph;
+        egraph.rebuild();
 
         // Then, extract the best program from the egraph, starting at
         // the root
-        // let mut extractor = egg::Extractor::new(&egraph, ProgCostFn);
-        // extractor.find_best(root);
-        // println!("{:?}, {}, {}", extractor.find_best(root).0, extractor.find_best(root).0.total_cost(), extractor.find_best(root).1.pretty(100));
+        let mut extractor = egg::Extractor::new(&egraph, egg::AstSize);
+        extractor.find_best(root);
+        println!("{}, {}", extractor.find_best(root).0, extractor.find_best(root).1.pretty(100));
     }
 
     fn enumerate<'a, F>(&'a self, c: Id, get_nodes: F)
@@ -604,14 +624,9 @@ where
 }
 
 /// Anti-unifies within a given `EGraph`, returning an `AntiUnifier` as output.
-pub fn anti_unify<L: AntiUnifTgt, N: Analysis<L> + Default + Clone>(
-    g: EGraph<L, N>,
-) -> AntiUnifier<L, N>
-where
-    <N as Analysis<L>>::Data: Clone,
-{
+pub fn anti_unify<L: AntiUnifTgt>(g: EGraph<L, ()>, root: Id) -> AntiUnifier<L> {
     let mut a = AntiUnifier::new(g);
-    a.anti_unify();
+    a.anti_unify(root);
     a
 }
 
@@ -627,6 +642,11 @@ mod tests {
         let rules: &[Rewrite] = &[];
 
         // First, parse the expression and build an egraph from it
+//        let expr = r"
+//(let f (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0)))))
+//(let s1 (app f line)
+//  (let s2 (app f circle)
+//    (+ s1 s2))))".parse().unwrap();
         let expr = r"
 (let s1 (+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line))))
   (let s2 (+ (move 4 4 (scale 2 circle)) (+ (move 3 2 circle) (+ (move 4 3 (scale 9 circle)) (move 5 2 circle))))
@@ -636,9 +656,9 @@ mod tests {
 //  (let s2 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) circle)
 //    (+ s1 s2)))".parse().unwrap();
         let runner = Runner::default().with_expr(&expr).run(rules);
-        let (egraph, _root) = (runner.egraph, runner.roots[0]);
+        let (egraph, root) = (runner.egraph, runner.roots[0]);
 
-        let _res = anti_unify(egraph);
+        let _res = anti_unify(egraph, root);
 
         // println!("{:#?}", res.dfta);
     }
