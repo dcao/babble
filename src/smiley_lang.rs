@@ -4,8 +4,8 @@
 #![allow(missing_docs)]
 
 use babble_macros::rewrite_rules;
-use crate::{anti_unify::AntiUnifTgt, rewrites};
-use egg::{define_language, CostFunction, Extractor, Id, Language, RecExpr, Runner};
+use crate::{anti_unify::AntiUnifTgt};
+use egg::{define_language, CostFunction, Id, Language};
 use ordered_float::NotNan;
 
 /// E-graphs in the `Smiley` language.
@@ -82,45 +82,24 @@ impl AntiUnifTgt for Smiley {
 
     fn lift_lets() -> Vec<egg::Rewrite<Self, ()>> {
         rewrite_rules! {
-            // unify_let: "(let ?a ?b (let ?a ?b ?c))" => "(let ?a ?b ?c)"; // todo: this is unifying different symbols lol
-            // lift_lets: "(let ?a1 ?b1 (let ?a2 ?b2 ?c))" => "(let ?a2 ?b2 (let ?a1 ?b1 ?c))" if can_let_lift("?a1", "?b1");
-            // lift_lets_2: "(let ?a (let ?fn ?body ?app) ?c)" => "(let ?fn ?body (let ?a ?app ?c))";
-            // todo: for testing
-            lift_lets_1: "(let s1 (let ?fname (fn ?body) ?z) ?b)" => "?z";
-            manual_1: "(+ (move 4 4 ?a) (+ (move 3 2 ?b) (+ (move 4 3 (scale 9 ?c)) (move 5 2 ?d))))" => "(let fn_10203736404544521385 (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) (app fn_10203736404544521385 82))";
-            manual_2: "(+ (move 4 4 (scale 2 ?a)) ?b)" => "whatever";
-            manual_3: "(+ (move 4 4 (scale ?a line)) ?b)" => "whatever";
-            manual_4: "(+ (move ?a 4 (scale 2 line)) ?b)" => "whatever";
-            manual_5: "(+ (move ?a 4 (scale 2 line)) (+ (move 3 2 line) (+ ?c ?d)))" => "whatever";
-            manual_6: "(+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) ?d)))" => "whatever";
-            manual_7: "(+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line))))" => "whatever";
+            unify_let: "(let ?a ?b (let ?c ?d ?e))" => "(let ?a ?b ?e)" if egg::ConditionEqual::parse("?b", "?d");
+            lift_lets: "(let ?a1 ?b1 (let ?a2 ?b2 ?c))" => "(let ?a2 ?b2 (let ?a1 ?b1 ?c))" if can_let_lift("?a1", "?b1");
+            lift_lets_2: "(let ?a (let ?fn ?body ?app) ?c)" => "(let ?fn ?body (let ?a ?app ?c))";
 
-            // lift_let_move_1: "(move (let ?a ?b ?c) ?m1 ?m2)" => "(let ?a ?b (move ?c ?m1 ?m2))";
-            // lift_let_move_2: "(move ?m1 (let ?a ?b ?c) ?m2)" => "(let ?a ?b (move ?m1 ?c ?m2))";
-            // lift_let_move_3: "(move ?m1 ?m2 (let ?a ?b ?c))" => "(let ?a ?b (move ?m1 ?m2 ?c))";
-            // lift_let_scale_1: "(scale (let ?a ?b ?c) ?m1)" => "(let ?a ?b (scale ?c ?m1))";
-            // lift_let_scale_2: "(scale ?m1 (let ?a ?b ?c))" => "(let ?a ?b (scale ?m1 ?c))";
-            // lift_let_rotate_1: "(rotate (let ?a ?b ?c) ?m1)" => "(let ?a ?b (rotate ?c ?m1))";
-            // lift_let_rotate_2: "(rotate ?m1 (let ?a ?b ?c))" => "(let ?a ?b (rotate ?m1 ?c))";
+            lift_let_move_1: "(move (let ?a ?b ?c) ?m1 ?m2)" => "(let ?a ?b (move ?c ?m1 ?m2))";
+            lift_let_move_2: "(move ?m1 (let ?a ?b ?c) ?m2)" => "(let ?a ?b (move ?m1 ?c ?m2))";
+            lift_let_move_3: "(move ?m1 ?m2 (let ?a ?b ?c))" => "(let ?a ?b (move ?m1 ?m2 ?c))";
+            lift_let_scale_1: "(scale (let ?a ?b ?c) ?m1)" => "(let ?a ?b (scale ?c ?m1))";
+            lift_let_scale_2: "(scale ?m1 (let ?a ?b ?c))" => "(let ?a ?b (scale ?m1 ?c))";
+            lift_let_rotate_1: "(rotate (let ?a ?b ?c) ?m1)" => "(let ?a ?b (rotate ?c ?m1))";
+            lift_let_rotate_2: "(rotate ?m1 (let ?a ?b ?c))" => "(let ?a ?b (rotate ?m1 ?c))";
             // lift_let_compose_1: "(+ (let ?a ?b ?c) ?m1)" => "(let ?a ?b (+ ?c ?m1))";
             // lift_let_compose_2: "(+ ?m1 (let ?a ?b ?c))" => "(let ?a ?b (+ ?m1 ?c))";
-            // // lift_let_lambda: "(fn (let ?a ?b ?c))" => "(let ?a ?b (fn ?c))";
-            // // lift_let_app_1: "(app ?m1 (let ?a ?b ?c))" => "(let ?a ?b (app ?m1 ?c))";
-            // // lift_let_app_2: "(app ?m1 (let ?a ?b ?c))" => "(let ?a ?b (app ?c ?m1))";
+            // lift_let_lambda: "(fn (let ?a ?b ?c))" => "(let ?a ?b (fn ?c))";
+            // lift_let_app_1: "(app ?m1 (let ?a ?b ?c))" => "(let ?a ?b (app ?m1 ?c))";
+            // lift_let_app_2: "(app ?m1 (let ?a ?b ?c))" => "(let ?a ?b (app ?c ?m1))";
         }
     }
-}
-
-/// Get a `Vec` of all the rewrite rules.
-#[must_use]
-pub fn rules() -> Vec<Rewrite> {
-    [
-        *rewrites::INTRO_FN,
-        *rewrites::ANTI_UNIFY,
-        *rewrites::ROTATE_FN,
-        *rewrites::ADJACENT,
-    ]
-    .concat()
 }
 
 struct ToySize;
