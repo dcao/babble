@@ -69,7 +69,7 @@ impl AntiUnifTgt for Smiley {
     }
 
     fn lambda_arg(ix: usize) -> Self {
-        Self::Symbol(egg::Symbol::from(format!("arg_{}", ix.to_string())))
+        Self::Symbol(egg::Symbol::from(format!("${}", ix.to_string())))
     }
 
     fn fn_sym(hash: u64) -> Self {

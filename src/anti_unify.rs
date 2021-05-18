@@ -228,7 +228,7 @@ impl<L: Language> Dfta<L> {
 
 /// An `AntiUnifTgt` is an extension of a Language which has constructs to
 /// introduce lambdas, etc.
-pub trait AntiUnifTgt: Language + Sync + Send + 'static {
+pub trait AntiUnifTgt: Language + Sync + Send + std::fmt::Display + 'static {
     /// Return a language node representing a lambda abstraction over some
     /// body.
     fn lambda(body: Id) -> Self;
@@ -529,8 +529,8 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
             // .with_node_limit(1_000_000)
             // .with_time_limit(core::time::Duration::from_secs(40))
             .with_egraph(self.graph.clone())
-            // .run(rewrites.values().chain(L::lift_lets().iter()));
-            .run(rewrites.values());
+            .run(rewrites.values().chain(L::lift_lets().iter()));
+            // .run(rewrites.values());
 
         // println!("{:?}", runner.stop_reason);
 
@@ -541,7 +541,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
         // the root
         let mut extractor = egg::Extractor::new(&egraph, egg::AstSize);
         extractor.find_best(root);
-        // println!("{}, {}", extractor.find_best(root).0, extractor.find_best(root).1.pretty(100));
+        println!("{}, {}", extractor.find_best(root).0, extractor.find_best(root).1.pretty(100));
     }
 
     fn enumerate<'a, F>(&'a self, c: Id, get_nodes: F)
