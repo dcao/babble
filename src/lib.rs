@@ -17,6 +17,7 @@
 )]
 
 pub mod anti_unify;
+pub mod dreamcoder;
 pub mod rewrites;
 pub mod smiley_lang;
 
