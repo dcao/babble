@@ -1,103 +1,142 @@
+#![allow(clippy::clippy::doc_markdown)]
+//! Types and utilities for interacting with DreamCoder.
+
 use nom::error::convert_error;
 use serde::{
-    de::{self, Unexpected, Visitor},
+    de::{self, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use std::{
-    borrow::Cow,
-    fmt::{self, Display, Formatter, Write},
-    ops::RangeFrom,
+    fmt::{self, Display, Formatter},
     str::FromStr,
 };
 
+/// The input format of the `compression` tool.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompressionInput {
     #[serde(rename = "CPUs")]
-    cpus: u32,
-    arity: u32,
-    verbose: bool,
+    pub cpus: u32,
+    pub arity: u32,
+    pub verbose: bool,
 
     #[serde(rename = "collect_data")]
-    collect_data: bool,
-    bs: u32, // what is this
-    aic: u32,
-    structure_penalty: u32,
-    top_k: u32,
+    pub collect_data: bool,
+    pub bs: u32, // what is this
+    pub aic: u32,
+    pub structure_penalty: u32,
+    pub top_k: u32,
 
     #[serde(rename = "DSL")]
-    dsl: Dsl,
-    frontiers: Vec<Frontier>,
+    pub dsl: Dsl,
+    pub frontiers: Vec<Frontier>,
 }
 
+/// The output format of the `compression` tool.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
 pub struct CompressionOutput {
     #[serde(rename = "DSL")]
-    dsl: Dsl,
-    frontiers: Vec<Frontier>,
+    pub dsl: Dsl,
+    pub frontiers: Vec<Frontier>,
 }
 
+/// The primitives and learned functions for the language.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Dsl {
-    log_variable: f64,
-    productions: Vec<Production>,
+    pub log_variable: f64,
+    pub productions: Vec<Production>,
 }
 
+/// A primitive or learned function.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Production {
-    log_probability: f64,
-    expression: Expr,
+    pub log_probability: f64,
+    pub expression: Expr,
 }
 
+/// A particular task for `compression` to examine.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
 pub struct Frontier {
-    task: Option<String>,
-    request: Type,
-    programs: Vec<Program>,
+    pub task: Option<String>,
+    pub request: Type,
+    pub programs: Vec<Program>,
 }
 
+/// The type of a program.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize)]
 pub struct Type {
-    arguments: Vec<Type>,
-    constructor: String,
+    pub arguments: Vec<Type>,
+    pub constructor: String,
 }
 
+/// A particular program that `compression` will try to compress.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Program {
-    log_likelihood: f64,
-    program: Expr,
+    pub log_likelihood: f64,
+    pub program: Expr,
 }
 
+/// An expression in DreamCoder's generic programming language.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Expr {
+    /// A de Bruijn-indexed variable.
     Var(u32),
+
+    /// A symbol, typically one of the language's primitives.
     Symbol(egg::Symbol),
+
+    /// An "inlined" expression. This is how DreamCoder represents learned
+    /// functions.
     Inlined(Box<Expr>),
+
+    /// An anonymous function.
     Lambda(Box<Expr>),
+
+    /// An application of a function to a variable. DreamCoder allows applying a
+    /// function to multiple arguments, we translate these to nested
+    /// applications. That is, `(foo bar baz quux)`, is interpreted as
+    /// `(((foo bar) baz) quux)`.
     App(Box<Expr>, Box<Expr>),
 }
 
 impl Expr {
-    fn var(index: u32) -> Self {
+    /// Create a variable expression with de Bruijn index `index`.
+    #[must_use]
+    pub fn var(index: u32) -> Self {
         Self::Var(index)
     }
 
-    fn symbol<T: Into<egg::Symbol>>(name: T) -> Self {
+    /// Create a symbol representing `name`.
+    #[must_use]
+    pub fn symbol<T: Into<egg::Symbol>>(name: T) -> Self {
         Self::Symbol(name.into())
     }
 
-    fn inlined(expr: Self) -> Self {
+    /// Create an expression inlining `expr`.
+    #[must_use]
+    pub fn inlined(expr: Self) -> Self {
         Self::Inlined(Box::new(expr))
     }
 
-    fn lambda(body: Self) -> Self {
+    /// Create a lambda expression with body `body`.
+    #[must_use]
+    pub fn lambda(body: Self) -> Self {
         Self::Lambda(Box::new(body))
     }
 
-    fn app(fun: Self, arg: Self) -> Self {
+    /// Create an expression applying `fun` to `arg`.
+    #[must_use]
+    pub fn app(fun: Self, arg: Self) -> Self {
         Self::App(Box::new(fun), Box::new(arg))
     }
 }
@@ -208,6 +247,7 @@ pub(crate) mod parse {
     }
 }
 
+/// An error produced when a string can't be parsed as a valid [`Expr`].
 #[derive(Debug, Clone)]
 pub struct ParseExprError {
     message: String,
