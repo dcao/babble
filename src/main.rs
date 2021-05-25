@@ -12,7 +12,7 @@
 )]
 
 use babble::{
-    dreamcoder::{self, CompressionInput},
+    dreamcoder::{self, json::CompressionInput},
     smiley_lang,
 };
 use clap::Clap;
