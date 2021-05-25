@@ -46,10 +46,7 @@ impl AntiUnifTgt for Smiley {
     }
 
     fn is_lambda(node: &Self) -> bool {
-        match node {
-            Self::Fn(_) => true,
-            _ => false,
-        }
+        matches!(node, Self::Fn(..))
     }
 
     fn app(lambda: Id, arg: Id) -> Self {
