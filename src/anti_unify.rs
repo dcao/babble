@@ -3,7 +3,7 @@
 use ahash::AHasher;
 use dashmap::DashMap;
 use egg::{Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Runner, Var};
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 use smallvec::{smallvec, SmallVec};
 use std::hash::{Hash, Hasher};
 
@@ -228,7 +228,7 @@ impl<L: Language> Dfta<L> {
 
 /// An `AntiUnifTgt` is an extension of a Language which has constructs to
 /// introduce lambdas, etc.
-pub trait AntiUnifTgt: Language + Sync + Send + 'static {
+pub trait AntiUnifTgt: Language + Sync + Send + std::fmt::Display + 'static {
     /// Return a language node representing a lambda abstraction over some
     /// body.
     fn lambda(body: Id) -> Self;
@@ -247,6 +247,385 @@ pub trait AntiUnifTgt: Language + Sync + Send + 'static {
 /// Converts an Id to a pattern variable.
 fn id_to_pvar(c: Id) -> Var {
     format!("?{}", c.to_string()).parse().unwrap()
+}
+
+fn subset<T: smallvec::Array>(orig: &SmallVec<T>, sub: &SmallVec<T>) -> bool
+where
+    T::Item: PartialEq + PartialOrd,
+{
+    let mut ax = 0;
+    let mut bx = 0;
+
+    while ax < orig.len() && bx < sub.len() {
+        if orig[ax] == sub[bx] {
+            ax += 1;
+            bx += 1;
+        } else if orig[ax] < sub[bx] {
+            ax += 1;
+        } else {
+            return false;
+        }
+    }
+
+    bx == sub.len()
+}
+
+fn union<T: smallvec::Array>(orig: &SmallVec<T>, sub: &SmallVec<T>) -> SmallVec<T>
+where
+    T::Item: PartialEq + PartialOrd + Clone,
+{
+    let mut res = SmallVec::new();
+    let mut ax = 0;
+    let mut bx = 0;
+
+    while ax < orig.len() && bx < sub.len() {
+        if orig[ax] == sub[bx] {
+            res.push(orig[ax].clone());
+            ax += 1;
+            bx += 1;
+        } else if orig[ax] < sub[bx] {
+            res.push(orig[ax].clone());
+            ax += 1;
+        } else {
+            res.push(sub[bx].clone());
+            bx += 1;
+        }
+    }
+
+    while ax < orig.len() {
+        res.push(orig[ax].clone());
+        ax += 1;
+    }
+
+    while bx < sub.len() {
+        res.push(sub[bx].clone());
+        bx += 1;
+    }
+
+    res
+}
+
+/// An EnvCost is a mapping from function environments to the cost
+/// of expressions not including those functions. This data is associated with
+/// every eclass to memoize information about the minimum costs of the eclass
+/// given different environments.
+///
+/// To increase memory savings, we only store an entry here if there exist
+/// no subsets of the env which have a cost less than or equal to this cost.
+#[derive(Debug, Clone)]
+pub struct EnvCost<L: AntiUnifTgt> {
+    // Stored as a SmallVec since these shouldn't be too big, and since we
+    // want to preserve order (smallest cost at the end).
+    // We assume envs are sorted by cost in descending order.
+    // The third part of the tuple is the corresponding RecExpr that yields this
+    // cost.
+    map: SmallVec<[(SmallVec<[u64; 8]>, usize, Vec<L>, SmallVec<[usize; 8]>); 16]>,
+}
+
+impl<L: AntiUnifTgt> EnvCost<L> {
+    /// Creates a new `EnvCost`.
+    pub fn new() -> Self {
+        Self { map: smallvec![] }
+    }
+
+    pub fn unify(&self, other: &EnvCost<L>) -> EnvCost<L> {
+        // println!("UNIFY");
+        // println!("{:?}", &self);
+        // println!("{:?}", &other);
+
+        let mut res = EnvCost::new();
+        // We use a smallvec instead of a hashset to avoid allocs.
+        let mut seen: SmallVec<[&SmallVec<[u64; 8]>; 32]> = SmallVec::new();
+
+        let insert = |seen: &mut SmallVec<_>, env| match seen.binary_search(&env) {
+            Ok(_) => {}
+            Err(ix) => {
+                seen.insert(ix, env);
+            }
+        };
+
+        let is_seen = |seen: &SmallVec<_>, env| match seen.binary_search(&env) {
+            Ok(_) => true,
+            Err(_) => false,
+        };
+
+        // this.map.len() >= that.map.len(), always.
+        let (this, that, rev) = if self.map.len() >= other.map.len() {
+            (self, other, false)
+        } else {
+            (other, self, true)
+        };
+
+        // In special case where that is empty, just return this.clone()
+        // (and add child)
+        if that.map.len() == 0 {
+            return EnvCost {
+                map: this
+                    .map
+                    .iter()
+                    .cloned()
+                    .map(|x| {
+                        let l = x.2.len();
+                        (x.0, x.1, x.2, smallvec![l - 1])
+                    })
+                    .collect(),
+            };
+        }
+
+        for (env_a, cost_a, expr_a, children_a) in this.map.iter() {
+            for (env_b, cost_b, expr_b, children_b) in that.map.iter() {
+                if subset(env_a, env_b) {
+                    if env_a == env_b {
+                        insert(&mut seen, env_b);
+                    }
+
+                    // Do the RecExpr extension business.
+                    let env = env_a.clone();
+                    let cost = cost_a + cost_b;
+                    let (expr, mut children) =
+                        if !rev {
+                            let mut expr = expr_a.clone();
+                            let delta = expr_a.len();
+                            let new_other = expr_b.clone().into_iter().map(|x| {
+                                x.map_children(|c| (Into::<usize>::into(c) + delta).into())
+                            });
+                            expr.extend(new_other);
+
+                            let children = children_a.clone();
+                            (expr, children)
+                        } else {
+                            let mut expr = expr_b.clone();
+                            let delta = expr_b.len();
+                            let new_other = expr_a.clone().into_iter().map(|x| {
+                                x.map_children(|c| (Into::<usize>::into(c) + delta).into())
+                            });
+                            expr.extend(new_other);
+
+                            let children = children_b.clone();
+                            (expr, children)
+                        };
+
+                    children.push(expr.len() - 1);
+                    res.map.push((env, cost, expr, children));
+                } else {
+                    if !is_seen(&seen, env_b) {
+                        if subset(env_b, env_a) {
+                            insert(&mut seen, env_b);
+                        }
+
+                        // Do the RecExpr extension business.
+                        let env = union(env_a, env_b);
+                        let cost = cost_a + cost_b;
+                        let (expr, mut children) = if !rev {
+                            let mut expr = expr_a.clone();
+                            let delta = expr_a.len();
+                            let new_other = expr_b.clone().into_iter().map(|x| {
+                                x.map_children(|c| (Into::<usize>::into(c) + delta).into())
+                            });
+                            expr.extend(new_other);
+
+                            let children = children_a.clone();
+                            (expr, children)
+                        } else {
+                            let mut expr = expr_b.clone();
+                            let delta = expr_b.len();
+                            let new_other = expr_a.clone().into_iter().map(|x| {
+                                x.map_children(|c| (Into::<usize>::into(c) + delta).into())
+                            });
+                            expr.extend(new_other);
+
+                            let children = children_b.clone();
+                            (expr, children)
+                        };
+
+                        children.push(expr.len() - 1);
+                        res.map.push((env, cost, expr, children));
+                    }
+                }
+            }
+        }
+
+        // dbg!("UNIFY", &self, &other, &res);
+
+        // println!("{:?}", &res);
+
+        res
+    }
+
+    pub fn new_insert(&mut self, other: EnvCost<L>) -> bool {
+        let mut did_something = false;
+
+        // println!("INSERT");
+        // println!("{:?}", &self);
+        // println!("{:?}", &other);
+
+        for (env, cost, expr, _) in other.map {
+            let mut ix = 0;
+            let mut ins = Some(self.map.len());
+            let mut l = self.map.len();
+
+            while ix < l {
+                let (our_env, our_cost, _, _) = &self.map[ix];
+                if our_cost <= &cost {
+                    if subset(&env, our_env) {
+                        ins = None;
+                        break;
+                    }
+                    ix += 1;
+                } else {
+                    if ins.unwrap() == self.map.len() {
+                        ins = Some(ix);
+                    }
+                    
+                    if subset(our_env, &env) {
+                        self.map.remove(ix);
+                        l -= 1;
+                    } else {
+                        ix += 1;
+                    }
+                }
+            }
+
+            if let Some(ins) = ins {
+                self.map.insert(ins, (env, cost, expr, smallvec![]));
+                did_something = true;
+            }
+        }
+
+        did_something
+    }
+}
+
+// TODO: results for this are non-deterministic
+// some logic in EnvCost is incorrect, since order of rewrites (and thus order of eclasses) changes results.
+// when we insert into hashmap, hash is nondeterministic. thus, values come out in random order. the order
+// changes the results we see at the end.
+// TODO: why do we even need the "seen" map?
+// it prolly causes incompleteness too - if an enode's children adds new nodes on the next pass, we have to
+// rerun for the current enode
+// TODO: store sizes for each lambda here too?
+/// Calculates costs for an entire egraph.
+/// Unlike the default Extractor, this one isn't lazy, and it calculates costs
+/// for every enode.
+#[derive(Debug)]
+pub struct ECExtractor<'a, L: AntiUnifTgt, N: Analysis<L>> {
+    memo: HashMap<Id, EnvCost<L>>,
+    egraph: &'a EGraph<L, N>,
+    costs: HashMap<u64, usize>,
+}
+
+impl<'a, L: AntiUnifTgt, N: Analysis<L>> ECExtractor<'a, L, N> {
+    /// Creates a new ECExtractor.
+    pub fn new(egraph: &'a EGraph<L, N>) -> Self {
+        let mut e = Self {
+            memo: HashMap::new(),
+            costs: HashMap::new(),
+            egraph,
+        };
+        e.find_costs();
+
+        e
+    }
+
+    fn find_costs(&mut self) {
+        let mut did_something = true;
+        while did_something {
+            did_something = false;
+
+            for class in self.egraph.classes() {
+                did_something = did_something || self.make_pass(class);
+            }
+        }
+
+        // for class in self.egraph.classes() {
+        //     if !self.memo.contains_key(&class.id) {
+        //         println!(
+        //             "Failed to compute cost for eclass {}: {:?}",
+        //             class.id,
+        //             class.nodes
+        //         )
+        //     } else {
+        //         println!("computed cost for eclass {}: {:?}", class.id, class.nodes);
+        //     }
+        // }
+    }
+
+    fn try_calc_enode(&mut self, enode: &L) -> Option<EnvCost<L>> {
+        let mut temp = EnvCost::new();
+
+        let has_cost = |id| self.memo.contains_key(&self.egraph.find(id));
+        if !enode.all(has_cost) {
+            return None;
+        }
+
+        // check if all children are good.
+        for c in enode.children() {
+            // println!("child {}", c);
+            temp = temp.unify(&self.memo[c]);
+        }
+
+        // for each, try inserting into wider envcost.
+        for p in temp.map.iter_mut() {
+            // remap children to children ix.
+            let mut ix = 0;
+            let new = enode.clone().map_children(|_| {
+                let res = p.3[ix];
+                ix += 1;
+                res.into()
+            });
+
+            // Push new node to end.
+            p.2.push(new);
+
+            // if this is a new lib, set cost to 0 and add the hash of this fn.
+            if L::is_lambda(enode) {
+                p.1 = 0;
+                let mut h = AHasher::default();
+                // let r: RecExpr<L> = p.2.clone().into();
+                // r.to_string().hash(&mut h);
+                p.2.hash(&mut h);
+                p.0.push(h.finish());
+                self.costs.insert(h.finish(), p.2.len() - 1);
+            } else {
+                p.1 += 1;
+            }
+        }
+
+        // If this is a child, we just manually insert into temp.
+        if enode.children().len() == 0 {
+            temp.map
+                .push((smallvec![], 1, vec![enode.clone()], smallvec![]));
+        }
+
+        Some(temp)
+    }
+
+    // TODO: calculating an enode will always succeed if its parents have succeeded.
+    // we should prolly record the seen enodes so that we don't spin in a loop forever.
+    // But also, our logic should be resilient enough to not spin in a loop forever
+    // in the first place.
+    fn try_enode(&mut self, eclass: Id, enode: &L, ix: usize) -> bool {
+        // println!("{}:{}", eclass, ix);
+        if let Some(n) = self.try_calc_enode(enode) {
+            let t = self.memo.entry(eclass).or_insert_with(EnvCost::new);
+            let res = t.new_insert(n);
+            res
+        } else {
+            false
+        }
+    }
+
+    fn make_pass(&mut self, eclass: &egg::EClass<L, N::Data>) -> bool {
+        eclass
+            .iter()
+            .enumerate()
+            .map(|(ix, n)| self.try_enode(eclass.id, n, ix))
+            .any(|x| x)
+    }
+
+    pub fn extract(&self, eclass: Id) -> &(SmallVec<[u64; 8]>, usize, Vec<L>, SmallVec<[usize; 8]>) {
+        self.memo[&eclass].map.iter().min_by_key(|x| x.0.iter().map(|x| self.costs[x]).sum::<usize>() + x.1).unwrap()
+    }
 }
 
 // TODO: this seems inefficient
@@ -392,7 +771,7 @@ pub struct AntiUnifier<L: Language, N: Analysis<L>> {
     memo: DashMap<Id, Vec<AntiUnification<L>>>,
 }
 
-impl<L: AntiUnifTgt, N: Analysis<L> + Default + Clone> AntiUnifier<L, N>
+impl<L: AntiUnifTgt, N: 'static + Analysis<L> + Default + Clone> AntiUnifier<L, N>
 where
     <N as Analysis<L>>::Data: Clone,
 {
@@ -454,7 +833,7 @@ where
     ///
     /// # Panics
     /// Technically can panic, but shouldn't given fn invariants.
-    pub fn anti_unify(&mut self) {
+    pub fn anti_unify(&mut self, root: Id) {
         // We first build our worklist from the graph.
         let worklist = Self::init_worklist(&self.graph);
 
@@ -498,31 +877,44 @@ where
 
                 let searcher: Pattern<L> = searcher_rec.into();
                 let applier: Pattern<L> = applier_rec.into();
-                let name = c.to_string();
+                // let name = c;
+                let name = format!("{} => {}", searcher.to_string(), applier.to_string());
 
-                let _res = rewrites.try_insert(hash, Rewrite::new(name, searcher, applier).unwrap());
+                let _res =
+                    rewrites.try_insert(hash, Rewrite::new(name, searcher, applier).unwrap());
             }
         }
 
+        // println!("{:#?}", rewrites.clone());
+
         // Finally, run the rewrites!
-        let _runner = Runner::default()
+        let runner = Runner::default()
             //  .with_scheduler(SimpleScheduler)
             //  .with_iter_limit(1_000)
             //  .with_node_limit(1_000_000)
             //  .with_time_limit(core::time::Duration::from_secs(20))
             .with_egraph(self.graph.clone())
             .run(rewrites.values());
-            // .run(&[]);
 
-        // TODO: find the root properly lol
-        // let (mut egraph, root) = (runner.egraph, Into::<Id>::into(26));
-        // egraph.rebuild();
+        let mut egraph = runner.egraph;
+        egraph.rebuild();
+
+        // println!("EGRAPH STATS:");
+        // println!("eclasses: {}", egraph.classes().len());
+        // println!("root: {}", egraph.find(root));
+        // println!("nodes per eclass:");
+        // for c in egraph.classes() {
+        //     println!("{}: {}", c.id, c.len());
+        // }
+        // println!("reason: {:?}", runner.stop_reason);
+        // egraph.dot().to_svg("target/b.svg").unwrap();
 
         // Then, extract the best program from the egraph, starting at
         // the root
-        // let mut extractor = egg::Extractor::new(&egraph, ProgCostFn);
-        // extractor.find_best(root);
-        // println!("{:?}, {}, {}", extractor.find_best(root).0, extractor.find_best(root).0.total_cost(), extractor.find_best(root).1.pretty(100));
+        let extractor = ECExtractor::new(&egraph);
+        println!("{}", Into::<RecExpr<L>>::into(extractor.extract(egraph.find(root)).2.clone()).pretty(80));
+        // extractor.memo[&egraph.find(root)].map.iter().for_each(|x| println!("{}", Into::<RecExpr<L>>::into(x.2.clone()).pretty(80)));
+        // println!("{:?}", extractor.memo[&egraph.find(root)]);
     }
 
     fn enumerate<'a, F>(&'a self, c: Id, get_nodes: F)
@@ -586,32 +978,39 @@ where
     /// a new rule that anti-unifies within the arguments.
     ///
     /// This function assumes the two transitions match.
-    fn anti_unif_transitions(&mut self, (la, sa): (L, Id), (lb, sb): (L, Id)) -> (L, Id) {
+    fn anti_unif_transitions(&mut self, (mut la, sa): (L, Id), (lb, sb): (L, Id)) -> (L, Id) {
+        // let out_state = self.interner.get_or_gen(sa, sb);
+        // let children: HashMap<Id, (Id, Id)> = enode_children(&la)
+        //     .into_iter()
+        //     .zip(enode_children(&lb))
+        //     .map(|(a, b)| (a, (a, b)))
+        //     .collect();
+        // let mut lres = la;
+        // lres.for_each_mut(|t| {
+        //     let (a, b) = children[t];
+        //     dbg!("bro", (a, b));
+        //     *t = self.interner.get_or_gen(a, b);
+        // });
+        // (lres, out_state)
+
         let out_state = self.interner.get_or_gen(sa, sb);
-        // TODO: this hacky business is b/c we don't have .children(_mut) :/
-        let children: HashMap<Id, (Id, Id)> = enode_children(&la)
-            .into_iter()
-            .zip(enode_children(&lb))
-            .map(|(a, b)| (a, (a, b)))
-            .collect();
-        let mut lres = la;
-        lres.for_each_mut(|t| {
-            let (a, b) = children[t];
-            *t = self.interner.get_or_gen(a, b);
-        });
-        (lres, out_state)
+        for (a, b) in la.children_mut().iter_mut().zip(lb.children()) {
+            *a = self.interner.get_or_gen(*a, *b);
+        }
+        (la, out_state)
     }
 }
 
 /// Anti-unifies within a given `EGraph`, returning an `AntiUnifier` as output.
-pub fn anti_unify<L: AntiUnifTgt, N: Analysis<L> + Default + Clone>(
+pub fn anti_unify<L: AntiUnifTgt, N: 'static + Analysis<L> + Default + Clone>(
     g: EGraph<L, N>,
+    root: Id,
 ) -> AntiUnifier<L, N>
 where
     <N as Analysis<L>>::Data: Clone,
 {
     let mut a = AntiUnifier::new(g);
-    a.anti_unify();
+    a.anti_unify(root);
     a
 }
 
@@ -627,18 +1026,28 @@ mod tests {
         let rules: &[Rewrite] = &[];
 
         // First, parse the expression and build an egraph from it
-        let expr = r"
-(let s1 (+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line))))
-  (let s2 (+ (move 4 4 (scale 2 circle)) (+ (move 3 2 circle) (+ (move 4 3 (scale 9 circle)) (move 5 2 circle))))
-    (+ s1 s2)))".parse().unwrap();
+        //        let expr = r"
+        //(let f (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0)))))
+        //(let s1 (app f line)
+        //  (let s2 (app f circle)
+        //    (+ s1 s2))))".parse().unwrap();
 //        let expr = r"
-//(let s1 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) line)
-//  (let s2 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) circle)
+//(let s1 (+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line))))
+//  (let s2 (+ (move 4 4 (scale 2 circle)) (+ (move 3 2 circle) (+ (move 4 3 (scale 9 circle)) (move 5 2 circle))))
 //    (+ s1 s2)))".parse().unwrap();
+        let expr = r"
+(let s1 (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line)))
+  (let s2 (+ (move 3 2 circle) (+ (move 4 3 (scale 9 circle)) (move 5 2 circle)))
+    (+ s1 s2)))".parse().unwrap();
+        //let expr = r"(+ 1 (+ 1 (+ 1 1)))".parse().unwrap();
+        //        let expr = r"
+        //(let s1 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) line)
+        //  (let s2 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) circle)
+        //    (+ s1 s2)))".parse().unwrap();
         let runner = Runner::default().with_expr(&expr).run(rules);
-        let (egraph, _root) = (runner.egraph, runner.roots[0]);
+        let (egraph, root) = (runner.egraph, runner.roots[0]);
 
-        let _res = anti_unify(egraph);
+        let _res = anti_unify(egraph, root);
 
         // println!("{:#?}", res.dfta);
     }
