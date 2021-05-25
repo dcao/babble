@@ -12,7 +12,7 @@
 )]
 
 use babble::{
-    dreamcoder::{CompressionInput, CompressionOutput},
+    dreamcoder::{self, CompressionInput},
     smiley_lang,
 };
 use clap::Clap;
@@ -60,10 +60,7 @@ fn main() {
 
         // TODO: Actually do something with the input
 
-        let output = CompressionOutput {
-            dsl: input.dsl,
-            frontiers: input.frontiers,
-        };
+        let output = dreamcoder::run(input);
 
         if opts.pretty {
             serde_json::to_writer_pretty(io::stdout(), &output)
