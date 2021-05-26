@@ -47,8 +47,8 @@ define_language! {
 fn can_let_lift(a: &'static str, b: &'static str) -> impl Fn(&mut EGraph, Id, &egg::Subst) -> bool {
     let a = a.parse().unwrap();
     let b = b.parse().unwrap();
-    move |_, _, subst| {
-        subst[b] < subst[a]
+    move |_, _, x| {
+        x[a] < x[b]
     }
 }
 
@@ -82,17 +82,17 @@ impl AntiUnifTgt for Smiley {
 
     fn lift_lets() -> Vec<egg::Rewrite<Self, ()>> {
         rewrite_rules! {
-            unify_let: "(let ?a ?b (let ?c ?d ?e))" => "(let ?a ?b ?e)" if egg::ConditionEqual::parse("?b", "?d");
-            lift_lets: "(let ?a1 ?b1 (let ?a2 ?b2 ?c))" => "(let ?a2 ?b2 (let ?a1 ?b1 ?c))" if can_let_lift("?a1", "?b1");
+            unify_let: "(let ?a ?b (let ?a ?b ?c))" => "(let ?a ?b ?c)";
+            lift_lets: "(let ?a1 ?b1 (let ?a2 ?b2 ?c))" => "(let ?a2 ?b2 (let ?a1 ?b1 ?c))" if can_let_lift("?a1", "?a2");
             lift_lets_2: "(let ?a (let ?fn ?body ?app) ?c)" => "(let ?fn ?body (let ?a ?app ?c))";
 
-            lift_let_move_1: "(move (let ?a ?b ?c) ?m1 ?m2)" => "(let ?a ?b (move ?c ?m1 ?m2))";
-            lift_let_move_2: "(move ?m1 (let ?a ?b ?c) ?m2)" => "(let ?a ?b (move ?m1 ?c ?m2))";
-            lift_let_move_3: "(move ?m1 ?m2 (let ?a ?b ?c))" => "(let ?a ?b (move ?m1 ?m2 ?c))";
-            lift_let_scale_1: "(scale (let ?a ?b ?c) ?m1)" => "(let ?a ?b (scale ?c ?m1))";
-            lift_let_scale_2: "(scale ?m1 (let ?a ?b ?c))" => "(let ?a ?b (scale ?m1 ?c))";
-            lift_let_rotate_1: "(rotate (let ?a ?b ?c) ?m1)" => "(let ?a ?b (rotate ?c ?m1))";
-            lift_let_rotate_2: "(rotate ?m1 (let ?a ?b ?c))" => "(let ?a ?b (rotate ?m1 ?c))";
+            // lift_let_move_1: "(move (let ?a ?b ?c) ?m1 ?m2)" => "(let ?a ?b (move ?c ?m1 ?m2))";
+            // lift_let_move_2: "(move ?m1 (let ?a ?b ?c) ?m2)" => "(let ?a ?b (move ?m1 ?c ?m2))";
+            // lift_let_move_3: "(move ?m1 ?m2 (let ?a ?b ?c))" => "(let ?a ?b (move ?m1 ?m2 ?c))";
+            // lift_let_scale_1: "(scale (let ?a ?b ?c) ?m1)" => "(let ?a ?b (scale ?c ?m1))";
+            // lift_let_scale_2: "(scale ?m1 (let ?a ?b ?c))" => "(let ?a ?b (scale ?m1 ?c))";
+            // lift_let_rotate_1: "(rotate (let ?a ?b ?c) ?m1)" => "(let ?a ?b (rotate ?c ?m1))";
+            // lift_let_rotate_2: "(rotate ?m1 (let ?a ?b ?c))" => "(let ?a ?b (rotate ?m1 ?c))";
             // lift_let_compose_1: "(+ (let ?a ?b ?c) ?m1)" => "(let ?a ?b (+ ?c ?m1))";
             // lift_let_compose_2: "(+ ?m1 (let ?a ?b ?c))" => "(let ?a ?b (+ ?m1 ?c))";
             // lift_let_lambda: "(fn (let ?a ?b ?c))" => "(let ?a ?b (fn ?c))";

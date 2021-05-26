@@ -526,16 +526,19 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
         let runner = Runner::default()
             .with_scheduler(egg::SimpleScheduler)
             // .with_iter_limit(1_000)
-            // .with_node_limit(1_000_000)
+            .with_node_limit(1_000_000)
             // .with_time_limit(core::time::Duration::from_secs(40))
             .with_egraph(self.graph.clone())
             .run(rewrites.values().chain(L::lift_lets().iter()));
+            // .run(L::lift_lets().iter());
             // .run(rewrites.values());
 
         // println!("{:?}", runner.stop_reason);
 
         // TODO: find the root properly lol
         let egraph = runner.egraph;
+
+        // egraph.dot().to_svg("target/a.svg").unwrap();
 
         // Then, extract the best program from the egraph, starting at
         // the root
