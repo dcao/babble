@@ -4,15 +4,16 @@
 #![allow(missing_docs)]
 
 use babble_macros::rewrite_rules;
-use crate::{anti_unify::AntiUnifTgt};
-use egg::{define_language, CostFunction, Id, Language};
+use crate::{anti_unify::{AntiUnifTgt, AUAnalysis}};
+use egg::{Language, define_language, Id, Analysis, Symbol};
 use ordered_float::NotNan;
+use hashbrown::HashSet;
 
 /// E-graphs in the `Smiley` language.
-pub type EGraph = egg::EGraph<Smiley, ()>;
+pub type EGraph = egg::EGraph<Smiley, SmileyAnalysis>;
 
 /// Rewrites in the `Smiley` language.
-pub type Rewrite = egg::Rewrite<Smiley, ()>;
+pub type Rewrite = egg::Rewrite<Smiley, SmileyAnalysis>;
 
 /// Number constants in the `Smiley` language.
 pub type Constant = NotNan<f64>;
@@ -25,6 +26,7 @@ define_language! {
 
         // Meta:
         "let" = Let([Id; 3]),
+        "lib" = Lib([Id; 3]),
         "fn" = Fn(Id),
         "app" = App([Id; 2]),
         "var" = Var(Id),
@@ -52,7 +54,49 @@ fn can_let_lift(a: &'static str, b: &'static str) -> impl Fn(&mut EGraph, Id, &e
     }
 }
 
+#[derive(Default, Clone, Copy, Debug)]
+pub struct SmileyAnalysis;
+
+impl Analysis<Smiley> for SmileyAnalysis {
+    type Data = HashSet<Symbol>;
+
+    fn merge(&self, to: &mut Self::Data, from: Self::Data) -> Option<std::cmp::Ordering> {
+        let before_len = to.len();
+        // to.free.extend(from.free);
+        to.retain(|i| from.contains(i));
+        let did_change = before_len != to.len();
+        if did_change {
+            None
+        } else {
+            Some(std::cmp::Ordering::Greater)
+        }
+    }
+
+    fn make(egraph: &EGraph, enode: &Smiley) -> Self::Data {
+        let f = |i: &Id| egraph[*i].data.iter().cloned();
+        let mut free = HashSet::default();
+        match enode {
+            Smiley::Symbol(v) => {
+                if v.as_str().starts_with("fn_") {
+                    free.insert(*v);
+                }
+            }
+            Smiley::Lib([v, a, b]) => {
+                free.extend(f(b));
+                egraph[*v].iter().for_each(|x| match x { Smiley::Symbol(x) => { free.remove(x); }, _ => {} });
+                free.extend(f(a));
+            }
+            _ => enode.for_each(|c| free.extend(&egraph[c].data)),
+        }
+        free
+    }
+}
+
+impl AUAnalysis<Smiley> for SmileyAnalysis {}
+
 impl AntiUnifTgt for Smiley {
+    type Analysis = SmileyAnalysis;
+    
     fn lambda(body: Id) -> Self {
         Self::Fn(body)
     }
@@ -77,14 +121,21 @@ impl AntiUnifTgt for Smiley {
     }
 
     fn lib(name: Id, lam: Id, body: Id) -> Self {
-        Self::Let([name, lam, body])
+        Self::Lib([name, lam, body])
     }
 
-    fn lift_lets() -> Vec<egg::Rewrite<Self, ()>> {
+    fn lift_lets() -> Vec<egg::Rewrite<Self, Self::Analysis>> {
         rewrite_rules! {
-            unify_let: "(let ?a ?b (let ?a ?b ?c))" => "(let ?a ?b ?c)";
-            lift_lets: "(let ?a1 ?b1 (let ?a2 ?b2 ?c))" => "(let ?a2 ?b2 (let ?a1 ?b1 ?c))" if can_let_lift("?a1", "?a2");
-            lift_lets_2: "(let ?a (let ?fn ?body ?app) ?c)" => "(let ?fn ?body (let ?a ?app ?c))";
+            // fixme: lib-let lifting. experimental
+            lift_lib_let: "(let ?a1 ?b1 (lib ?a2 ?b2 ?c))" => "(lib ?a2 ?b2 (let ?a1 ?b1 ?c))";
+            lift_lib_let_2: "(let ?a (lib ?fn ?body ?app) ?c)" => "(lib ?fn ?body (let ?a ?app ?c))";
+            unify_lib: "(lib ?a ?b (lib ?a ?b ?c))" => "(lib ?a ?b ?c)";
+            order_lib: "(lib ?a1 ?b1 (lib ?a2 ?b2 ?c))" => "(lib ?a2 ?b2 (lib ?a1 ?b1 ?c))" if can_let_lift("?a1", "?a2");
+            
+            // unify_let: "(let ?a ?b (let ?a ?b ?c))" => "(let ?a ?b ?c)";
+            // lift_lets: "(let ?a1 ?b1 (let ?a2 ?b2 ?c))" => "(let ?a2 ?b2 (let ?a1 ?b1 ?c))" if can_let_lift("?a1", "?a2");
+            // lift_lets_2: "(let ?a (let ?fn ?body ?app) ?c)" => "(let ?fn ?body (let ?a ?app ?c))";
+            todo_pls_delete: "(move 5 2 ?15)" => "(lib fn_1176429130788038353 (fn (move 5 2 $0)) (app fn_1176429130788038353 ?15))";
 
             // lift_let_move_1: "(move (let ?a ?b ?c) ?m1 ?m2)" => "(let ?a ?b (move ?c ?m1 ?m2))";
             // lift_let_move_2: "(move ?m1 (let ?a ?b ?c) ?m2)" => "(let ?a ?b (move ?m1 ?c ?m2))";
@@ -102,21 +153,6 @@ impl AntiUnifTgt for Smiley {
     }
 }
 
-struct ToySize;
-impl CostFunction<Smiley> for ToySize {
-    type Cost = f64;
-    fn cost<C>(&mut self, enode: &Smiley, mut costs: C) -> Self::Cost
-    where
-        C: FnMut(Id) -> Self::Cost,
-    {
-        let op_cost = match enode {
-            Smiley::Scale(_) | Smiley::Rotate(_) | Smiley::Move(_) => 16.0,
-            _ => 1.0,
-        };
-        enode.fold(op_cost, |sum, id| sum + costs(id))
-    }
-}
-
 /// Execute `EGraph` building and program extraction on a single expression
 /// containing all of the programs to extract common fragments out of.
 ///
@@ -131,7 +167,7 @@ impl CostFunction<Smiley> for ToySize {
 /// Panics if `expr` is not a valid smiley expression.
 #[must_use]
 pub fn run_single(expr: &str) {
-    let mut g = EGraph::new(());
+    let mut g = EGraph::new(SmileyAnalysis::default());
 
     // First, parse the expression and build an egraph from it
     let expr = expr.parse().unwrap();

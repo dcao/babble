@@ -16,6 +16,7 @@
     missing_docs
 )]
 
+pub mod extract;
 pub mod anti_unify;
 pub mod smiley_lang;
 

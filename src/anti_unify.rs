@@ -2,10 +2,12 @@
 
 use ahash::AHasher;
 use dashmap::DashMap;
-use egg::{Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Runner, Var};
-use hashbrown::HashMap;
+use egg::{Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Runner, Var, Symbol};
+use hashbrown::{HashMap, HashSet};
 use smallvec::{smallvec, SmallVec};
 use std::hash::{Hash, Hasher};
+
+use super::extract::Extractor;
 
 // Central idea of anti-unification technique:
 // 1. Compile all programs into one central egraph
@@ -226,9 +228,13 @@ impl<L: Language> Dfta<L> {
     }
 }
 
+pub trait AUAnalysis<L: Language>: Analysis<L, Data = HashSet<Symbol>> + Clone + Default {}
+
 /// An `AntiUnifTgt` is an extension of a Language which has constructs to
 /// introduce lambdas, etc.
 pub trait AntiUnifTgt: Language + Sync + Send + std::fmt::Display + 'static {
+    type Analysis: AUAnalysis<Self>;
+
     /// Return a language node representing a lambda abstraction over some
     /// body.
     fn lambda(body: Id) -> Self;
@@ -251,7 +257,7 @@ pub trait AntiUnifTgt: Language + Sync + Send + std::fmt::Display + 'static {
 
     /// Returns a list of rewrites which lifts lets to the top level
     /// of the expression in some order.
-    fn lift_lets() -> Vec<Rewrite<Self, ()>>;
+    fn lift_lets() -> Vec<Rewrite<Self, Self::Analysis>>;
 }
 
 /// Converts an Id to a pattern variable.
@@ -401,8 +407,8 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
 /// After running anti-unification, we have a new egraph which contains
 /// all possible libraries we could learn from the
 #[derive(Debug)]
-pub struct AntiUnifier<L: Language> {
-    graph: EGraph<L, ()>,
+pub struct AntiUnifier<L: AntiUnifTgt> {
+    graph: EGraph<L, L::Analysis>,
 
     dfta: Dfta<L>,
     interner: IdInterner,
@@ -416,7 +422,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
     /// We first rebuild this egraph to make sure all its invariants hold.
     /// We then create a DFTA from it which we will use for anti-unification
     /// work.
-    pub fn new(mut g: EGraph<L, ()>) -> Self {
+    pub fn new(mut g: EGraph<L, L::Analysis>) -> Self {
         g.rebuild();
         let dfta = Dfta::build(&g);
 
@@ -435,13 +441,9 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
     }
 
     // TODO: init_worklist at depths larger than 2
-    fn init_worklist(g: &EGraph<L, ()>) -> Vec<((L, Id), (L, Id))> {
-        // TODO: technically this might be incorrect versus the previous
-        // enode_hash impl, but it's way faster and doesn't appear to be
-        // giving any incorrect behavior so...
-        fn enode_hash<L: Language>(enode: &L) -> std::mem::Discriminant<L> {
-            #[allow(clippy::mem_discriminant_non_enum)]
-            std::mem::discriminant(enode)
+    fn init_worklist(g: &EGraph<L, L::Analysis>) -> Vec<((L, Id), (L, Id))> {
+        fn enode_hash<L: Language + std::fmt::Display>(enode: &L) -> String {
+            format!("{}_{}", enode, enode.len())
         }
 
         let mut map: HashMap<_, Vec<(L, Id)>> = HashMap::new();
@@ -495,7 +497,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
         // TODO: parallelize this?
         // We then enumerate our transitions as well, additionally converting these
         // anti-unifications into rewrites which we will apply to the egraph.
-        let mut rewrites: HashMap<u64, Rewrite<L, ()>> = HashMap::new();
+        let mut rewrites: HashMap<u64, Rewrite<L, L::Analysis>> = HashMap::new();
         for c in self.interner.states().collect::<Vec<_>>() {
             self.enumerate(c, |c| {
                 self.dfta.get_by_state(c).map(std::convert::AsRef::as_ref)
@@ -520,7 +522,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
             }
         }
 
-        // println!("final: {:#?}", rewrites);
+        println!("final: {:#?}", rewrites);
 
         // Finally, run the rewrites!
         let runner = Runner::default()
@@ -529,8 +531,8 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
             .with_node_limit(1_000_000)
             // .with_time_limit(core::time::Duration::from_secs(40))
             .with_egraph(self.graph.clone())
-            .run(rewrites.values().chain(L::lift_lets().iter()));
-            // .run(L::lift_lets().iter());
+            // .run(rewrites.values().chain(L::lift_lets().iter()));
+            .run(L::lift_lets().iter());
             // .run(rewrites.values());
 
         // println!("{:?}", runner.stop_reason);
@@ -538,12 +540,12 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
         // TODO: find the root properly lol
         let egraph = runner.egraph;
 
-        // egraph.dot().to_svg("target/a.svg").unwrap();
+        egraph.dot().to_svg("target/smh2.svg").unwrap();
 
         // Then, extract the best program from the egraph, starting at
         // the root
-        let mut extractor = egg::Extractor::new(&egraph, egg::AstSize);
-        extractor.find_best(root);
+        let mut extractor = Extractor::new(&egraph, egg::AstSize, egraph.find(root));
+        extractor.find_best(egraph.find(root));
         println!("{}, {}", extractor.find_best(root).0, extractor.find_best(root).1.pretty(100));
     }
 
@@ -626,7 +628,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
 }
 
 /// Anti-unifies within a given `EGraph`, returning an `AntiUnifier` as output.
-pub fn anti_unify<L: AntiUnifTgt>(g: EGraph<L, ()>, root: Id) -> AntiUnifier<L> {
+pub fn anti_unify<L: AntiUnifTgt>(g: EGraph<L, L::Analysis>, root: Id) -> AntiUnifier<L> {
     let mut a = AntiUnifier::new(g);
     a.anti_unify(root);
     a
