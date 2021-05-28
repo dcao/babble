@@ -4,7 +4,7 @@
 #![allow(missing_docs)]
 
 use babble_macros::rewrite_rules;
-use crate::{anti_unify::{AntiUnifTgt, AUAnalysis}};
+use crate::{anti_unify::{AntiUnifTgt, AUAnalysis}, env_pattern::EnvPattern};
 use egg::{Language, define_language, Id, Analysis, Symbol};
 use ordered_float::NotNan;
 use hashbrown::HashSet;
@@ -127,7 +127,7 @@ impl AntiUnifTgt for Smiley {
     fn lift_lets() -> Vec<egg::Rewrite<Self, Self::Analysis>> {
         rewrite_rules! {
             // fixme: lib-let lifting. experimental
-            lift_lib_let: "(let ?a1 ?b1 (lib ?a2 ?b2 ?c))" => "(lib ?a2 ?b2 (let ?a1 ?b1 ?c))";
+            lift_lib_let: "(let ?a1 ?b1 (lib ?a2 ?b2 ?c))" => { EnvPattern("(lib ?a2 ?b2 (let ?a1 ?b1 ?c))".parse().unwrap()) };
             lift_lib_let_2: "(let ?a (lib ?fn ?body ?app) ?c)" => "(lib ?fn ?body (let ?a ?app ?c))";
             unify_lib: "(lib ?a ?b (lib ?a ?b ?c))" => "(lib ?a ?b ?c)";
             order_lib: "(lib ?a1 ?b1 (lib ?a2 ?b2 ?c))" => "(lib ?a2 ?b2 (lib ?a1 ?b1 ?c))" if can_let_lift("?a1", "?a2");
