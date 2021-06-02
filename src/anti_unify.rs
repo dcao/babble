@@ -2,7 +2,9 @@
 
 use ahash::AHasher;
 use dashmap::DashMap;
-use egg::{Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Runner, Var, Symbol};
+use egg::{
+    Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Runner, Symbol, Var,
+};
 use hashbrown::{HashMap, HashSet};
 use smallvec::{smallvec, SmallVec};
 use std::hash::{Hash, Hasher};
@@ -395,7 +397,11 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
         }
 
         // Finally, introduce a let.
-        res.push(ENodeOrVar::ENode(L::lib(sym_id.into(), fn_id.into(), (res.len() - 1).into())));
+        res.push(ENodeOrVar::ENode(L::lib(
+            sym_id.into(),
+            fn_id.into(),
+            (res.len() - 1).into(),
+        )));
 
         (hash, res)
     }
@@ -512,13 +518,18 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
                     (l.0, l.1.into())
                 };
 
-                println!("rewrite:\n{}\n=>\n{}\n", searcher_rec.pretty(80), applier_rec.pretty(80));
+                println!(
+                    "rewrite:\n{}\n=>\n{}\n",
+                    searcher_rec.pretty(80),
+                    applier_rec.pretty(80)
+                );
 
                 let name = applier_rec.to_string();
                 let searcher: Pattern<L> = searcher_rec.into();
                 let applier: Pattern<L> = applier_rec.into();
 
-                let _res = rewrites.try_insert(hash, Rewrite::new(name, searcher, applier).unwrap());
+                let _res =
+                    rewrites.try_insert(hash, Rewrite::new(name, searcher, applier).unwrap());
             }
         }
 
@@ -533,7 +544,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
             .with_egraph(self.graph.clone())
             // .run(rewrites.values().chain(L::lift_lets().iter()));
             .run(L::lift_lets().iter());
-            // .run(rewrites.values());
+        // .run(rewrites.values());
 
         // println!("{:?}", runner.stop_reason);
 
@@ -546,7 +557,11 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
         // the root
         let mut extractor = Extractor::new(&egraph, egg::AstSize, egraph.find(root));
         extractor.find_best(egraph.find(root));
-        println!("{}, {}", extractor.find_best(root).0, extractor.find_best(root).1.pretty(100));
+        println!(
+            "{}, {}",
+            extractor.find_best(root).0,
+            extractor.find_best(root).1.pretty(100)
+        );
     }
 
     fn enumerate<'a, F>(&'a self, c: Id, get_nodes: F)
@@ -646,19 +661,19 @@ mod tests {
         let rules: &[Rewrite] = &[];
 
         // First, parse the expression and build an egraph from it
-//        let expr = r"
-//(let f (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0)))))
-//(let s1 (app f line)
-//  (let s2 (app f circle)
-//    (+ s1 s2))))".parse().unwrap();
+        //        let expr = r"
+        //(let f (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0)))))
+        //(let s1 (app f line)
+        //  (let s2 (app f circle)
+        //    (+ s1 s2))))".parse().unwrap();
         let expr = r"
 (let s1 (+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line))))
   (let s2 (+ (move 4 4 (scale 2 circle)) (+ (move 3 2 circle) (+ (move 4 3 (scale 9 circle)) (move 5 2 circle))))
     (+ s1 s2)))".parse().unwrap();
-//        let expr = r"
-//(let s1 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) line)
-//  (let s2 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) circle)
-//    (+ s1 s2)))".parse().unwrap();
+        //        let expr = r"
+        //(let s1 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) line)
+        //  (let s2 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) circle)
+        //    (+ s1 s2)))".parse().unwrap();
         let runner = Runner::default().with_expr(&expr).run(rules);
         let (egraph, root) = (runner.egraph, runner.roots[0]);
 

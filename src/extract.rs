@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use crate::anti_unify::AUAnalysis;
-use egg::{EClass, EGraph, Id, RecExpr, CostFunction, Language};
+use egg::{CostFunction, EClass, EGraph, Id, Language, RecExpr};
 
 fn cmp<T: PartialOrd>(a: &Option<T>, b: &Option<T>) -> Ordering {
     // None is high
@@ -105,7 +105,10 @@ where
             .iter()
             .map(|n| (self.node_total_cost(n), n))
             .min_by(|a, b| cmp(&a.0, &b.0))
-            .filter(|_| { println!("{:?}", eclass.data); eclass.id != self.root || eclass.data.is_empty() })
+            .filter(|_| {
+                println!("{:?}", eclass.data);
+                eclass.id != self.root || eclass.data.is_empty()
+            })
             .unwrap_or_else(|| panic!("Can't extract, eclass is empty: {:#?}", eclass));
         cost.map(|c| (c, node.clone()))
     }

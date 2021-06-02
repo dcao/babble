@@ -3,11 +3,14 @@
 // TODO: Remove this once define_language! allows doc strings
 #![allow(missing_docs)]
 
+use crate::{
+    anti_unify::{AUAnalysis, AntiUnifTgt},
+    env_pattern::EnvPattern,
+};
 use babble_macros::rewrite_rules;
-use crate::{anti_unify::{AntiUnifTgt, AUAnalysis}, env_pattern::EnvPattern};
-use egg::{Language, define_language, Id, Analysis, Symbol};
-use ordered_float::NotNan;
+use egg::{define_language, Analysis, Id, Language, Symbol};
 use hashbrown::HashSet;
+use ordered_float::NotNan;
 
 /// E-graphs in the `Smiley` language.
 pub type EGraph = egg::EGraph<Smiley, SmileyAnalysis>;
@@ -49,9 +52,7 @@ define_language! {
 fn can_let_lift(a: &'static str, b: &'static str) -> impl Fn(&mut EGraph, Id, &egg::Subst) -> bool {
     let a = a.parse().unwrap();
     let b = b.parse().unwrap();
-    move |_, _, x| {
-        x[a] < x[b]
-    }
+    move |_, _, x| x[a] < x[b]
 }
 
 #[derive(Default, Clone, Copy, Debug)]
@@ -83,7 +84,12 @@ impl Analysis<Smiley> for SmileyAnalysis {
             }
             Smiley::Lib([v, a, b]) => {
                 free.extend(f(b));
-                egraph[*v].iter().for_each(|x| match x { Smiley::Symbol(x) => { free.remove(x); }, _ => {} });
+                egraph[*v].iter().for_each(|x| match x {
+                    Smiley::Symbol(x) => {
+                        free.remove(x);
+                    }
+                    _ => {}
+                });
                 free.extend(f(a));
             }
             _ => enode.for_each(|c| free.extend(&egraph[c].data)),
@@ -96,7 +102,7 @@ impl AUAnalysis<Smiley> for SmileyAnalysis {}
 
 impl AntiUnifTgt for Smiley {
     type Analysis = SmileyAnalysis;
-    
+
     fn lambda(body: Id) -> Self {
         Self::Fn(body)
     }
@@ -131,7 +137,7 @@ impl AntiUnifTgt for Smiley {
             lift_lib_let_2: "(let ?a (lib ?fn ?body ?app) ?c)" => "(lib ?fn ?body (let ?a ?app ?c))";
             unify_lib: "(lib ?a ?b (lib ?a ?b ?c))" => "(lib ?a ?b ?c)";
             order_lib: "(lib ?a1 ?b1 (lib ?a2 ?b2 ?c))" => "(lib ?a2 ?b2 (lib ?a1 ?b1 ?c))" if can_let_lift("?a1", "?a2");
-            
+
             // unify_let: "(let ?a ?b (let ?a ?b ?c))" => "(let ?a ?b ?c)";
             // lift_lets: "(let ?a1 ?b1 (let ?a2 ?b2 ?c))" => "(let ?a2 ?b2 (let ?a1 ?b1 ?c))" if can_let_lift("?a1", "?a2");
             // lift_lets_2: "(let ?a (let ?fn ?body ?app) ?c)" => "(let ?fn ?body (let ?a ?app ?c))";

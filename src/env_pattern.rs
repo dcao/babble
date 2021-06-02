@@ -1,5 +1,5 @@
 use crate::anti_unify::AUAnalysis;
-use egg::{Pattern, Applier, Language, EGraph, Id, Subst, Var, SearchMatches};
+use egg::{Applier, EGraph, Id, Language, Pattern, SearchMatches, Subst, Var};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct EnvPattern<L>(pub Pattern<L>);
@@ -42,4 +42,3 @@ where
         added
     }
 }
-

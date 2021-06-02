@@ -16,9 +16,9 @@
     missing_docs
 )]
 
+pub mod anti_unify;
 pub mod env_pattern;
 pub mod extract;
-pub mod anti_unify;
 pub mod smiley_lang;
 
 pub use smiley_lang::Rewrite;

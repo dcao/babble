@@ -83,7 +83,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     (+ s1 s2)))".parse().unwrap();
     let root = g.add_expr(&expr);
     // benchmarking anti-unif!
-    c.bench_function("test_anti_unif_1", |b| b.iter(|| anti_unify(g.clone(), root)));
+    c.bench_function("test_anti_unif_1", |b| {
+        b.iter(|| anti_unify(g.clone(), root))
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);
