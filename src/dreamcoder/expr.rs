@@ -13,7 +13,10 @@ use internment::ArcIntern;
 use nom::error::convert_error;
 use serde::{Deserialize, Serialize};
 
-use super::{parse, util::{DeBruijnIndex, parens}};
+use super::{
+    parse,
+    util::{parens, DeBruijnIndex},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]

@@ -1,6 +1,6 @@
 //! The JSON interface to Dream&shy;Coder.
 
-use serde::{ Serialize, Deserialize };
+use serde::{Deserialize, Serialize};
 
 use super::{expr::Expr, types::Type};
 

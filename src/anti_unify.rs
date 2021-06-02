@@ -500,7 +500,8 @@ where
                 let applier: Pattern<L> = applier_rec.into();
                 let name = c.to_string();
 
-                let _res = rewrites.try_insert(hash, Rewrite::new(name, searcher, applier).unwrap());
+                let _res =
+                    rewrites.try_insert(hash, Rewrite::new(name, searcher, applier).unwrap());
             }
         }
 
@@ -512,7 +513,7 @@ where
             //  .with_time_limit(core::time::Duration::from_secs(20))
             .with_egraph(self.graph.clone())
             .run(rewrites.values());
-            // .run(&[]);
+        // .run(&[]);
 
         // TODO: find the root properly lol
         // let (mut egraph, root) = (runner.egraph, Into::<Id>::into(26));
@@ -631,10 +632,10 @@ mod tests {
 (let s1 (+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line))))
   (let s2 (+ (move 4 4 (scale 2 circle)) (+ (move 3 2 circle) (+ (move 4 3 (scale 9 circle)) (move 5 2 circle))))
     (+ s1 s2)))".parse().unwrap();
-//        let expr = r"
-//(let s1 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) line)
-//  (let s2 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) circle)
-//    (+ s1 s2)))".parse().unwrap();
+        //        let expr = r"
+        //(let s1 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) line)
+        //  (let s2 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) circle)
+        //    (+ s1 s2)))".parse().unwrap();
         let runner = Runner::default().with_expr(&expr).run(rules);
         let (egraph, _root) = (runner.egraph, runner.roots[0]);
 

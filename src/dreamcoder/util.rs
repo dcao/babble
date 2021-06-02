@@ -1,4 +1,8 @@
-use std::{fmt::{self, Display, Formatter}, num::ParseIntError, str::FromStr};
+use std::{
+    fmt::{self, Display, Formatter},
+    num::ParseIntError,
+    str::FromStr,
+};
 use thiserror::Error;
 
 pub(crate) fn parens<F>(precedence: usize, formatter: &mut Formatter<'_>, body: F) -> fmt::Result

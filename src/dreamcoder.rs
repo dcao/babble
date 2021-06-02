@@ -7,10 +7,10 @@ use self::json::{CompressionInput, CompressionOutput};
 // Note: We write Dream&shy;Coder instead of DreamCoder to avoid a false
 // positive from a clippy lint.
 
-pub mod json;
-pub mod types;
 pub mod expr;
+pub mod json;
 mod parse;
+pub mod types;
 mod util;
 
 /// Emulate Dream&shy;Coder's compression tool.

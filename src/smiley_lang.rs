@@ -4,7 +4,7 @@
 #![allow(missing_docs)]
 
 use crate::{anti_unify::AntiUnifTgt, rewrites};
-use egg::{define_language, CostFunction, Extractor, Id, Language, RecExpr, Runner};
+use egg::{define_language, CostFunction, Extractor, Id, IterationData, Language, RecExpr, Runner};
 use ordered_float::NotNan;
 
 /// E-graphs in the `Smiley` language.
@@ -87,30 +87,12 @@ impl CostFunction<Smiley> for ToySize {
 
 /// Execute `EGraph` building and program extraction on a single expression
 /// containing all of the programs to extract common fragments out of.
-///
-/// Programs should be in the form:
-/// ```ignore
-/// let e1 = (...)
-/// let e2 = (...)
-/// let e3 = (...)
-/// ```
-///
-/// # Panics
-/// Panics if `expr` is not a valid smiley expression.
 #[must_use]
-pub fn run_single(expr: &str) -> RecExpr<Smiley> {
+pub fn run_single<T: IterationData<Smiley, ()>>(runner: Runner<Smiley, (), T>) -> RecExpr<Smiley> {
     // Our list of rewrite rules is here
-    let rules: &[Rewrite] = &rules();
+    let rules = rules();
 
-    // First, parse the expression and build an egraph from it
-    let expr = expr.parse().unwrap();
-    let runner = Runner::default()
-        // .with_scheduler(SimpleScheduler)
-        // .with_iter_limit(1_000)
-        // .with_node_limit(1_000_000)
-        // .with_time_limit(core::time::Duration::from_secs(20))
-        .with_expr(&expr)
-        .run(rules);
+    let runner = runner.run(&rules);
     let (egraph, root) = (runner.egraph, runner.roots[0]);
 
     // Then, extract the best program from the egraph, starting at

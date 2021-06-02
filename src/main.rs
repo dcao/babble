@@ -16,6 +16,7 @@ use babble::{
     smiley_lang,
 };
 use clap::Clap;
+use egg::Runner;
 use std::{
     fs,
     io::{self, Read},
@@ -28,6 +29,10 @@ struct Opts {
     /// The input file. If no file is specified, reads from stdin.
     #[clap(parse(from_os_str))]
     file: Option<PathBuf>,
+
+    /// Output the intermediate e-graphs to egraphs/iteration-N.svg.
+    #[clap(long)]
+    dump_egraphs: bool,
 
     /// Enables DreamCoder compatibility mode.
     #[clap(long)]
@@ -70,9 +75,20 @@ fn main() {
             serde_json::to_writer(io::stdout(), &output).expect("Error printing JSON output");
         }
     } else {
-        let expr = smiley_lang::run_single(&input);
+        let mut runner = Runner::default();
+        if opts.dump_egraphs {
+            runner = runner.with_hook(|runner| {
+                let iteration = runner.iterations.len();
+                let file = format!("egraphs/iteration-{}.svg", iteration);
+                runner.egraph.dot().to_svg(file).map_err(|e| e.to_string())
+            });
+        }
+
+        let input = input.parse().expect("Input is not a valid expression");
+        let runner = runner.with_expr(&input);
+        let output = smiley_lang::run_single(runner);
 
         println!("output:");
-        println!("{}", expr);
+        println!("{}", output);
     }
 }
