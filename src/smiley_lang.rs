@@ -8,8 +8,8 @@ use crate::{
     env_pattern::EnvPattern,
 };
 use babble_macros::rewrite_rules;
-use egg::{define_language, Analysis, Id, Language, Symbol};
 use hashbrown::HashSet;
+use egg::{define_language, Analysis, Extractor, Id, IterationData, Language, RecExpr, Runner, Symbol};
 use ordered_float::NotNan;
 
 /// E-graphs in the `Smiley` language.
@@ -108,10 +108,7 @@ impl AntiUnifTgt for Smiley {
     }
 
     fn is_lambda(node: &Self) -> bool {
-        match node {
-            Self::Fn(_) => true,
-            _ => false,
-        }
+        matches!(node, Self::Fn(..))
     }
 
     fn app(lambda: Id, arg: Id) -> Self {
@@ -161,23 +158,6 @@ impl AntiUnifTgt for Smiley {
 
 /// Execute `EGraph` building and program extraction on a single expression
 /// containing all of the programs to extract common fragments out of.
-///
-/// Programs should be in the form:
-/// ```ignore
-/// let e1 = (...)
-/// let e2 = (...)
-/// let e3 = (...)
-/// ```
-///
-/// # Panics
-/// Panics if `expr` is not a valid smiley expression.
-#[must_use]
-pub fn run_single(expr: &str) {
-    let mut g = EGraph::new(SmileyAnalysis::default());
-
-    // First, parse the expression and build an egraph from it
-    let expr = expr.parse().unwrap();
-    let root = g.add_expr(&expr);
-
-    crate::anti_unify::anti_unify(g, root);
+pub fn run_single(runner: Runner<Smiley, <Smiley as AntiUnifTgt>::Analysis>) {
+    crate::anti_unify::anti_unify(runner);
 }

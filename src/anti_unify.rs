@@ -3,7 +3,8 @@
 use ahash::AHasher;
 use dashmap::DashMap;
 use egg::{
-    Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Runner, Symbol, Var,
+    Analysis, EGraph, ENodeOrVar, Id, IterationData, Language, Pattern, RecExpr, Rewrite, Runner,
+    Symbol, Var,
 };
 use hashbrown::{HashMap, HashSet};
 use smallvec::{smallvec, SmallVec};
@@ -412,9 +413,8 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
 /// library functions and synthesis solutions) compiled together.
 /// After running anti-unification, we have a new egraph which contains
 /// all possible libraries we could learn from the
-#[derive(Debug)]
 pub struct AntiUnifier<L: AntiUnifTgt> {
-    graph: EGraph<L, L::Analysis>,
+    runner: Option<Runner<L, L::Analysis>>,
 
     dfta: Dfta<L>,
     interner: IdInterner,
@@ -428,9 +428,10 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
     /// We first rebuild this egraph to make sure all its invariants hold.
     /// We then create a DFTA from it which we will use for anti-unification
     /// work.
-    pub fn new(mut g: EGraph<L, L::Analysis>) -> Self {
+    pub fn new(mut runner: Runner<L, L::Analysis>) -> Self {
+        let g = &mut runner.egraph;
         g.rebuild();
-        let dfta = Dfta::build(&g);
+        let dfta = Dfta::build(g);
 
         let max_id = g
             .classes()
@@ -439,7 +440,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
             .map_or_else(|| 0.into(), |x| (Into::<usize>::into(x) + 1).into());
 
         Self {
-            graph: g,
+            runner: Some(runner),
             dfta,
             interner: IdInterner::init(max_id),
             memo: DashMap::new(),
@@ -480,7 +481,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
     /// Technically can panic, but shouldn't given fn invariants.
     pub fn anti_unify(&mut self, root: Id) {
         // We first build our worklist from the graph.
-        let worklist = Self::init_worklist(&self.graph);
+        let worklist = Self::init_worklist(&self.runner.as_ref().unwrap().egraph);
 
         // We then build our transitions from this worklist
         for (a, b) in worklist {
@@ -497,7 +498,9 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
         // have no metavariables in the pattern, and no arguments in the
         // arg map.
         for c in self.interner.eclasses().collect::<Vec<_>>() {
-            self.enumerate(c, |c| Some(&self.graph[c].nodes));
+            self.enumerate(c, |c| {
+                self.runner.as_ref().map(|r| r.egraph[c].nodes.as_ref())
+            });
         }
 
         // TODO: parallelize this?
@@ -536,22 +539,20 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
         println!("final: {:#?}", rewrites);
 
         // Finally, run the rewrites!
-        let runner = Runner::default()
-            .with_scheduler(egg::SimpleScheduler)
-            // .with_iter_limit(1_000)
-            .with_node_limit(1_000_000)
-            // .with_time_limit(core::time::Duration::from_secs(40))
-            .with_egraph(self.graph.clone())
-            // .run(rewrites.values().chain(L::lift_lets().iter()));
-            .run(L::lift_lets().iter());
+        self.runner = Some(
+            self.runner
+                .take()
+                .unwrap()
+                // .with_time_limit(core::time::Duration::from_secs(40))
+                // .run(rewrites.values().chain(L::lift_lets().iter()));
+                .run(L::lift_lets().iter()),
+        );
         // .run(rewrites.values());
 
         // println!("{:?}", runner.stop_reason);
 
         // TODO: find the root properly lol
-        let egraph = runner.egraph;
-
-        egraph.dot().to_svg("target/smh2.svg").unwrap();
+        let egraph = &self.runner.as_ref().unwrap().egraph;
 
         // Then, extract the best program from the egraph, starting at
         // the root
@@ -643,8 +644,9 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
 }
 
 /// Anti-unifies within a given `EGraph`, returning an `AntiUnifier` as output.
-pub fn anti_unify<L: AntiUnifTgt>(g: EGraph<L, L::Analysis>, root: Id) -> AntiUnifier<L> {
-    let mut a = AntiUnifier::new(g);
+pub fn anti_unify<L: AntiUnifTgt>(runner: Runner<L, L::Analysis>) -> AntiUnifier<L> {
+    let root = runner.roots[0];
+    let mut a = AntiUnifier::new(runner);
     a.anti_unify(root);
     a
 }
@@ -675,9 +677,8 @@ mod tests {
         //  (let s2 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) circle)
         //    (+ s1 s2)))".parse().unwrap();
         let runner = Runner::default().with_expr(&expr).run(rules);
-        let (egraph, root) = (runner.egraph, runner.roots[0]);
 
-        let _res = anti_unify(egraph, root);
+        let _res = anti_unify(runner);
 
         // println!("{:#?}", res.dfta);
     }
