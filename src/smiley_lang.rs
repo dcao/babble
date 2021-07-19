@@ -9,7 +9,7 @@ use crate::{
 };
 use babble_macros::rewrite_rules;
 use hashbrown::HashSet;
-use egg::{define_language, Analysis, Extractor, Id, IterationData, Language, RecExpr, Runner, Symbol};
+use egg::{define_language, Analysis, Id, Language, Runner, Symbol};
 use ordered_float::NotNan;
 
 /// E-graphs in the `Smiley` language.

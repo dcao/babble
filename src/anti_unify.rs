@@ -3,12 +3,12 @@
 use ahash::AHasher;
 use dashmap::DashMap;
 use egg::{
-    Analysis, EGraph, ENodeOrVar, Id, IterationData, Language, Pattern, RecExpr, Rewrite, Runner,
+    Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Runner,
     Symbol, Var,
 };
 use hashbrown::{HashMap, HashSet};
 use smallvec::{smallvec, SmallVec};
-use std::hash::{Hash, Hasher};
+use std::{hash::{Hash, Hasher}, mem};
 
 use super::extract::Extractor;
 
@@ -413,8 +413,9 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
 /// library functions and synthesis solutions) compiled together.
 /// After running anti-unification, we have a new egraph which contains
 /// all possible libraries we could learn from the
+#[derive(Debug)]
 pub struct AntiUnifier<L: AntiUnifTgt> {
-    runner: Option<Runner<L, L::Analysis>>,
+    runner: Runner<L, L::Analysis>,
 
     dfta: Dfta<L>,
     interner: IdInterner,
@@ -440,7 +441,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
             .map_or_else(|| 0.into(), |x| (Into::<usize>::into(x) + 1).into());
 
         Self {
-            runner: Some(runner),
+            runner: runner,
             dfta,
             interner: IdInterner::init(max_id),
             memo: DashMap::new(),
@@ -481,7 +482,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
     /// Technically can panic, but shouldn't given fn invariants.
     pub fn anti_unify(&mut self, root: Id) {
         // We first build our worklist from the graph.
-        let worklist = Self::init_worklist(&self.runner.as_ref().unwrap().egraph);
+        let worklist = Self::init_worklist(&self.runner.egraph);
 
         // We then build our transitions from this worklist
         for (a, b) in worklist {
@@ -498,9 +499,9 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
         // have no metavariables in the pattern, and no arguments in the
         // arg map.
         for c in self.interner.eclasses().collect::<Vec<_>>() {
-            self.enumerate(c, |c| {
-                self.runner.as_ref().map(|r| r.egraph[c].nodes.as_ref())
-            });
+            self.enumerate(c, |c|
+                Some(&self.runner.egraph[c].nodes)
+            );
         }
 
         // TODO: parallelize this?
@@ -538,25 +539,22 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
 
         println!("final: {:#?}", rewrites);
 
+
         // Finally, run the rewrites!
-        self.runner = Some(
-            self.runner
-                .take()
-                .unwrap()
+        self.runner = mem::take(&mut self.runner)
                 // .with_time_limit(core::time::Duration::from_secs(40))
                 // .run(rewrites.values().chain(L::lift_lets().iter()));
-                .run(L::lift_lets().iter()),
-        );
+                .run(L::lift_lets().iter());
         // .run(rewrites.values());
 
         // println!("{:?}", runner.stop_reason);
 
         // TODO: find the root properly lol
-        let egraph = &self.runner.as_ref().unwrap().egraph;
+        let egraph = &self.runner.egraph;
 
         // Then, extract the best program from the egraph, starting at
         // the root
-        let mut extractor = Extractor::new(&egraph, egg::AstSize, egraph.find(root));
+        let mut extractor = Extractor::new(egraph, egg::AstSize, egraph.find(root));
         extractor.find_best(egraph.find(root));
         println!(
             "{}, {}",
