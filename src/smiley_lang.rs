@@ -107,11 +107,7 @@ impl AntiUnifTgt for Smiley {
         Self::Fn(body)
     }
 
-    fn is_lambda(node: &Self) -> bool {
-        matches!(node, Self::Fn(..))
-    }
-
-    fn app(lambda: Id, arg: Id) -> Self {
+   fn app(lambda: Id, arg: Id) -> Self {
         Self::App([lambda, arg])
     }
 
@@ -161,3 +157,4 @@ impl AntiUnifTgt for Smiley {
 pub fn run_single(runner: Runner<Smiley, <Smiley as AntiUnifTgt>::Analysis>) {
     crate::anti_unify::anti_unify(runner);
 }
+

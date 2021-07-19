@@ -242,9 +242,6 @@ pub trait AntiUnifTgt: Language + Sync + Send + std::fmt::Display + 'static {
     /// body.
     fn lambda(body: Id) -> Self;
 
-    /// Returns if a language node is a lambda or not.
-    fn is_lambda(node: &Self) -> bool;
-
     /// Return a language node representing an application of a function
     /// to an argument.
     fn app(lambda: Id, arg: Id) -> Self;
@@ -340,11 +337,13 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
             .map(|x| x.map_children(|c| (Into::<usize>::into(c) + delta).into()));
         self.pattern.extend(new_other);
 
-        // Then, extend the args list.
+        // Then, extend the args list by doing binary insertion of each arg
+        // in the other into our vec.
         for arg in &other.args {
-            if !self.args.contains(arg) {
-                self.args.push(*arg);
-            }
+            match self.args.binary_search(arg) {
+                Ok(_) => {}
+                Err(ix) => self.args.insert(ix, *arg),
+            };
         }
     }
 
@@ -425,7 +424,7 @@ pub struct AntiUnifier<L: AntiUnifTgt> {
 }
 
 impl<L: AntiUnifTgt> AntiUnifier<L> {
-    /// Initialize an `AntiUnifier` from an `EGraph`.
+   /// Initialize an `AntiUnifier` from an `EGraph`.
     /// We first rebuild this egraph to make sure all its invariants hold.
     /// We then create a DFTA from it which we will use for anti-unification
     /// work.
@@ -507,7 +506,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
         // TODO: parallelize this?
         // We then enumerate our transitions as well, additionally converting these
         // anti-unifications into rewrites which we will apply to the egraph.
-        let mut rewrites: HashMap<u64, Rewrite<L, L::Analysis>> = HashMap::new();
+       let mut rewrites: Vec<Rewrite<L, L::Analysis>> = vec![];
         for c in self.interner.states().collect::<Vec<_>>() {
             self.enumerate(c, |c| {
                 self.dfta.get_by_state(c).map(std::convert::AsRef::as_ref)
@@ -517,23 +516,13 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
                     continue;
                 }
                 let searcher_rec: RecExpr<ENodeOrVar<L>> = prog.pattern.clone().into();
-                let (hash, applier_rec): (u64, RecExpr<ENodeOrVar<L>>) = {
-                    let l = prog.lambdify();
-                    (l.0, l.1.into())
-                };
-
-                println!(
-                    "rewrite:\n{}\n=>\n{}\n",
-                    searcher_rec.pretty(80),
-                    applier_rec.pretty(80)
-                );
-
-                let name = applier_rec.to_string();
+                let applier_rec: RecExpr<ENodeOrVar<L>> = prog.lambdify().1.into();
+                // println!("rewrite:\n{}\n=>\n{}\n", searcher_rec.pretty(80), applier_rec.pretty(80));
+                // println!("");
                 let searcher: Pattern<L> = searcher_rec.into();
                 let applier: Pattern<L> = applier_rec.into();
-
-                let _res =
-                    rewrites.try_insert(hash, Rewrite::new(name, searcher, applier).unwrap());
+                let name = c.to_string();
+                rewrites.push(Rewrite::new(name, searcher, applier).unwrap());
             }
         }
 
@@ -561,7 +550,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
             extractor.find_best(root).0,
             extractor.find_best(root).1.pretty(100)
         );
-    }
+   }
 
     fn enumerate<'a, F>(&'a self, c: Id, get_nodes: F)
     where
@@ -579,7 +568,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
                     let children = enode_children(l);
 
                     // TODO: pruning optimization
-
+                    
                     // For each of the children, we need to enumerate each of them. We can
                     // then include their anti-unifications in our anti-unification.
                     for c in children.clone() {
@@ -670,10 +659,6 @@ mod tests {
 (let s1 (+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line))))
   (let s2 (+ (move 4 4 (scale 2 circle)) (+ (move 3 2 circle) (+ (move 4 3 (scale 9 circle)) (move 5 2 circle))))
     (+ s1 s2)))".parse().unwrap();
-        //        let expr = r"
-        //(let s1 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) line)
-        //  (let s2 (app (fn (+ (move 4 4 (scale 2 arg_0)) (+ (move 3 2 arg_0) (+ (move 4 3 (scale 9 circle)) (move 5 2 arg_0))))) circle)
-        //    (+ s1 s2)))".parse().unwrap();
         let runner = Runner::default().with_expr(&expr).run(rules);
 
         let _res = anti_unify(runner);
