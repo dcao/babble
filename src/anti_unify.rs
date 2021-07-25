@@ -3,12 +3,14 @@
 use ahash::AHasher;
 use dashmap::DashMap;
 use egg::{
-    Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Runner,
-    Symbol, Var,
+    Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Runner, Symbol, Var,
 };
 use hashbrown::{HashMap, HashSet};
 use smallvec::{smallvec, SmallVec};
-use std::{hash::{Hash, Hasher}, mem};
+use std::{
+    hash::{Hash, Hasher},
+    mem,
+};
 
 use super::extract::Extractor;
 
@@ -424,7 +426,7 @@ pub struct AntiUnifier<L: AntiUnifTgt> {
 }
 
 impl<L: AntiUnifTgt> AntiUnifier<L> {
-   /// Initialize an `AntiUnifier` from an `EGraph`.
+    /// Initialize an `AntiUnifier` from an `EGraph`.
     /// We first rebuild this egraph to make sure all its invariants hold.
     /// We then create a DFTA from it which we will use for anti-unification
     /// work.
@@ -440,7 +442,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
             .map_or_else(|| 0.into(), |x| (Into::<usize>::into(x) + 1).into());
 
         Self {
-            runner: runner,
+            runner,
             dfta,
             interner: IdInterner::init(max_id),
             memo: DashMap::new(),
@@ -498,15 +500,13 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
         // have no metavariables in the pattern, and no arguments in the
         // arg map.
         for c in self.interner.eclasses().collect::<Vec<_>>() {
-            self.enumerate(c, |c|
-                Some(&self.runner.egraph[c].nodes)
-            );
+            self.enumerate(c, |c| Some(&self.runner.egraph[c].nodes));
         }
 
         // TODO: parallelize this?
         // We then enumerate our transitions as well, additionally converting these
         // anti-unifications into rewrites which we will apply to the egraph.
-       let mut rewrites: Vec<Rewrite<L, L::Analysis>> = vec![];
+        let mut rewrites: Vec<Rewrite<L, L::Analysis>> = vec![];
         for c in self.interner.states().collect::<Vec<_>>() {
             self.enumerate(c, |c| {
                 self.dfta.get_by_state(c).map(std::convert::AsRef::as_ref)
@@ -530,11 +530,10 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
 
 
         // Finally, run the rewrites!
+        self.runner.stop_reason = None;
         self.runner = mem::take(&mut self.runner)
-                // .with_time_limit(core::time::Duration::from_secs(40))
-                // .run(rewrites.values().chain(L::lift_lets().iter()));
-                .run(L::lift_lets().iter());
-        // .run(rewrites.values());
+            .with_time_limit(core::time::Duration::from_secs(40))
+            .run(rewrites.iter().chain(L::lift_lets().iter()));
 
         // println!("{:?}", runner.stop_reason);
 
@@ -550,7 +549,7 @@ impl<L: AntiUnifTgt> AntiUnifier<L> {
             extractor.find_best(root).0,
             extractor.find_best(root).1.pretty(100)
         );
-   }
+    }
 
     fn enumerate<'a, F>(&'a self, c: Id, get_nodes: F)
     where
