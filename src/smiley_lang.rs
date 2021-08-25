@@ -3,9 +3,15 @@
 // TODO: Remove this once define_language! allows doc strings
 #![allow(missing_docs)]
 
-use crate::{anti_unify::AntiUnifTgt, fresh};
+use crate::{
+    anti_unify::{anti_unify, AntiUnifTgt},
+    fresh,
+};
 use babble_macros::rewrite_rules;
-use egg::{define_language, Analysis, Condition, EClass, Id, Language, Runner, Subst, Symbol};
+use egg::{
+    define_language, Analysis, AstSize, Condition, EClass, Extractor, Id, Language, Runner, Subst,
+    Symbol,
+};
 use ordered_float::NotNan;
 use std::{cmp::Ordering, collections::HashSet, iter::FromIterator};
 
@@ -189,5 +195,15 @@ fn not_free_in(expr: &'static str, var: &'static str) -> impl Condition<Smiley, 
 /// Execute `EGraph` building and program extraction on a single expression
 /// containing all of the programs to extract common fragments out of.
 pub fn run_single(runner: Runner<Smiley, SmileyAnalysis>) {
-    crate::anti_unify::anti_unify(runner);
+    let au_rewrites = anti_unify(&runner.egraph);
+
+    let runner = runner
+        .with_time_limit(core::time::Duration::from_secs(40))
+        .run(au_rewrites.iter().chain(Smiley::lift_lets().iter()));
+
+    let extractor = Extractor::new(&runner.egraph, AstSize);
+    let (cost, expr) = extractor.find_best(runner.roots[0]);
+
+    eprintln!("Cost: {}\n", cost);
+    eprintln!("{}", expr.pretty(100));
 }

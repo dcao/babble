@@ -1,11 +1,11 @@
 //! Implements anti-unification between two egraphs.
 
 use dashmap::DashMap;
-use egg::{
-    Analysis, EGraph, ENodeOrVar, Extractor, Id, Language, Pattern, RecExpr, Rewrite, Runner, Var,
+use egg::{Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Var};
+use std::{
+    collections::HashMap,
+    mem::{self, Discriminant},
 };
-use smallvec::{smallvec, SmallVec};
-use std::collections::HashMap;
 
 // Central idea of anti-unification technique:
 // 1. Compile all programs into one central egraph
@@ -52,15 +52,6 @@ use std::collections::HashMap;
 //    (or (and ?a (not ?b)) (and (not ?a) ?b)) => (app (fn "xor") ?a ?b)
 //    (app (fn "xor") ?a ?b) => (or (and ?a (not ?b)) (and (not ?a) ?b))
 
-// TODO: Because we don't have .children()
-fn enode_children<L: Language>(enode: &L) -> Vec<Id> {
-    let mut children = Vec::with_capacity(enode.len());
-    enode.for_each(|child| {
-        children.push(child);
-    });
-    children
-}
-
 /// An `IdInterner` stores a two-way mapping between pairs of states and fresh
 /// states used in their place. In order to avoid DFTAs having state arguments
 /// and outputs of variable length, we instead generate fresh states using
@@ -69,8 +60,8 @@ fn enode_children<L: Language>(enode: &L) -> Vec<Id> {
 /// Note that these Ids have no relation to any egraph whatsoever!
 #[derive(Debug)]
 pub struct IdInterner {
-    states: HashMap<Id, SmallVec<[Id; 4]>>,
-    sets: HashMap<SmallVec<[Id; 4]>, Id>,
+    states: HashMap<Id, Vec<Id>>,
+    sets: HashMap<Vec<Id>, Id>,
     /// The start Id
     pub start: Id,
     counter: Id,
@@ -83,8 +74,8 @@ impl IdInterner {
         let mut states = HashMap::new();
         let mut sets = HashMap::new();
         for i in 0..start.into() {
-            states.insert(i.into(), smallvec![i.into()]);
-            sets.insert(smallvec![i.into()], i.into());
+            states.insert(i.into(), vec![i.into()]);
+            sets.insert(vec![i.into()], i.into());
         }
 
         Self {
@@ -100,16 +91,16 @@ impl IdInterner {
     /// # Panics
     /// Panics if a and b aren't in Ids.
     #[must_use]
-    pub fn lookup(&self, a: Id, b: Id) -> SmallVec<[Id; 4]> {
-        let owned_states_b: SmallVec<[Id; 4]>;
+    pub fn lookup(&self, a: Id, b: Id) -> Vec<Id> {
+        let owned_states_b: Vec<Id>;
         let states_b = if b < self.start {
-            owned_states_b = smallvec![b];
+            owned_states_b = vec![b];
             &owned_states_b
         } else {
             self.states.get(&b).unwrap()
         };
         let mut res = if a < self.start {
-            smallvec![a]
+            vec![a]
         } else {
             self.states.get(&a).unwrap().clone()
         };
@@ -137,7 +128,7 @@ impl IdInterner {
         let new_id = self.lookup(a, b);
         self.states.insert(self.counter, new_id.clone());
         self.sets.insert(new_id, self.counter);
-        self.counter = (Into::<usize>::into(self.counter) + 1).into();
+        self.counter = (usize::from(self.counter) + 1).into();
         res
     }
 
@@ -165,6 +156,20 @@ impl IdInterner {
     }
 }
 
+/// A transition rule in a DFTA.
+#[derive(Debug, Clone)]
+pub struct Rule<L> {
+    input: L,
+    output: Id,
+}
+
+impl<L> Rule<L> {
+    /// Create a new transition from `input` to `output`.
+    pub fn new(input: L, output: Id) -> Self {
+        Rule { input, output }
+    }
+}
+
 // TODO: would encoding this directly as an egraph be more efficient?
 /// Conceptually, a DFTA is a list (or rather, a map) of transition rules from
 /// an operand and its argument states to an output state. In practice, we
@@ -184,45 +189,62 @@ impl IdInterner {
 /// and values from the second state for the right expr.
 #[derive(Debug)]
 pub struct Dfta<L> {
-    states: HashMap<Id, SmallVec<[L; 8]>>,
+    outputs_to_inputs: HashMap<Id, Vec<L>>,
 }
 
-impl<L: Language> Dfta<L> {
-    /// Builds a new `Dfta` from an `EGraph`.
-    pub fn build<N: Analysis<L>>(g: &EGraph<L, N>) -> Dfta<L> {
-        let mut states = HashMap::new();
-        for class in g.classes() {
-            for node in class.iter() {
-                states
-                    .entry(class.id)
-                    .or_insert_with(SmallVec::new)
-                    // We first insert our lambda arguments into the RecExpr,
-                    .push(node.clone());
+impl<L, A> From<&EGraph<L, A>> for Dfta<L>
+where
+    L: Language,
+    A: Analysis<L>,
+{
+    fn from(egraph: &EGraph<L, A>) -> Self {
+        let mut dfta = Self::new();
+        for eclass in egraph.classes() {
+            for enode in eclass.iter() {
+                dfta.push(Rule::new(enode.clone(), eclass.id));
             }
         }
-        Self { states }
+        dfta
     }
+}
 
+impl<L> Dfta<L> {
+    /// Create an empty DFTA.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            outputs_to_inputs: HashMap::new(),
+        }
+    }
     /// Adds a new transition to the DFTA.
-    pub fn push(&mut self, (l, s): (L, Id)) {
-        self.states.entry(s).or_insert_with(SmallVec::new).push(l);
+    pub fn push(&mut self, rule: Rule<L>) {
+        self.outputs_to_inputs
+            .entry(rule.output)
+            .or_default()
+            .push(rule.input);
     }
 
     /// Marks the given state as visited in the DFTA.
     pub fn push_empty(&mut self, s: Id) {
-        self.states.entry(s).or_insert_with(SmallVec::new);
+        self.outputs_to_inputs.entry(s).or_default();
     }
 
     /// Checks if a state has been visited.
     #[must_use]
     pub fn has_visited(&self, s: Id) -> bool {
-        self.states.contains_key(&s)
+        self.outputs_to_inputs.contains_key(&s)
     }
 
     /// Get all the transitions which have this state as an output.
     #[must_use]
-    pub fn get_by_state(&self, s: Id) -> Option<&SmallVec<[L; 8]>> {
-        self.states.get(&s)
+    pub fn get_by_output(&self, output: Id) -> Option<&[L]> {
+        self.outputs_to_inputs.get(&output).map(Vec::as_slice)
+    }
+}
+
+impl<L> Default for Dfta<L> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -256,7 +278,7 @@ where
 
 /// Converts an Id to a pattern variable.
 fn id_to_pvar(c: Id) -> Var {
-    format!("?{}", c.to_string()).parse().unwrap()
+    format!("?{}", c).parse().unwrap()
 }
 
 // TODO: this seems inefficient
@@ -277,7 +299,7 @@ pub struct AntiUnification<L> {
     /// A sorted list of phi Ids, which will eventually become arguments to
     /// lambdas. At the end, we generate de Brujin indices by getting the
     /// index of each Id in this list.
-    pub args: SmallVec<[Id; 32]>,
+    pub args: Vec<Id>,
 
     phi: bool,
 }
@@ -285,8 +307,8 @@ pub struct AntiUnification<L> {
 impl<L> Default for AntiUnification<L> {
     fn default() -> Self {
         Self {
-            pattern: Vec::default(),
-            args: SmallVec::new(),
+            pattern: Vec::new(),
+            args: Vec::new(),
             phi: false,
         }
     }
@@ -304,7 +326,7 @@ impl<L: Language> AntiUnification<L> {
     pub fn phi(c: Id) -> Self {
         Self {
             pattern: vec![ENodeOrVar::Var(id_to_pvar(c))],
-            args: smallvec![c],
+            args: vec![c],
             phi: true,
         }
     }
@@ -324,20 +346,20 @@ impl<L: Language> AntiUnification<L> {
         // The delta we need to add to the items in the other
         // pattern AST is equal to the current length of the pattern.
         let delta = self.pattern.len();
-        let new_other = other
-            .pattern
-            .clone()
-            .into_iter()
-            .map(|x| x.map_children(|c| (Into::<usize>::into(c) + delta).into()));
-        self.pattern.extend(new_other);
+
+        for mut enode_or_var in other.pattern.iter().cloned() {
+            for child in enode_or_var.children_mut() {
+                *child = (usize::from(*child) + delta).into();
+            }
+            self.pattern.push(enode_or_var);
+        }
 
         // Then, extend the args list by doing binary insertion of each arg
         // in the other into our vec.
         for arg in &other.args {
-            match self.args.binary_search(arg) {
-                Ok(_) => {}
-                Err(ix) => self.args.insert(ix, *arg),
-            };
+            if let Err(i) = self.args.binary_search(arg) {
+                self.args.insert(i, *arg);
+            }
         }
     }
 
@@ -349,7 +371,7 @@ impl<L: Language> AntiUnification<L> {
         L: AntiUnifTgt<A>,
     {
         // We first create a map from the stringified Id to its de Brujin index.
-        let mut res = vec![];
+        let mut lambda = vec![];
         let arg_map: HashMap<Var, _> = self
             .args
             .iter()
@@ -361,7 +383,7 @@ impl<L: Language> AntiUnification<L> {
         // expression. If it's an ENode, we insert as-is. If it's a var, we
         // turn it into a lambda argument.
         for node in &self.pattern {
-            res.push(match node {
+            lambda.push(match node {
                 ENodeOrVar::ENode(n) => ENodeOrVar::ENode(n.clone()),
                 ENodeOrVar::Var(var) => ENodeOrVar::ENode(L::lambda_arg(arg_map[var])),
             });
@@ -370,32 +392,32 @@ impl<L: Language> AntiUnification<L> {
         // We then introduce as many lambdas as is needed to cover our
         // args.
         for _ in 0..self.args.len() {
-            res.push(ENodeOrVar::ENode(L::lambda((res.len() - 1).into())));
+            lambda.push(ENodeOrVar::ENode(L::lambda((lambda.len() - 1).into())));
         }
-        let fn_id = res.len() - 1;
+        let fn_id = lambda.len() - 1;
 
         // Push a symbol representing our hashed function to the lambda.
-        let sym_id = res.len();
-        res.push(ENodeOrVar::ENode(L::fn_sym()));
+        let sym_id = lambda.len();
+        lambda.push(ENodeOrVar::ENode(L::fn_sym()));
 
         // Then we introduce applications
         // Make sure we iterate in the right order for our de brujin indices :))
         for arg_id in self.args.iter().rev() {
-            res.push(ENodeOrVar::Var(id_to_pvar(*arg_id)));
-            res.push(ENodeOrVar::ENode(L::app(
-                (res.len() - 2).into(),
-                (res.len() - 1).into(),
+            lambda.push(ENodeOrVar::Var(id_to_pvar(*arg_id)));
+            lambda.push(ENodeOrVar::ENode(L::app(
+                (lambda.len() - 2).into(),
+                (lambda.len() - 1).into(),
             )));
         }
 
         // Finally, introduce a let.
-        res.push(ENodeOrVar::ENode(L::lib(
+        lambda.push(ENodeOrVar::ENode(L::lib(
             sym_id.into(),
             fn_id.into(),
-            (res.len() - 1).into(),
+            (lambda.len() - 1).into(),
         )));
 
-        res
+        lambda
     }
 }
 
@@ -405,12 +427,12 @@ impl<L: Language> AntiUnification<L> {
 /// After running anti-unification, we have a new egraph which contains
 /// all possible libraries we could learn from the
 #[derive(Debug)]
-pub struct AntiUnifier<L, A>
+pub struct AntiUnifier<'a, L, A>
 where
     L: AntiUnifTgt<A>,
     A: Analysis<L>,
 {
-    runner: Option<Runner<L, A>>,
+    egraph: &'a EGraph<L, A>,
 
     dfta: Dfta<L>,
     interner: IdInterner,
@@ -419,7 +441,7 @@ where
     memo: DashMap<Id, Vec<AntiUnification<L>>>,
 }
 
-impl<L, A> AntiUnifier<L, A>
+impl<'a, L, A> AntiUnifier<'a, L, A>
 where
     L: AntiUnifTgt<A>,
     A: Analysis<L>,
@@ -428,19 +450,17 @@ where
     /// We first rebuild this egraph to make sure all its invariants hold.
     /// We then create a DFTA from it which we will use for anti-unification
     /// work.
-    pub fn new(mut runner: Runner<L, A>) -> Self {
-        let g = &mut runner.egraph;
-        g.rebuild();
-        let dfta = Dfta::build(g);
-
-        let max_id = g
+    pub fn new(egraph: &'a EGraph<L, A>) -> Self {
+        let dfta = Dfta::from(egraph);
+        let max_id = egraph
             .classes()
-            .map(|x| x.id)
+            .map(|x| usize::from(x.id))
             .max()
-            .map_or_else(|| 0.into(), |x| (Into::<usize>::into(x) + 1).into());
+            .map_or(0, |x| x + 1)
+            .into();
 
         Self {
-            runner: Some(runner),
+            egraph,
             dfta,
             interner: IdInterner::init(max_id),
             memo: DashMap::new(),
@@ -448,49 +468,46 @@ where
     }
 
     // TODO: init_worklist at depths larger than 2
-    fn init_worklist(g: &EGraph<L, A>) -> Vec<((L, Id), (L, Id))> {
-        fn enode_hash<L: Language + std::fmt::Display>(enode: &L) -> String {
-            format!("{}_{}", enode, enode.len())
-        }
+    fn init_worklist(&self) -> Vec<(Rule<L>, Rule<L>)> {
+        type Variant<L> = (Discriminant<L>, usize);
 
-        let mut map: HashMap<_, Vec<(L, Id)>> = HashMap::new();
-        for class in g.classes() {
-            for node in class.iter() {
-                let hash = enode_hash(node);
-                let vals = map.entry(hash).or_insert_with(Vec::new);
-                vals.push((node.clone(), class.id));
+        let mut rules_by_variant: HashMap<Variant<L>, Vec<Rule<L>>> = HashMap::new();
+        for eclass in self.egraph.classes() {
+            for enode in eclass.iter() {
+                // TODO: Replace this with something less hacky
+                let variant = (mem::discriminant(enode), enode.len());
+                rules_by_variant
+                    .entry(variant)
+                    .or_default()
+                    .push(Rule::new(enode.clone(), eclass.id));
             }
         }
 
-        let mut res = vec![];
-        for (_d, ids) in map {
-            for a in &ids {
-                for b in &ids {
-                    if a.1 < b.1 {
-                        res.push((a.clone(), b.clone()));
+        let mut worklist = Vec::new();
+        for rules in rules_by_variant.values() {
+            for rule1 in rules {
+                for rule2 in rules {
+                    if rule1.output < rule2.output {
+                        worklist.push((rule1.clone(), rule2.clone()));
                     }
                 }
             }
         }
-        res
-    }
-
-    fn egraph(&self) -> &EGraph<L, A> {
-        &self.runner.as_ref().unwrap().egraph
+        worklist
     }
 
     /// Perform anti-unification.
     ///
     /// # Panics
     /// Technically can panic, but shouldn't given fn invariants.
-    pub fn anti_unify(&mut self, root: Id) {
+    pub fn anti_unify(&mut self) -> Vec<Rewrite<L, A>> {
         // We first build our worklist from the graph.
-        let worklist = Self::init_worklist(self.egraph());
+        let worklist = self.init_worklist();
 
         // We then build our transitions from this worklist
-        for (a, b) in worklist {
-            let t = self.anti_unif_transitions(a, b);
-            self.dfta.push(t);
+        for (rule1, rule2) in worklist {
+            let new_rule = self.zip_rules(rule1, &rule2);
+            self.dfta.push(new_rule);
         }
 
         // We start by populating our memoization table by enumerating
@@ -501,101 +518,98 @@ where
         // across multiple threads. These memoized "anti-unifications" will
         // have no metavariables in the pattern, and no arguments in the
         // arg map.
-        for c in self.interner.eclasses().collect::<Vec<_>>() {
-            self.enumerate(c, |c| Some(&self.egraph()[c].nodes));
+        for eclass in self.interner.eclasses() {
+            self.enumerate(eclass);
         }
 
         // TODO: parallelize this?
         // We then enumerate our transitions as well, additionally converting these
         // anti-unifications into rewrites which we will apply to the egraph.
-        let mut rewrites: Vec<Rewrite<L, A>> = vec![];
-        for c in self.interner.states().collect::<Vec<_>>() {
-            self.enumerate(c, |c| {
-                self.dfta.get_by_state(c).map(std::convert::AsRef::as_ref)
-            });
-            for prog in self.memo.get(&c).unwrap().value() {
-                if prog.is_invalid() {
+        let mut rewrites: Vec<Rewrite<L, A>> = Vec::new();
+        for new_eclass in self.interner.states() {
+            self.enumerate(new_eclass);
+
+            for anti_unification in self.memo.get(&new_eclass).unwrap().value() {
+                if anti_unification.is_invalid() {
                     continue;
                 }
-                let searcher_rec: RecExpr<ENodeOrVar<L>> = prog.pattern.clone().into();
-                let applier_rec: RecExpr<ENodeOrVar<L>> = prog.lambdify().into();
-                // println!("rewrite:\n{}\n=>\n{}\n", searcher_rec.pretty(80), applier_rec.pretty(80));
-                // println!("");
-                let searcher: Pattern<L> = searcher_rec.into();
-                let applier: Pattern<L> = applier_rec.into();
-                let name = c.to_string();
+                let searcher: Pattern<L> = RecExpr::from(anti_unification.pattern.clone()).into();
+                let applier: Pattern<L> = RecExpr::from(anti_unification.lambdify()).into();
+                let name = new_eclass.to_string();
                 rewrites.push(Rewrite::new(name, searcher, applier).unwrap());
             }
         }
 
-        // Finally, run the rewrites!
-        self.runner = self.runner.take().map(|mut runner| {
-            runner.stop_reason = None;
-            runner
-                .with_time_limit(core::time::Duration::from_secs(40))
-                .run(rewrites.iter().chain(L::lift_lets().iter()))
-        });
-
-        // Then, extract the best program from the egraph, starting at
-        // the root
-        let extractor = Extractor::new(self.egraph(), egg::AstSize);
-        let (cost, expr) = extractor.find_best(root);
-        eprintln!("Cost: {}\n", cost);
-        eprintln!("{}", expr.pretty(100));
+        rewrites
     }
 
-    fn enumerate<'a, F>(&'a self, c: Id, get_nodes: F)
-    where
-        F: Fn(Id) -> Option<&'a [L]> + Copy,
-    {
-        if !self.memo.contains_key(&c) {
+    // fn add(&mut self, eclass: NewOrExisting) -> IdOrVar {
+    //     let eclass = match eclass {
+    //         New(id) => id,
+    //         Existing(id) => return id,
+    //     };
+    //     let enodes = self.dfta.get_by_output(eclass);
+    //     for enode in enodes {
+    //         let children = enode.children().map(|child| self.add(child))
+    //     }
+    // }
+
+    fn enumerate(&self, eclass: Id) {
+        if !self.memo.contains_key(&eclass) {
+            let mut anti_unifications = Vec::new();
+
             // For each node in the eclass, we can create an anti-unification.
-            let res = if let Some(nodes) = get_nodes(c) {
-                let mut res = Vec::new();
-                for l in nodes {
+            if let Some(enodes) = self.dfta.get_by_output(eclass) {
+                for enode in enodes {
                     // Pair of argument positions, anti-unif program
-                    let mut prev: Vec<(SmallVec<[usize; 16]>, AntiUnification<L>)> =
-                        vec![(smallvec![], AntiUnification::new())];
-                    let mut cur = Vec::new();
-                    let children = enode_children(l);
+                    let mut prev: Vec<(Vec<usize>, AntiUnification<L>)> =
+                        vec![(Vec::new(), AntiUnification::new())];
 
                     // TODO: pruning optimization
 
                     // For each of the children, we need to enumerate each of them. We can
                     // then include their anti-unifications in our anti-unification.
-                    for c in children.clone() {
-                        self.enumerate(c, get_nodes);
-                        for child_au in self.memo.get(&c).unwrap().value() {
-                            for (mut pre_children, pre) in prev.clone() {
-                                let mut pre: AntiUnification<L> = pre;
-                                pre.extend(child_au);
-                                pre_children.push(pre.pattern.len() - 1);
-                                cur.push((pre_children, pre));
+                    for child in enode.children() {
+                        self.enumerate(*child);
+
+                        let mut cur = Vec::new();
+                        for child_anti_unifications in self.memo.get(child).unwrap().value() {
+                            for (mut arg_positions, mut anti_unification) in prev.clone() {
+                                anti_unification.extend(child_anti_unifications);
+
+                                arg_positions.push(anti_unification.pattern.len() - 1);
+
+                                cur.push((arg_positions, anti_unification));
                             }
                         }
                         prev = cur;
-                        cur = Vec::new();
                     }
 
-                    res.extend(prev.into_iter().map(|(au_children, mut anti_unif)| {
-                        let children_map = children
-                            .iter()
-                            .zip(au_children.iter())
-                            .collect::<HashMap<_, _>>();
-                        let new_l = l.clone().map_children(|c| (*children_map[&c]).into());
-                        anti_unif.pattern.push(ENodeOrVar::ENode(new_l));
-                        anti_unif
-                    }));
+                    anti_unifications.extend(prev.into_iter().map(
+                        |(arg_positions, mut anti_unification)| {
+                            let children_map: HashMap<Id, Id> = enode
+                                .children()
+                                .iter()
+                                .copied()
+                                .zip(arg_positions.into_iter().map(Id::from))
+                                .collect();
+                            let mut new_l = enode.clone();
+                            for child in new_l.children_mut() {
+                                *child = children_map[&*child];
+                            }
+                            anti_unification.pattern.push(ENodeOrVar::ENode(new_l));
+                            anti_unification
+                        },
+                    ));
                 }
-                res
             } else {
                 // This is a phi node, just introduce an anti-unification
                 // with a phi node.
-                vec![AntiUnification::phi(c)]
+                anti_unifications.push(AntiUnification::phi(eclass));
             };
 
             // Finally, memoize our result
-            self.memo.insert(c, res);
+            self.memo.insert(eclass, anti_unifications);
         }
     }
 
@@ -605,31 +619,32 @@ where
     /// a new rule that anti-unifies within the arguments.
     ///
     /// This function assumes the two transitions match.
-    fn anti_unif_transitions(&mut self, (la, sa): (L, Id), (lb, sb): (L, Id)) -> (L, Id) {
-        let out_state = self.interner.get_or_gen(sa, sb);
-        // TODO: this hacky business is b/c we don't have .children(_mut) :/
-        let children: HashMap<Id, (Id, Id)> = enode_children(&la)
-            .into_iter()
-            .zip(enode_children(&lb))
-            .map(|(a, b)| (a, (a, b)))
+    fn zip_rules(&mut self, rule1: Rule<L>, rule2: &Rule<L>) -> Rule<L> {
+        let output = self.interner.get_or_gen(rule1.output, rule2.output);
+        let children: HashMap<Id, (Id, Id)> = rule1
+            .input
+            .children()
+            .iter()
+            .copied()
+            .zip(rule2.input.children().iter().copied())
+            .map(|(child1, child2)| (child1, (child1, child2)))
             .collect();
-        let mut lres = la;
-        lres.for_each_mut(|t| {
-            let (a, b) = children[t];
-            *t = self.interner.get_or_gen(a, b);
-        });
-        (lres, out_state)
+
+        let mut input = rule1.input;
+        for child in input.children_mut() {
+            let (child1, child2) = children[&*child];
+            *child = self.interner.get_or_gen(child1, child2);
+        }
+
+        Rule::new(input, output)
     }
 }
 
-/// Anti-unifies within a given `EGraph`, returning an `AntiUnifier` as output.
-pub fn anti_unify<L, A>(runner: Runner<L, A>) -> AntiUnifier<L, A>
+/// Anti-unifies within a given `EGraph`, returning a vec of rewrite rules as output.
+pub fn anti_unify<L, A>(egraph: &EGraph<L, A>) -> Vec<Rewrite<L, A>>
 where
     L: AntiUnifTgt<A>,
     A: Analysis<L>,
 {
-    let root = runner.roots[0];
-    let mut a = AntiUnifier::new(runner);
-    a.anti_unify(root);
-    a
+    AntiUnifier::new(egraph).anti_unify()
 }
