@@ -16,10 +16,11 @@
 )]
 
 pub mod anti_unify;
+mod dfta;
+pub mod dreamcoder;
 pub mod env_pattern;
 pub mod extract;
-pub mod dreamcoder;
+pub mod fresh;
 pub mod smiley_lang;
-mod dfta;
 
 pub use smiley_lang::Rewrite;

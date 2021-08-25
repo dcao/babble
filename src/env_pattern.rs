@@ -1,5 +1,6 @@
-use crate::anti_unify::AUAnalysis;
-use egg::{Applier, EGraph, Id, Language, Pattern, SearchMatches, Subst, Var};
+#![allow(missing_docs)]
+
+use egg::{Analysis, Applier, EGraph, Id, Language, Pattern, SearchMatches, Subst, Var};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct EnvPattern<L>(pub Pattern<L>);
@@ -7,7 +8,8 @@ pub struct EnvPattern<L>(pub Pattern<L>);
 impl<L, A> Applier<L, A> for EnvPattern<L>
 where
     L: Language,
-    A: AUAnalysis<L>,
+    A: Analysis<L>,
+    A::Data: Eq,
 {
     fn apply_one(&self, egraph: &mut EGraph<L, A>, eclass: Id, subst: &Subst) -> Vec<Id> {
         self.0.apply_one(egraph, eclass, subst)
@@ -36,7 +38,7 @@ where
                             None
                         }
                     });
-                added.extend(ids)
+                added.extend(ids);
             }
         }
         added

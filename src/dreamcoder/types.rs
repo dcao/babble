@@ -163,6 +163,6 @@ mod tests {
         );
         let expected = "(int -> list int) -> list (list bool) -> result int (list string)";
 
-        assert_eq!(typ.to_string(), expected)
+        assert_eq!(typ.to_string(), expected);
     }
 }

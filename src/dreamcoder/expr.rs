@@ -285,6 +285,6 @@ mod tests {
         let parsed: Expr = input.parse().unwrap();
 
         assert_eq!(parsed, expr);
-        assert_eq!(expr.to_string(), input)
+        assert_eq!(expr.to_string(), input);
     }
 }

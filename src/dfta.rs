@@ -1,14 +1,17 @@
+// TODO: documentation
+#![allow(missing_docs, dead_code)]
+
 use std::{
     cmp::max,
     collections::{HashMap, HashSet},
     hash::Hash,
 };
 
-use itertools::Itertools;
-
 /// {tag}({states}) -> {state}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct Transition<Tag, State>(Tag, Vec<State>, State);
+
+type Transitions<Tag, State> = HashMap<Tag, HashMap<State, HashSet<Vec<State>>>>;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Dfta<Tag, State>
@@ -20,7 +23,7 @@ where
 
     // Transitions, grouped by tag
     // Map<tag, Map<output_state, input_children>>
-    transitions: HashMap<Tag, HashMap<State, HashSet<Vec<State>>>>,
+    transitions: Transitions<Tag, State>,
 }
 
 impl<Tag, State> Default for Dfta<Tag, State>
@@ -30,8 +33,8 @@ where
 {
     fn default() -> Self {
         Self {
-            states: Default::default(),
-            transitions: Default::default(),
+            states: HashSet::default(),
+            transitions: HashMap::default(),
         }
     }
 }
@@ -54,7 +57,7 @@ where
             states.iter().flat_map(move |(output, inputs)| {
                 inputs
                     .iter()
-                    .map(move |children| Transition(*tag, children.to_vec(), *output))
+                    .map(move |children| Transition(*tag, children.clone(), *output))
             })
         })
     }
@@ -85,10 +88,8 @@ where
             }
         }
 
-        let mut transitions: HashMap<
-            Tag,
-            HashMap<(State, OtherState), HashSet<Vec<(State, OtherState)>>>,
-        > = HashMap::with_capacity(max(self.transitions.len(), other.transitions.len()));
+        let mut transitions: Transitions<Tag, (State, OtherState)> =
+            HashMap::with_capacity(max(self.transitions.len(), other.transitions.len()));
         for (tag, state_map1) in &self.transitions {
             if let Some(state_map2) = other.transitions.get(tag) {
                 let state_map = transitions.entry(*tag).or_default();
@@ -121,8 +122,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
-
     use super::*;
 
     #[test]
@@ -217,10 +216,11 @@ mod tests {
                 Transition("foo", vec![(1, 1), (2, 2)], (3, 3)),
                 Transition("foo", vec![(2, 2), (2, 2)], (4, 4)),
                 Transition("bar", vec![(3, 3), (2, 2)], (1, 1)),
-
                 Transition("foo", vec![(1, 2), (2, 2)], (3, 4)),
                 Transition("foo", vec![(2, 1), (2, 2)], (4, 3)),
-            ].into_iter().collect::<HashSet<_>>()
+            ]
+            .into_iter()
+            .collect::<HashSet<_>>()
         );
     }
 }

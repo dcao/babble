@@ -1,8 +1,9 @@
+#![allow(missing_docs)]
+
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use crate::anti_unify::AUAnalysis;
-use egg::{CostFunction, EClass, EGraph, Id, Language, RecExpr};
+use egg::{Analysis, CostFunction, EClass, EGraph, Id, Language, RecExpr};
 
 fn cmp<T: PartialOrd>(a: &Option<T>, b: &Option<T>) -> Ordering {
     // None is high
@@ -10,12 +11,12 @@ fn cmp<T: PartialOrd>(a: &Option<T>, b: &Option<T>) -> Ordering {
         (None, None) => Ordering::Equal,
         (None, Some(_)) => Ordering::Greater,
         (Some(_), None) => Ordering::Less,
-        (Some(a), Some(b)) => a.partial_cmp(&b).unwrap(),
+        (Some(a), Some(b)) => a.partial_cmp(b).unwrap(),
     }
 }
 
 #[derive(Debug)]
-pub struct Extractor<'a, CF: CostFunction<L>, L: Language, N: AUAnalysis<L>> {
+pub struct Extractor<'a, CF: CostFunction<L>, L: Language, N: Analysis<L>> {
     cost_function: CF,
     costs: HashMap<Id, (CF::Cost, L)>,
     egraph: &'a EGraph<L, N>,
@@ -26,7 +27,7 @@ impl<'a, CF, L, N> Extractor<'a, CF, L, N>
 where
     CF: CostFunction<L>,
     L: Language,
-    N: AUAnalysis<L>,
+    N: Analysis<L>,
 {
     /// Create a new `Extractor` given an `EGraph` and a
     /// `CostFunction`.
@@ -37,9 +38,9 @@ where
     pub fn new(egraph: &'a EGraph<L, N>, cost_function: CF, root: Id) -> Self {
         let costs = HashMap::default();
         let mut extractor = Extractor {
+            cost_function,
             costs,
             egraph,
-            cost_function,
             root,
         };
         extractor.find_costs();
@@ -72,7 +73,7 @@ where
         if node.children().iter().all(has_cost) {
             let costs = &self.costs;
             let cost_f = |id| costs[&eg.find(id)].0.clone();
-            Some(self.cost_function.cost(&node, cost_f))
+            Some(self.cost_function.cost(node, cost_f))
         } else {
             None
         }
@@ -105,10 +106,10 @@ where
             .iter()
             .map(|n| (self.node_total_cost(n), n))
             .min_by(|a, b| cmp(&a.0, &b.0))
-            .filter(|_| {
-                println!("{:?}", eclass.data);
-                eclass.id != self.root || eclass.data.is_empty()
-            })
+            // .filter(|_| {
+            //     println!("{:?}", eclass.data);
+            //     eclass.id != self.root || eclass.is_empty()
+            // })
             .unwrap_or_else(|| panic!("Can't extract, eclass is empty: {:#?}", eclass));
         cost.map(|c| (c, node.clone()))
     }

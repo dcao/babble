@@ -52,7 +52,7 @@ impl Parse for RewriteRule {
         let rhs: Expr = input.parse()?;
         let condition;
         if let Ok(if_) = input.parse::<Token![if]>() {
-            condition = Some((if_, input.parse()?))
+            condition = Some((if_, input.parse()?));
         } else {
             condition = None;
         }
