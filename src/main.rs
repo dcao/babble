@@ -86,9 +86,6 @@ fn main() {
 
         let input = input.parse().expect("Input is not a valid expression");
         let runner = runner.with_expr(&input);
-        let output = smiley_lang::run_single(runner);
-
-        println!("output:");
-        println!("{}", output);
+        smiley_lang::run_single(runner);
     }
 }
