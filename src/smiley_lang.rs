@@ -4,7 +4,7 @@
 #![allow(missing_docs)]
 
 use crate::{
-    anti_unify::{anti_unify, AntiUnifTgt},
+    anti_unify::{anti_unify, Antiunifiable},
     fresh,
 };
 use babble_macros::rewrite_rules;
@@ -206,7 +206,7 @@ impl Analysis<Smiley> for SmileyAnalysis {
     }
 }
 
-impl AntiUnifTgt for Smiley {
+impl Antiunifiable for Smiley {
     type Kind = SmileyKind;
 
     fn kind(&self) -> Self::Kind {
@@ -214,7 +214,9 @@ impl AntiUnifTgt for Smiley {
     }
 
     fn from_parts<I>(kind: Self::Kind, children: I) -> Self
-    where I: IntoIterator<Item = Id> {
+    where
+        I: IntoIterator<Item = Id>,
+    {
         Self {
             kind,
             children: children.into_iter().collect(),
