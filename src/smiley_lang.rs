@@ -213,6 +213,14 @@ impl AntiUnifTgt for Smiley {
         self.kind
     }
 
+    fn from_parts<I>(kind: Self::Kind, children: I) -> Self
+    where I: IntoIterator<Item = Id> {
+        Self {
+            kind,
+            children: children.into_iter().collect(),
+        }
+    }
+
     fn lambda(body: Id) -> Self {
         Self {
             kind: SmileyKind::Lambda,

@@ -2,7 +2,7 @@
 
 use dashmap::DashMap;
 use egg::{Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Var};
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, fmt::Display, hash::Hash, iter::FromIterator};
 
 // Central idea of anti-unification technique:
 // 1. Compile all programs into one central egraph
@@ -49,124 +49,6 @@ use std::{collections::HashMap, hash::Hash};
 //    (or (and ?a (not ?b)) (and (not ?a) ?b)) => (app (fn "xor") ?a ?b)
 //    (app (fn "xor") ?a ?b) => (or (and ?a (not ?b)) (and (not ?a) ?b))
 
-/// An `IdInterner` stores a two-way mapping between pairs of states and fresh
-/// states used in their place. In order to avoid DFTAs having state arguments
-/// and outputs of variable length, we instead generate fresh states using
-/// the `IdInterner` from the two states that are being combined.
-///
-/// Note that these Ids have no relation to any egraph whatsoever!
-#[derive(Debug)]
-pub struct IdInterner {
-    states: HashMap<Id, Vec<Id>>,
-    sets: HashMap<Vec<Id>, Id>,
-    /// The start Id
-    pub start: Id,
-    counter: Id,
-}
-
-impl IdInterner {
-    /// Creates a new `IdInterner`.
-    #[must_use]
-    pub fn init(start: Id) -> Self {
-        let mut states = HashMap::new();
-        let mut sets = HashMap::new();
-        for i in 0..start.into() {
-            states.insert(i.into(), vec![i.into()]);
-            sets.insert(vec![i.into()], i.into());
-        }
-
-        Self {
-            states,
-            sets,
-            start,
-            counter: start,
-        }
-    }
-
-    /// Gets the set corresponding to two ids.
-    ///
-    /// # Panics
-    /// Panics if a and b aren't in Ids.
-    #[must_use]
-    pub fn lookup(&self, a: Id, b: Id) -> Vec<Id> {
-        let owned_states_b: Vec<Id>;
-        let states_b = if b < self.start {
-            owned_states_b = vec![b];
-            &owned_states_b
-        } else {
-            self.states.get(&b).unwrap()
-        };
-        let mut res = if a < self.start {
-            vec![a]
-        } else {
-            self.states.get(&a).unwrap().clone()
-        };
-        for bid in states_b {
-            match res.binary_search(bid) {
-                Ok(_) => {}
-                Err(ix) => {
-                    res.insert(ix, *bid);
-                }
-            }
-        }
-
-        res
-    }
-
-    /// Gets the Id corresponding to the pair of two Ids given, if it exists.
-    #[must_use]
-    pub fn get_id(&self, a: Id, b: Id) -> Option<Id> {
-        self.sets.get(&self.lookup(a, b)).copied()
-    }
-
-    /// Generates the Id corresponding to the pair of two Ids given.
-    pub fn gen_id(&mut self, a: Id, b: Id) -> Id {
-        let res = self.counter;
-        let new_id = self.lookup(a, b);
-        self.states.insert(self.counter, new_id.clone());
-        self.sets.insert(new_id, self.counter);
-        self.counter = (usize::from(self.counter) + 1).into();
-        res
-    }
-
-    /// Gets the Id corresponding to the pair of two Ids given if it exists;
-    /// otherwise, generates this Id.
-    pub fn get_or_gen(&mut self, a: Id, b: Id) -> Id {
-        self.get_id(a, b)
-            .map_or_else(|| self.gen_id(a, b), |res| res)
-    }
-
-    /// Gets all eclasses stored in this `IdInterner`.
-    pub fn eclasses(&self) -> impl Iterator<Item = Id> + '_ {
-        self.states
-            .keys()
-            .filter(move |x| *x < &self.start)
-            .copied()
-    }
-
-    /// Gets all states (not in the egraph) stored in this `IdInterner`.
-    pub fn states(&self) -> impl Iterator<Item = Id> + '_ {
-        self.states
-            .keys()
-            .filter(move |x| *x >= &self.start)
-            .copied()
-    }
-}
-
-/// A transition rule in a DFTA.
-#[derive(Debug, Clone)]
-pub struct Rule<L> {
-    input: L,
-    output: Id,
-}
-
-impl<L> Rule<L> {
-    /// Create a new transition from `input` to `output`.
-    pub fn new(input: L, output: Id) -> Self {
-        Rule { input, output }
-    }
-}
-
 // TODO: would encoding this directly as an egraph be more efficient?
 /// Conceptually, a DFTA is a list (or rather, a map) of transition rules from
 /// an operand and its argument states to an output state. In practice, we
@@ -185,76 +67,108 @@ impl<L> Rule<L> {
 /// should be replaced with values from the first state for the first expr
 /// and values from the second state for the right expr.
 #[derive(Debug)]
-pub struct Dfta<L> {
-    outputs_to_inputs: HashMap<Id, Vec<L>>,
+pub struct Dfta<K, S> {
+    by_kind: HashMap<K, Vec<(Vec<S>, S)>>,
+    by_output: HashMap<S, Vec<(K, Vec<S>)>>,
 }
 
-impl<L, A> From<&EGraph<L, A>> for Dfta<L>
+impl<K, S> Dfta<K, S>
 where
-    L: Language,
-    A: Analysis<L>,
+    K: Eq + Hash + Clone,
+    S: Eq + Hash + Clone,
 {
+    /// Create an empty DFTA.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            by_kind: HashMap::new(),
+            by_output: HashMap::new(),
+        }
+    }
+    /// Adds a new transition to the DFTA.
+    pub fn push_rule<I>(&mut self, kind: K, inputs: I, output: S)
+    where
+        I: IntoIterator<Item = S>,
+    {
+        let inputs = Vec::from_iter(inputs);
+        self.by_kind.entry(kind.clone()).or_default().push((inputs.clone(), output.clone()));
+        self.by_output
+            .entry(output)
+            .or_default()
+            .push((kind, inputs));
+    }
+
+    /// Marks the given state as visited in the DFTA.
+    pub fn push_state(&mut self, state: S) {
+        self.by_output.entry(state).or_default();
+    }
+
+    /// Checks if a state has been visited.
+    #[must_use]
+    pub fn has_visited(&self, state: &S) -> bool {
+        self.by_output.contains_key(state)
+    }
+
+    /// Get all the transitions which have this state as an output.
+    #[must_use]
+    pub fn get_by_output(&self, output: &S) -> Option<&[(K, Vec<S>)]> {
+        self.by_output.get(output).map(Vec::as_slice)
+    }
+
+    /// Intersect the DFTA with itself to produce a new DFTA over pairs of
+    /// states.
+    #[must_use]
+    pub fn self_intersection(&self) -> Dfta<K, (S, S)> {
+        let mut new_dfta = Dfta::new();
+        for (kind, rules) in &self.by_kind {
+            for (i, (inputs1, output1)) in rules.iter().enumerate() {
+                for (inputs2, output2) in &rules[i..] {
+                    let new_inputs = inputs1.iter().cloned().zip(inputs2.iter().cloned());
+                    let new_output = (output1.clone(), output2.clone());
+                    new_dfta.push_rule(kind.clone(), new_inputs, new_output);
+                }
+            }
+        }
+        new_dfta
+    }
+
+    /// Returns an iterator over the states in the DFTA.
+    pub fn states(&self) -> impl Iterator<Item = &S> {
+        self.by_output.keys()
+    }
+}
+
+impl<K, S> Default for Dfta<K, S> where S: Eq + Hash + Clone, K: Eq + Hash + Clone {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<L, A> From<&EGraph<L, A>> for Dfta<L::Kind, Id> where L: AntiUnifTgt, A: Analysis<L> {
     fn from(egraph: &EGraph<L, A>) -> Self {
-        let mut dfta = Self::new();
+        let mut dfta = Dfta::new();
         for eclass in egraph.classes() {
             for enode in eclass.iter() {
-                dfta.push(Rule::new(enode.clone(), eclass.id));
+                dfta.push_rule(enode.kind(), enode.children().iter().map(|id| egraph.find(*id)), egraph.find(eclass.id));
             }
         }
         dfta
     }
 }
 
-impl<L> Dfta<L> {
-    /// Create an empty DFTA.
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            outputs_to_inputs: HashMap::new(),
-        }
-    }
-    /// Adds a new transition to the DFTA.
-    pub fn push(&mut self, rule: Rule<L>) {
-        self.outputs_to_inputs
-            .entry(rule.output)
-            .or_default()
-            .push(rule.input);
-    }
-
-    /// Marks the given state as visited in the DFTA.
-    pub fn push_empty(&mut self, s: Id) {
-        self.outputs_to_inputs.entry(s).or_default();
-    }
-
-    /// Checks if a state has been visited.
-    #[must_use]
-    pub fn has_visited(&self, s: Id) -> bool {
-        self.outputs_to_inputs.contains_key(&s)
-    }
-
-    /// Get all the transitions which have this state as an output.
-    #[must_use]
-    pub fn get_by_output(&self, output: Id) -> Option<&[L]> {
-        self.outputs_to_inputs.get(&output).map(Vec::as_slice)
-    }
-}
-
-impl<L> Default for Dfta<L> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// An `AntiUnifTgt` is an extension of a Language which has constructs to
 /// introduce lambdas, etc.
-pub trait AntiUnifTgt: Language + Sync + Send + std::fmt::Display + 'static {
+pub trait AntiUnifTgt: Language + Sync + Send + Display + 'static {
     /// A type representing what kind of expression a language node is.
-    type Kind: Eq + Hash;
+    type Kind: Eq + Hash + Clone;
 
     /// The kind of this language node. In particular, for any two language
     /// nodes `a: Self` and `b: Self`, if `a.kind() == b.kind()`, then
     /// `a.matches(&b)` must be true.
     fn kind(&self) -> Self::Kind;
+
+    /// Create a language node with kind `kind` and children `children`.
+    fn from_parts<I>(kind: Self::Kind, children: I) -> Self where I: IntoIterator<Item = Id>;
 
     /// Return a language node representing a lambda abstraction over some
     /// body.
@@ -272,11 +186,6 @@ pub trait AntiUnifTgt: Language + Sync + Send + std::fmt::Display + 'static {
 
     /// Return a node representing a new learned library fn.
     fn lib(name: Id, lam: Id, body: Id) -> Self;
-}
-
-/// Converts an Id to a pattern variable.
-fn id_to_pvar(c: Id) -> Var {
-    format!("?{}", c).parse().unwrap()
 }
 
 // TODO: this seems inefficient
@@ -297,7 +206,7 @@ pub struct AntiUnification<L> {
     /// A sorted list of phi Ids, which will eventually become arguments to
     /// lambdas. At the end, we generate de Brujin indices by getting the
     /// index of each Id in this list.
-    pub args: Vec<Id>,
+    pub args: Vec<Var>,
 
     phi: bool,
 }
@@ -321,10 +230,11 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
 
     /// Creates a phi anti-unification
     #[must_use]
-    pub fn phi(c: Id) -> Self {
+    pub fn phi(state: (Id, Id)) -> Self {
+        let var = format!("?x{}_{}", state.0, state.1).parse().unwrap_or_else(|_| unreachable!());
         Self {
-            pattern: vec![ENodeOrVar::Var(id_to_pvar(c))],
-            args: vec![c],
+            pattern: vec![ENodeOrVar::Var(var)],
+            args: vec![var],
             phi: true,
         }
     }
@@ -370,7 +280,7 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
             .args
             .iter()
             .enumerate()
-            .map(|(i, x)| (id_to_pvar(*x), i))
+            .map(|(i, x)| (*x, i))
             .collect::<HashMap<_, _>>();
 
         // We first add all the nodes from our pattern ast to our result
@@ -396,8 +306,8 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
 
         // Then we introduce applications
         // Make sure we iterate in the right order for our de brujin indices :))
-        for arg_id in self.args.iter().rev() {
-            lambda.push(ENodeOrVar::Var(id_to_pvar(*arg_id)));
+        for arg in self.args.iter().copied().rev() {
+            lambda.push(ENodeOrVar::Var(arg));
             lambda.push(ENodeOrVar::ENode(L::app(
                 (lambda.len() - 2).into(),
                 (lambda.len() - 1).into(),
@@ -428,11 +338,10 @@ where
 {
     egraph: &'a EGraph<L, A>,
 
-    dfta: Dfta<L>,
-    interner: IdInterner,
+    dfta: Dfta<L::Kind, (Id, Id)>,
 
     // Memoization for enumeration of anti-unified programs
-    memo: DashMap<Id, Vec<AntiUnification<L>>>,
+    memo: DashMap<(Id, Id), Vec<AntiUnification<L>>>,
 }
 
 impl<'a, L, A> AntiUnifier<'a, L, A>
@@ -445,46 +354,13 @@ where
     /// We then create a DFTA from it which we will use for anti-unification
     /// work.
     pub fn new(egraph: &'a EGraph<L, A>) -> Self {
-        let dfta = Dfta::from(egraph);
-        let max_id = egraph
-            .classes()
-            .map(|x| usize::from(x.id))
-            .max()
-            .map_or(0, |x| x + 1)
-            .into();
+        let dfta = Dfta::from(egraph).self_intersection();
 
         Self {
             egraph,
             dfta,
-            interner: IdInterner::init(max_id),
             memo: DashMap::new(),
         }
-    }
-
-    // TODO: init_worklist at depths larger than 2
-    fn init_worklist(&self) -> Vec<(Rule<L>, Rule<L>)> {
-        let mut rules_by_kind: HashMap<L::Kind, Vec<Rule<L>>> = HashMap::new();
-        for eclass in self.egraph.classes() {
-            for enode in eclass.iter() {
-                // TODO: Replace this with something less hacky
-                rules_by_kind
-                    .entry(enode.kind())
-                    .or_default()
-                    .push(Rule::new(enode.clone(), eclass.id));
-            }
-        }
-
-        let mut worklist = Vec::new();
-        for rules in rules_by_kind.values() {
-            for rule1 in rules {
-                for rule2 in rules {
-                    if rule1.output < rule2.output {
-                        worklist.push((rule1.clone(), rule2.clone()));
-                    }
-                }
-            }
-        }
-        worklist
     }
 
     /// Perform anti-unification.
@@ -492,45 +368,23 @@ where
     /// # Panics
     /// Technically can panic, but shouldn't given fn invariants.
     pub fn anti_unify(&mut self) -> Vec<Rewrite<L, A>> {
-        // We first build our worklist from the graph.
-        let worklist = self.init_worklist();
-
-        // We then build our transitions from this worklist
-        for (rule1, rule2) in worklist {
-            let new_rule = self.zip_rules(rule1, &rule2);
-            self.dfta.push(new_rule);
-        }
-
-        // We start by populating our memoization table by enumerating
-        // the eclasses existing in the egraph. We do this separately partly
-        // since the mechanics for populating from the egraph are different,
-        // and partly since if we want to parallelize transition enumeration
-        // later, it'll be difficult to do so if we have to access the egraph
-        // across multiple threads. These memoized "anti-unifications" will
-        // have no metavariables in the pattern, and no arguments in the
-        // arg map.
-        for eclass in self.interner.eclasses() {
-            self.enumerate(eclass);
-        }
-
         // TODO: parallelize this?
         // We then enumerate our transitions as well, additionally converting these
         // anti-unifications into rewrites which we will apply to the egraph.
         let mut rewrites: Vec<Rewrite<L, A>> = Vec::new();
-        for new_eclass in self.interner.states() {
-            self.enumerate(new_eclass);
+        for state in self.dfta.states() {
+            self.enumerate(*state);
 
-            for anti_unification in self.memo.get(&new_eclass).unwrap().value() {
+            for anti_unification in self.memo.get(state).unwrap().value() {
                 if anti_unification.is_invalid() {
                     continue;
                 }
                 let searcher: Pattern<L> = RecExpr::from(anti_unification.pattern.clone()).into();
                 let applier: Pattern<L> = RecExpr::from(anti_unification.lambdify()).into();
-                let name = new_eclass.to_string();
+                let name = format!("anti-unify {:?}", state);
                 rewrites.push(Rewrite::new(name, searcher, applier).unwrap());
             }
         }
-
         rewrites
     }
 
@@ -545,13 +399,13 @@ where
     //     }
     // }
 
-    fn enumerate(&self, eclass: Id) {
-        if !self.memo.contains_key(&eclass) {
+    fn enumerate(&self, state: (Id, Id)) {
+        if !self.memo.contains_key(&state) {
             let mut anti_unifications = Vec::new();
 
             // For each node in the eclass, we can create an anti-unification.
-            if let Some(enodes) = self.dfta.get_by_output(eclass) {
-                for enode in enodes {
+            if let Some(rules) = self.dfta.get_by_output(&state) {
+                for (kind, inputs) in rules {
                     // Pair of argument positions, anti-unif program
                     let mut prev: Vec<(Vec<usize>, AntiUnification<L>)> =
                         vec![(Vec::new(), AntiUnification::new())];
@@ -560,11 +414,11 @@ where
 
                     // For each of the children, we need to enumerate each of them. We can
                     // then include their anti-unifications in our anti-unification.
-                    for child in enode.children() {
-                        self.enumerate(*child);
+                    for input in inputs {
+                        self.enumerate(*input);
 
                         let mut cur = Vec::new();
-                        for child_anti_unifications in self.memo.get(child).unwrap().value() {
+                        for child_anti_unifications in self.memo.get(input).unwrap().value() {
                             for (mut arg_positions, mut anti_unification) in prev.clone() {
                                 anti_unification.extend(child_anti_unifications);
 
@@ -578,17 +432,13 @@ where
 
                     anti_unifications.extend(prev.into_iter().map(
                         |(arg_positions, mut anti_unification)| {
-                            let children_map: HashMap<Id, Id> = enode
-                                .children()
-                                .iter()
+                            let children_map: HashMap<(Id, Id), Id> = inputs.iter()
                                 .copied()
                                 .zip(arg_positions.into_iter().map(Id::from))
                                 .collect();
-                            let mut new_l = enode.clone();
-                            for child in new_l.children_mut() {
-                                *child = children_map[&*child];
-                            }
-                            anti_unification.pattern.push(ENodeOrVar::ENode(new_l));
+                            let children = inputs.iter().map(|state| children_map[state]);
+                            let enode = L::from_parts(kind.clone(), children);
+                            anti_unification.pattern.push(ENodeOrVar::ENode(enode));
                             anti_unification
                         },
                     ));
@@ -596,38 +446,12 @@ where
             } else {
                 // This is a phi node, just introduce an anti-unification
                 // with a phi node.
-                anti_unifications.push(AntiUnification::phi(eclass));
+                anti_unifications.push(AntiUnification::phi(state));
             };
 
             // Finally, memoize our result
-            self.memo.insert(eclass, anti_unifications);
+            self.memo.insert(state, anti_unifications);
         }
-    }
-
-    /// Anti-unifies two transition rules, potentially producing a new rule.
-    /// If the operations in the two cases differ, we cannot anti-unify further,
-    /// and will return None. Otherwise, if the operations are the same, we produce
-    /// a new rule that anti-unifies within the arguments.
-    ///
-    /// This function assumes the two transitions match.
-    fn zip_rules(&mut self, rule1: Rule<L>, rule2: &Rule<L>) -> Rule<L> {
-        let output = self.interner.get_or_gen(rule1.output, rule2.output);
-        let children: HashMap<Id, (Id, Id)> = rule1
-            .input
-            .children()
-            .iter()
-            .copied()
-            .zip(rule2.input.children().iter().copied())
-            .map(|(child1, child2)| (child1, (child1, child2)))
-            .collect();
-
-        let mut input = rule1.input;
-        for child in input.children_mut() {
-            let (child1, child2) = children[&*child];
-            *child = self.interner.get_or_gen(child1, child2);
-        }
-
-        Rule::new(input, output)
     }
 }
 
