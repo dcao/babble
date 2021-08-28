@@ -250,9 +250,7 @@ impl<L> Default for Dfta<L> {
 
 /// An `AntiUnifTgt` is an extension of a Language which has constructs to
 /// introduce lambdas, etc.
-pub trait AntiUnifTgt<A>: Language + Sync + Send + std::fmt::Display + 'static
-where
-    A: Analysis<Self>,
+pub trait AntiUnifTgt: Language + Sync + Send + std::fmt::Display + 'static
 {
     /// Return a language node representing a lambda abstraction over some
     /// body.
@@ -270,10 +268,6 @@ where
 
     /// Return a node representing a new learned library fn.
     fn lib(name: Id, lam: Id, body: Id) -> Self;
-
-    /// Returns a list of rewrites which lifts lets to the top level
-    /// of the expression in some order.
-    fn lift_lets() -> Vec<Rewrite<Self, A>>;
 }
 
 /// Converts an Id to a pattern variable.
@@ -314,7 +308,7 @@ impl<L> Default for AntiUnification<L> {
     }
 }
 
-impl<L: Language> AntiUnification<L> {
+impl<L: AntiUnifTgt> AntiUnification<L> {
     /// Creates a new empty anti-unification
     #[must_use]
     pub fn new() -> Self {
@@ -365,10 +359,7 @@ impl<L: Language> AntiUnification<L> {
 
     /// Turns this anti-unification into a lambda, applied to each of the args.
     #[must_use]
-    pub fn lambdify<A>(&self) -> Vec<ENodeOrVar<L>>
-    where
-        A: Analysis<L>,
-        L: AntiUnifTgt<A>,
+    pub fn lambdify(&self) -> Vec<ENodeOrVar<L>>
     {
         // We first create a map from the stringified Id to its de Brujin index.
         let mut lambda = vec![];
@@ -429,9 +420,10 @@ impl<L: Language> AntiUnification<L> {
 #[derive(Debug)]
 pub struct AntiUnifier<'a, L, A>
 where
-    L: AntiUnifTgt<A>,
+    L: AntiUnifTgt,
     A: Analysis<L>,
 {
+
     egraph: &'a EGraph<L, A>,
 
     dfta: Dfta<L>,
@@ -443,7 +435,7 @@ where
 
 impl<'a, L, A> AntiUnifier<'a, L, A>
 where
-    L: AntiUnifTgt<A>,
+    L: AntiUnifTgt,
     A: Analysis<L>,
 {
     /// Initialize an `AntiUnifier` from an `EGraph`.
@@ -643,7 +635,7 @@ where
 /// Anti-unifies within a given `EGraph`, returning a vec of rewrite rules as output.
 pub fn anti_unify<L, A>(egraph: &EGraph<L, A>) -> Vec<Rewrite<L, A>>
 where
-    L: AntiUnifTgt<A>,
+    L: AntiUnifTgt,
     A: Analysis<L>,
 {
     AntiUnifier::new(egraph).anti_unify()
