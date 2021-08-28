@@ -9,12 +9,18 @@ use crate::{
 };
 use babble_macros::rewrite_rules;
 use egg::{
-    Analysis, AstSize, Condition, EClass, Extractor, FromOp, FromOpError, Id,
-    Language, Runner, Subst, Symbol,
+    Analysis, AstSize, Condition, EClass, Extractor, FromOp, FromOpError, Id, Language, Runner,
+    Subst, Symbol,
 };
-use ordered_float::NotNan;
-use std::{cmp::Ordering, collections::HashSet, convert::TryInto, fmt::{self, Display, Formatter}, iter::FromIterator};
 use lazy_static::lazy_static;
+use ordered_float::NotNan;
+use std::{
+    cmp::Ordering,
+    collections::HashSet,
+    convert::TryInto,
+    fmt::{self, Display, Formatter},
+    iter::FromIterator,
+};
 
 /// E-graphs in the `Smiley` language.
 pub type EGraph = egg::EGraph<Smiley, SmileyAnalysis>;
@@ -26,7 +32,7 @@ pub type Rewrite = egg::Rewrite<Smiley, SmileyAnalysis>;
 pub type Constant = NotNan<f64>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum SmileyExprKind {
+pub enum SmileyKind {
     // Base cases
     Signed(i32),
     Float(Constant),
@@ -46,43 +52,47 @@ pub enum SmileyExprKind {
     Lib,
 }
 
-impl SmileyExprKind {
+impl SmileyKind {
+    #[must_use]
     pub fn arity(&self) -> usize {
-        use SmileyExprKind::*;
         match self {
-            Signed(_) | Float(_) | Ident(_) | Var(_) | Circle | Line => 0,
-            Lambda => 1,
-            Scale | Rotate | Compose | Apply => 2,
-            Move | Let | Lib => 3,
+            Self::Signed(_)
+            | Self::Float(_)
+            | Self::Ident(_)
+            | Self::Var(_)
+            | Self::Circle
+            | Self::Line => 0,
+            Self::Lambda => 1,
+            Self::Scale | Self::Rotate | Self::Compose | Self::Apply => 2,
+            Self::Move | Self::Let | Self::Lib => 3,
         }
     }
 }
 
-impl Display for SmileyExprKind {
+impl Display for SmileyKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        use SmileyExprKind::*;
         match self {
-            Signed(n) => n.fmt(f),
-            Float(g) => g.fmt(f),
-            Ident(s) => s.fmt(f),
-            Var(i) => write!(f, "${}", i),
-            Circle => f.write_str("circle"),
-            Line => f.write_str("line"),
-            Move => f.write_str("move"),
-            Scale => f.write_str("scale"),
-            Rotate => f.write_str("rotate"),
-            Compose => f.write_str("+"),
-            Apply => f.write_str("apply"),
-            Lambda => f.write_str("lambda"),
-            Let => f.write_str("let"),
-            Lib => f.write_str("lib"),
+            Self::Signed(n) => n.fmt(f),
+            Self::Float(g) => g.fmt(f),
+            Self::Ident(s) => s.fmt(f),
+            Self::Var(i) => write!(f, "${}", i),
+            Self::Circle => f.write_str("circle"),
+            Self::Line => f.write_str("line"),
+            Self::Move => f.write_str("move"),
+            Self::Scale => f.write_str("scale"),
+            Self::Rotate => f.write_str("rotate"),
+            Self::Compose => f.write_str("+"),
+            Self::Apply => f.write_str("apply"),
+            Self::Lambda => f.write_str("lambda"),
+            Self::Let => f.write_str("let"),
+            Self::Lib => f.write_str("lib"),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SmileyExpr<T> {
-    kind: SmileyExprKind,
+    kind: SmileyKind,
     children: Vec<T>,
 }
 
@@ -104,30 +114,29 @@ impl FromOp for SmileyExpr<Id> {
     type Error = FromOpError;
 
     fn from_op(op: &str, children: Vec<Id>) -> Result<Self, Self::Error> {
-        use SmileyExprKind::*;
         let kind = match op {
-            "circle" => Circle,
-            "line" => Line,
-            "lambda" => Lambda,
-            "scale" => Scale,
-            "move" => Move,
-            "rotate" => Rotate,
-            "apply" => Apply,
-            "let" => Let,
-            "lib" => Lib,
-            "+" => Compose,
+            "circle" => SmileyKind::Circle,
+            "line" => SmileyKind::Line,
+            "lambda" => SmileyKind::Lambda,
+            "scale" => SmileyKind::Scale,
+            "move" => SmileyKind::Move,
+            "rotate" => SmileyKind::Rotate,
+            "apply" => SmileyKind::Apply,
+            "let" => SmileyKind::Let,
+            "lib" => SmileyKind::Lib,
+            "+" => SmileyKind::Compose,
             _ => {
                 if let Some(i) = op.strip_prefix('$') {
                     let i = i
                         .parse()
                         .map_err(|_| FromOpError::new(op, children.clone()))?;
-                    Var(i)
+                    SmileyKind::Var(i)
                 } else if let Ok(n) = op.parse() {
-                    Signed(n)
+                    SmileyKind::Signed(n)
                 } else if let Ok(f) = op.parse() {
-                    Float(f)
+                    SmileyKind::Float(f)
                 } else {
-                    Ident(op.into())
+                    SmileyKind::Ident(op.into())
                 }
             }
         };
@@ -177,8 +186,8 @@ impl Analysis<Smiley> for SmileyAnalysis {
     /// Return all variables potentially free in `enode`.
     fn make(egraph: &EGraph, enode: &Smiley) -> Self::Data {
         match enode.kind {
-            SmileyExprKind::Ident(var) => HashSet::from_iter([var]),
-            SmileyExprKind::Let | SmileyExprKind::Lib => {
+            SmileyKind::Ident(var) => HashSet::from_iter([var]),
+            SmileyKind::Let | SmileyKind::Lib => {
                 let [var, a, b]: [Id; 3] = enode.children.clone().try_into().unwrap();
                 let mut free = egraph[b].data.clone();
                 for var in &egraph[var].data {
@@ -198,24 +207,45 @@ impl Analysis<Smiley> for SmileyAnalysis {
 }
 
 impl AntiUnifTgt for Smiley {
+    type Kind = SmileyKind;
+
+    fn kind(&self) -> Self::Kind {
+        self.kind
+    }
+
     fn lambda(body: Id) -> Self {
-        Self { kind: SmileyExprKind::Lambda, children: vec![body] }
+        Self {
+            kind: SmileyKind::Lambda,
+            children: vec![body],
+        }
     }
 
     fn app(lambda: Id, arg: Id) -> Self {
-        Self { kind: SmileyExprKind::Apply, children: vec![lambda, arg] }
+        Self {
+            kind: SmileyKind::Apply,
+            children: vec![lambda, arg],
+        }
     }
 
     fn lambda_arg(i: usize) -> Self {
-        Self { kind: SmileyExprKind::Var(i), children: vec![] }
+        Self {
+            kind: SmileyKind::Var(i),
+            children: vec![],
+        }
     }
 
     fn fn_sym() -> Self {
-        Self { kind: SmileyExprKind::Ident(fresh::gen("f")), children: vec![] }
+        Self {
+            kind: SmileyKind::Ident(fresh::gen("f")),
+            children: vec![],
+        }
     }
 
     fn lib(name: Id, lambda: Id, body: Id) -> Self {
-        Self { kind: SmileyExprKind::Lib, children: vec![name, lambda, body] }
+        Self {
+            kind: SmileyKind::Lib,
+            children: vec![name, lambda, body],
+        }
     }
 }
 
@@ -243,7 +273,7 @@ where
 fn not_free_in(expr: &'static str, var: &'static str) -> impl Condition<Smiley, SmileyAnalysis> {
     fn get_var_sym<D>(eclass: &EClass<Smiley, D>) -> Option<Symbol> {
         if eclass.nodes.len() == 1 {
-            if let SmileyExprKind::Ident(var_sym) = eclass.nodes[0].kind {
+            if let SmileyKind::Ident(var_sym) = eclass.nodes[0].kind {
                 return Some(var_sym);
             }
         }

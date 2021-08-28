@@ -2,10 +2,7 @@
 
 use dashmap::DashMap;
 use egg::{Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Var};
-use std::{
-    collections::HashMap,
-    mem::{self, Discriminant},
-};
+use std::{collections::HashMap, hash::Hash};
 
 // Central idea of anti-unification technique:
 // 1. Compile all programs into one central egraph
@@ -250,8 +247,15 @@ impl<L> Default for Dfta<L> {
 
 /// An `AntiUnifTgt` is an extension of a Language which has constructs to
 /// introduce lambdas, etc.
-pub trait AntiUnifTgt: Language + Sync + Send + std::fmt::Display + 'static
-{
+pub trait AntiUnifTgt: Language + Sync + Send + std::fmt::Display + 'static {
+    /// A type representing what kind of expression a language node is.
+    type Kind: Eq + Hash;
+
+    /// The kind of this language node. In particular, for any two language
+    /// nodes `a: Self` and `b: Self`, if `a.kind() == b.kind()`, then
+    /// `a.matches(&b)` must be true.
+    fn kind(&self) -> Self::Kind;
+
     /// Return a language node representing a lambda abstraction over some
     /// body.
     fn lambda(body: Id) -> Self;
@@ -359,8 +363,7 @@ impl<L: AntiUnifTgt> AntiUnification<L> {
 
     /// Turns this anti-unification into a lambda, applied to each of the args.
     #[must_use]
-    pub fn lambdify(&self) -> Vec<ENodeOrVar<L>>
-    {
+    pub fn lambdify(&self) -> Vec<ENodeOrVar<L>> {
         // We first create a map from the stringified Id to its de Brujin index.
         let mut lambda = vec![];
         let arg_map: HashMap<Var, _> = self
@@ -423,7 +426,6 @@ where
     L: AntiUnifTgt,
     A: Analysis<L>,
 {
-
     egraph: &'a EGraph<L, A>,
 
     dfta: Dfta<L>,
@@ -461,22 +463,19 @@ where
 
     // TODO: init_worklist at depths larger than 2
     fn init_worklist(&self) -> Vec<(Rule<L>, Rule<L>)> {
-        type Variant<L> = (Discriminant<L>, usize);
-
-        let mut rules_by_variant: HashMap<Variant<L>, Vec<Rule<L>>> = HashMap::new();
+        let mut rules_by_kind: HashMap<L::Kind, Vec<Rule<L>>> = HashMap::new();
         for eclass in self.egraph.classes() {
             for enode in eclass.iter() {
                 // TODO: Replace this with something less hacky
-                let variant = (mem::discriminant(enode), enode.len());
-                rules_by_variant
-                    .entry(variant)
+                rules_by_kind
+                    .entry(enode.kind())
                     .or_default()
                     .push(Rule::new(enode.clone(), eclass.id));
             }
         }
 
         let mut worklist = Vec::new();
-        for rules in rules_by_variant.values() {
+        for rules in rules_by_kind.values() {
             for rule1 in rules {
                 for rule2 in rules {
                     if rule1.output < rule2.output {
