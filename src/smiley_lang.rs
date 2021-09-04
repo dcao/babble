@@ -1,8 +1,5 @@
 //! The AST defining the smiley language.
 
-// TODO: Remove this once define_language! allows doc strings
-#![allow(missing_docs)]
-
 use crate::{
     anti_unify::{anti_unify, Antiunifiable},
     expr::{Arity, Expr},
@@ -24,24 +21,41 @@ use std::{
     str::FromStr,
 };
 
+/// The operations/AST nodes of the "Smiley" language.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Smiley {
-    // Base cases
+    /// A signed integer constant.
     Signed(i32),
+    /// A floating-point constant.
     Float(NotNan<f64>),
+    /// An identifier. This generally represents a named variable.
     Ident(Symbol),
+    /// A de Bruijn-indexed variable. These are represented with a dollar sign
+    /// followed by the index, i.e. `$0`, `$123`.
     Var(usize),
+    /// A unit circle.
     Circle,
+    /// A unit line.
     Line,
-
+    /// Translate a picture.
     Move,
+    /// Scale a picture.
     Scale,
+    /// Rotate a picture.
     Rotate,
+    /// Union two pictures.
     Compose,
-
+    /// Apply a function to an argument.
     Apply,
+    /// Create an anonymous, de Bruijn-indexed function.
     Lambda,
+    /// Bind a value to a name within an expression.
     Let,
+    /// Bind a learned library function to a name within an expression. This is
+    /// functionally identical to [`Smiley::Let`], but indicates that the
+    /// function was learned through anti-unification. This creates a helpful
+    /// visual distinction and allows rewrite rules to selectively target
+    /// learned functions.
     Lib,
 }
 
@@ -200,7 +214,7 @@ where
     }
 }
 
-/// Produces a `Condition` which is true if and only if the variable matched by
+/// Produces a [`Condition`] which is true if and only if the variable matched by
 /// `var` is not potentially free in the expression matched by `expr`.
 /// Both `expr` and `var` must be pattern variables (e.g. "?e" and "?x").
 ///
@@ -230,6 +244,7 @@ fn not_free_in(
 }
 
 lazy_static! {
+    /// Rewrite rules which move containing expressions inside of [`Smiley::Lib`] expressions.
     static ref LIFT_LIB_REWRITES: &'static [Rewrite<Expr<Smiley>, SmileyAnalysis>] = rewrite_rules! {
         // TODO: Check for captures of de Bruijn variables and re-index if necessary.
         lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
