@@ -22,5 +22,4 @@ pub mod env_pattern;
 pub mod extract;
 pub mod fresh;
 pub mod smiley_lang;
-
-pub use smiley_lang::Rewrite;
+pub mod expr;
