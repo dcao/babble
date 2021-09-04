@@ -5,12 +5,12 @@
 
 use crate::{
     anti_unify::{anti_unify, Antiunifiable},
-    fresh,
+    expr::{Arity, Expr},
 };
 use babble_macros::rewrite_rules;
 use egg::{
-    Analysis, AstSize, Condition, EClass, Extractor, FromOp, FromOpError, Id, Language, Runner,
-    Subst, Symbol,
+    Analysis, AstSize, Condition, EClass, EGraph, Extractor, Id, Language, Rewrite, Runner, Subst,
+    Symbol,
 };
 use lazy_static::lazy_static;
 use ordered_float::NotNan;
@@ -20,22 +20,15 @@ use std::{
     convert::TryInto,
     fmt::{self, Display, Formatter},
     iter::FromIterator,
+    num::ParseIntError,
+    str::FromStr,
 };
 
-/// E-graphs in the `Smiley` language.
-pub type EGraph = egg::EGraph<Smiley, SmileyAnalysis>;
-
-/// Rewrites in the `Smiley` language.
-pub type Rewrite = egg::Rewrite<Smiley, SmileyAnalysis>;
-
-/// Number constants in the `Smiley` language.
-pub type Constant = NotNan<f64>;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum SmileyKind {
+pub enum Smiley {
     // Base cases
     Signed(i32),
-    Float(Constant),
+    Float(NotNan<f64>),
     Ident(Symbol),
     Var(usize),
     Circle,
@@ -52,9 +45,8 @@ pub enum SmileyKind {
     Lib,
 }
 
-impl SmileyKind {
-    #[must_use]
-    pub fn arity(&self) -> usize {
+impl Arity for Smiley {
+    fn arity(&self) -> usize {
         match self {
             Self::Signed(_)
             | Self::Float(_)
@@ -69,7 +61,7 @@ impl SmileyKind {
     }
 }
 
-impl Display for SmileyKind {
+impl Display for Smiley {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Signed(n) => n.fmt(f),
@@ -90,71 +82,58 @@ impl Display for SmileyKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SmileyExpr<T> {
-    kind: SmileyKind,
-    children: Vec<T>,
-}
+impl FromStr for Smiley {
+    type Err = ParseIntError;
 
-impl Language for SmileyExpr<Id> {
-    fn matches(&self, other: &Self) -> bool {
-        self.kind == other.kind
-    }
-
-    fn children(&self) -> &[Id] {
-        &self.children
-    }
-
-    fn children_mut(&mut self) -> &mut [Id] {
-        &mut self.children
-    }
-}
-
-impl FromOp for SmileyExpr<Id> {
-    type Error = FromOpError;
-
-    fn from_op(op: &str, children: Vec<Id>) -> Result<Self, Self::Error> {
-        let kind = match op {
-            "circle" => SmileyKind::Circle,
-            "line" => SmileyKind::Line,
-            "lambda" => SmileyKind::Lambda,
-            "scale" => SmileyKind::Scale,
-            "move" => SmileyKind::Move,
-            "rotate" => SmileyKind::Rotate,
-            "apply" => SmileyKind::Apply,
-            "let" => SmileyKind::Let,
-            "lib" => SmileyKind::Lib,
-            "+" => SmileyKind::Compose,
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let kind = match s {
+            "circle" => Self::Circle,
+            "line" => Self::Line,
+            "lambda" => Self::Lambda,
+            "scale" => Self::Scale,
+            "move" => Self::Move,
+            "rotate" => Self::Rotate,
+            "apply" => Self::Apply,
+            "let" => Self::Let,
+            "lib" => Self::Lib,
+            "+" => Self::Compose,
             _ => {
-                if let Some(i) = op.strip_prefix('$') {
-                    let i = i
-                        .parse()
-                        .map_err(|_| FromOpError::new(op, children.clone()))?;
-                    SmileyKind::Var(i)
-                } else if let Ok(n) = op.parse() {
-                    SmileyKind::Signed(n)
-                } else if let Ok(f) = op.parse() {
-                    SmileyKind::Float(f)
+                if let Some(i) = s.strip_prefix('$') {
+                    Self::Var(i.parse()?)
+                } else if let Ok(n) = s.parse() {
+                    Self::Signed(n)
+                } else if let Ok(f) = s.parse() {
+                    Self::Float(f)
                 } else {
-                    SmileyKind::Ident(op.into())
+                    Self::Ident(s.into())
                 }
             }
         };
-        if kind.arity() == children.len() {
-            Ok(Self { kind, children })
-        } else {
-            Err(FromOpError::new(op, children))
-        }
+        Ok(kind)
     }
 }
 
-impl<T> Display for SmileyExpr<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.kind.fmt(f)
+impl Antiunifiable for Smiley {
+    fn lambda() -> Self {
+        Self::Lambda
+    }
+
+    fn apply() -> Self {
+        Self::Apply
+    }
+
+    fn arg(index: usize) -> Self {
+        Self::Var(index)
+    }
+
+    fn ident(name: Symbol) -> Self {
+        Self::Ident(name)
+    }
+
+    fn lib() -> Self {
+        Self::Lib
     }
 }
-
-type Smiley = SmileyExpr<Id>;
 
 /// Analysis which maintains a set of potentially free variables for each
 /// e-class. For example, the set of potentially free variables for an e-class
@@ -163,7 +142,7 @@ type Smiley = SmileyExpr<Id>;
 #[derive(Default, Clone, Copy, Debug)]
 pub struct SmileyAnalysis;
 
-impl Analysis<Smiley> for SmileyAnalysis {
+impl Analysis<Expr<Smiley>> for SmileyAnalysis {
     type Data = HashSet<Symbol>;
 
     /// Set `a` to the union of `a` and `b`.
@@ -184,11 +163,11 @@ impl Analysis<Smiley> for SmileyAnalysis {
     }
 
     /// Return all variables potentially free in `enode`.
-    fn make(egraph: &EGraph, enode: &Smiley) -> Self::Data {
-        match enode.kind {
-            SmileyKind::Ident(var) => HashSet::from_iter([var]),
-            SmileyKind::Let | SmileyKind::Lib => {
-                let [var, a, b]: [Id; 3] = enode.children.clone().try_into().unwrap();
+    fn make(egraph: &EGraph<Expr<Smiley>, Self>, enode: &Expr<Smiley>) -> Self::Data {
+        match enode.kind() {
+            Smiley::Ident(var) => HashSet::from_iter([*var]),
+            Smiley::Let | Smiley::Lib => {
+                let [var, a, b]: [Id; 3] = enode.children().try_into().unwrap();
                 let mut free = egraph[b].data.clone();
                 for var in &egraph[var].data {
                     free.remove(var);
@@ -206,59 +185,6 @@ impl Analysis<Smiley> for SmileyAnalysis {
     }
 }
 
-impl Antiunifiable for Smiley {
-    type Kind = SmileyKind;
-
-    fn kind(&self) -> Self::Kind {
-        self.kind
-    }
-
-    fn from_parts<I>(kind: Self::Kind, children: I) -> Self
-    where
-        I: IntoIterator<Item = Id>,
-    {
-        Self {
-            kind,
-            children: children.into_iter().collect(),
-        }
-    }
-
-    fn lambda(body: Id) -> Self {
-        Self {
-            kind: SmileyKind::Lambda,
-            children: vec![body],
-        }
-    }
-
-    fn app(lambda: Id, arg: Id) -> Self {
-        Self {
-            kind: SmileyKind::Apply,
-            children: vec![lambda, arg],
-        }
-    }
-
-    fn lambda_arg(i: usize) -> Self {
-        Self {
-            kind: SmileyKind::Var(i),
-            children: vec![],
-        }
-    }
-
-    fn fn_sym() -> Self {
-        Self {
-            kind: SmileyKind::Ident(fresh::gen("f")),
-            children: vec![],
-        }
-    }
-
-    fn lib(name: Id, lambda: Id, body: Id) -> Self {
-        Self {
-            kind: SmileyKind::Lib,
-            children: vec![name, lambda, body],
-        }
-    }
-}
-
 /// Produces a `Condition` which is true if and only if the `Condition`s `p` and
 /// `q` are both true. If `p` is false, this condition short-circuits and does
 /// not check `q`.
@@ -269,7 +195,7 @@ where
     P: Condition<L, A>,
     Q: Condition<L, A>,
 {
-    move |egraph: &mut egg::EGraph<L, A>, id: Id, subst: &Subst| {
+    move |egraph: &mut EGraph<L, A>, id: Id, subst: &Subst| {
         p.check(egraph, id, subst) && q.check(egraph, id, subst)
     }
 }
@@ -280,11 +206,14 @@ where
 ///
 /// # Panics
 /// Panics if `var` matches something other than a single symbol.
-fn not_free_in(expr: &'static str, var: &'static str) -> impl Condition<Smiley, SmileyAnalysis> {
-    fn get_var_sym<D>(eclass: &EClass<Smiley, D>) -> Option<Symbol> {
+fn not_free_in(
+    expr: &'static str,
+    var: &'static str,
+) -> impl Condition<Expr<Smiley>, SmileyAnalysis> {
+    fn get_var_sym<D>(eclass: &EClass<Expr<Smiley>, D>) -> Option<Symbol> {
         if eclass.nodes.len() == 1 {
-            if let SmileyKind::Ident(var_sym) = eclass.nodes[0].kind {
-                return Some(var_sym);
+            if let Smiley::Ident(var_sym) = eclass.nodes[0].kind() {
+                return Some(*var_sym);
             }
         }
         None
@@ -292,7 +221,7 @@ fn not_free_in(expr: &'static str, var: &'static str) -> impl Condition<Smiley, 
 
     let var_metavar = var.parse().unwrap();
     let expr_metavar = expr.parse().unwrap();
-    move |egraph: &mut EGraph, _id: Id, subst: &Subst| {
+    move |egraph: &mut EGraph<_, SmileyAnalysis>, _, subst: &Subst| {
         let var_eclass = &egraph[subst[var_metavar]];
         let var_sym = get_var_sym(var_eclass).expect("not a variable");
         let free_vars = &egraph[subst[expr_metavar]].data;
@@ -301,7 +230,7 @@ fn not_free_in(expr: &'static str, var: &'static str) -> impl Condition<Smiley, 
 }
 
 lazy_static! {
-    static ref LIFT_LIB_REWRITES: &'static [Rewrite] = rewrite_rules! {
+    static ref LIFT_LIB_REWRITES: &'static [Rewrite<Expr<Smiley>, SmileyAnalysis>] = rewrite_rules! {
         // TODO: Check for captures of de Bruijn variables and re-index if necessary.
         lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
 
@@ -332,12 +261,26 @@ lazy_static! {
 
 /// Execute `EGraph` building and program extraction on a single expression
 /// containing all of the programs to extract common fragments out of.
-pub fn run_single(runner: Runner<Smiley, SmileyAnalysis>) {
+pub fn run_single(runner: Runner<Expr<Smiley>, SmileyAnalysis>) {
+    // let e1 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 line)))".parse().unwrap()).unwrap();
+    // let e2 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 circle)))".parse().unwrap()).unwrap();
+    // let e3 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 (scale 3 line))))".parse().unwrap()).unwrap();
+
     let au_rewrites = anti_unify(&runner.egraph);
 
+    let mut runner = runner.with_iter_limit(1).run(au_rewrites.iter());
+
+    // runner.egraph.check_goals(e1, &["(lib ?f (lambda (scale 2 (move 5 7 (rotate 90 $0)))) (apply ?f line))".parse().unwrap()]);
+    // runner.egraph.check_goals(e2, &["(lib ?f (lambda (scale 2 (move 5 7 (rotate 90 $0)))) (apply ?f circle))".parse().unwrap()]);
+    // runner.egraph.check_goals(e3, &["(lib ?f (lambda (scale 2 (move 5 7 (rotate 90 $0)))) (apply ?f (scale 3 line)))".parse().unwrap()]);
+
+    runner.stop_reason = None;
+    // eprintln!("{:?}", DebugEGraph::new(&runner.egraph));
+
     let runner = runner
+        .with_iter_limit(30)
         .with_time_limit(core::time::Duration::from_secs(40))
-        .run(au_rewrites.iter().chain(LIFT_LIB_REWRITES.iter()));
+        .run(LIFT_LIB_REWRITES.iter());
 
     let extractor = Extractor::new(&runner.egraph, AstSize);
     let (cost, expr) = extractor.find_best(runner.roots[0]);

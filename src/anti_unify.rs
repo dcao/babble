@@ -1,8 +1,12 @@
 //! Anti-unification of e-nodes within an e-graph.
 
-use crate::dfta::Dfta;
-use egg::{Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Var};
-use std::{cell::RefCell, collections::HashMap, fmt::Display, hash::Hash};
+use crate::{
+    dfta::Dfta,
+    expr::{Arity, Expr},
+    fresh,
+};
+use egg::{Analysis, EGraph, ENodeOrVar, Id, Language, Pattern, RecExpr, Rewrite, Symbol, Var};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, hash::Hash};
 // How does this play into synthesis?
 // see https://web.eecs.umich.edu/~xwangsd/pubs/oopsla17.pdf, sec 5.1 for inspo
 // Synthesizing a program for a given input-output pair comes down
@@ -27,17 +31,17 @@ use std::{cell::RefCell, collections::HashMap, fmt::Display, hash::Hash};
 
 type State = (Id, Id);
 
-impl<L, A> From<&EGraph<L, A>> for Dfta<L::Kind, Id>
+impl<K, A> From<&EGraph<Expr<K>, A>> for Dfta<K, Id>
 where
-    L: Antiunifiable,
-    A: Analysis<L>,
+    K: Antiunifiable,
+    A: Analysis<Expr<K>>,
 {
-    fn from(egraph: &EGraph<L, A>) -> Self {
+    fn from(egraph: &EGraph<Expr<K>, A>) -> Self {
         let mut dfta = Dfta::new();
         for eclass in egraph.classes() {
             for enode in eclass.iter() {
                 dfta.add_rule(
-                    enode.kind(),
+                    enode.kind().clone(),
                     enode.children().iter().map(|id| egraph.find(*id)),
                     egraph.find(eclass.id),
                 );
@@ -49,36 +53,23 @@ where
 
 /// An `AntiUnifTgt` is an extension of a Language which has constructs to
 /// introduce lambdas, etc.
-pub trait Antiunifiable: Language + Sync + Send + Display + 'static {
-    /// A type representing what kind of expression a language node is.
-    type Kind: Ord + Hash + Clone;
-
-    /// The kind of this language node. In particular, for any two language
-    /// nodes `a: Self` and `b: Self`, if `a.kind() == b.kind()`, then
-    /// `a.matches(&b)` must be true.
-    fn kind(&self) -> Self::Kind;
-
-    /// Create a language node with kind `kind` and children `children`.
-    fn from_parts<I>(kind: Self::Kind, children: I) -> Self
-    where
-        I: IntoIterator<Item = Id>;
-
+pub trait Antiunifiable: Debug + Clone + Ord + Hash + Arity + Send + Sync + 'static {
     /// Return a language node representing a lambda abstraction over some
     /// body.
-    fn lambda(body: Id) -> Self;
+    fn lambda() -> Self;
 
     /// Return a language node representing an application of a function
     /// to an argument.
-    fn app(lambda: Id, arg: Id) -> Self;
+    fn apply() -> Self;
 
     /// Return a node representing a de Brujin index for a lambda.
-    fn lambda_arg(ix: usize) -> Self;
+    fn arg(index: usize) -> Self;
 
     /// Return a node representing a reference to a named fn.
-    fn fn_sym() -> Self;
+    fn ident(name: Symbol) -> Self;
 
     /// Return a node representing a new learned library fn.
-    fn lib(name: Id, lam: Id, body: Id) -> Self;
+    fn lib() -> Self;
 }
 
 // TODO: this seems inefficient
@@ -91,10 +82,10 @@ pub trait Antiunifiable: Language + Sync + Send + Display + 'static {
 /// pattern ast (replace metavars with lambda args in the right places according
 /// to the arg map), and since it makes extension complicated.
 #[derive(Debug, Clone)]
-pub struct Antiunification<L> {
+pub struct Antiunification<K> {
     // We use a Vec here, but this is equivalent to a RecExpr.
     /// The search pattern of this anti-unification
-    pub pattern: Vec<ENodeOrVar<L>>,
+    pub pattern: Vec<ENodeOrVar<Expr<K>>>,
 
     /// A sorted list of phi Ids, which will eventually become arguments to
     /// lambdas. At the end, we generate de Brujin indices by getting the
@@ -104,7 +95,7 @@ pub struct Antiunification<L> {
     phi: bool,
 }
 
-impl<L> Default for Antiunification<L> {
+impl<K> Default for Antiunification<K> {
     fn default() -> Self {
         Self {
             pattern: Vec::new(),
@@ -114,7 +105,7 @@ impl<L> Default for Antiunification<L> {
     }
 }
 
-impl<L: Antiunifiable> Antiunification<L> {
+impl<K: Antiunifiable> Antiunification<K> {
     /// Creates a new empty anti-unification
     #[must_use]
     pub fn new() -> Self {
@@ -168,7 +159,7 @@ impl<L: Antiunifiable> Antiunification<L> {
 
     /// Turns this anti-unification into a lambda, applied to each of the args.
     #[must_use]
-    pub fn lambdify(&self) -> Vec<ENodeOrVar<L>> {
+    pub fn lambdify(&self) -> Vec<ENodeOrVar<Expr<K>>> {
         // We first create a map from the stringified Id to its de Brujin index.
         let mut lambda = vec![];
         let arg_map: HashMap<Var, _> = self
@@ -184,36 +175,43 @@ impl<L: Antiunifiable> Antiunification<L> {
         for node in &self.pattern {
             lambda.push(match node {
                 ENodeOrVar::ENode(n) => ENodeOrVar::ENode(n.clone()),
-                ENodeOrVar::Var(var) => ENodeOrVar::ENode(L::lambda_arg(arg_map[var])),
+                ENodeOrVar::Var(var) => {
+                    ENodeOrVar::ENode(Expr::from_parts(K::arg(arg_map[var]), []))
+                }
             });
         }
 
         // We then introduce as many lambdas as is needed to cover our
         // args.
         for _ in 0..self.args.len() {
-            lambda.push(ENodeOrVar::ENode(L::lambda((lambda.len() - 1).into())));
+            lambda.push(ENodeOrVar::ENode(Expr::from_parts(
+                K::lambda(),
+                [(lambda.len() - 1).into()],
+            )));
         }
         let fn_id = lambda.len() - 1;
 
         // Push a symbol representing our hashed function to the lambda.
         let sym_id = lambda.len();
-        lambda.push(ENodeOrVar::ENode(L::fn_sym()));
+        lambda.push(ENodeOrVar::ENode(Expr::from_parts(
+            K::ident(fresh::gen("f")),
+            [],
+        )));
 
         // Then we introduce applications
         // Make sure we iterate in the right order for our de brujin indices :))
         for arg in self.args.iter().copied().rev() {
             lambda.push(ENodeOrVar::Var(arg));
-            lambda.push(ENodeOrVar::ENode(L::app(
-                (lambda.len() - 2).into(),
-                (lambda.len() - 1).into(),
+            lambda.push(ENodeOrVar::ENode(Expr::from_parts(
+                K::apply(),
+                [(lambda.len() - 2).into(), (lambda.len() - 1).into()],
             )));
         }
 
         // Finally, introduce a let.
-        lambda.push(ENodeOrVar::ENode(L::lib(
-            sym_id.into(),
-            fn_id.into(),
-            (lambda.len() - 1).into(),
+        lambda.push(ENodeOrVar::ENode(Expr::from_parts(
+            K::lib(),
+            [sym_id.into(), fn_id.into(), (lambda.len() - 1).into()],
         )));
 
         lambda
@@ -226,19 +224,19 @@ impl<L: Antiunifiable> Antiunification<L> {
 /// After running anti-unification, we have a new egraph which contains
 /// all possible libraries we could learn from the
 #[derive(Debug)]
-pub struct Antiunifier<L: Antiunifiable> {
-    dfta: Dfta<L::Kind, State>,
+pub struct Antiunifier<K: Antiunifiable> {
+    dfta: Dfta<K, State>,
 
     // Memoization for enumeration of anti-unified programs
-    memo: RefCell<HashMap<State, Vec<Antiunification<L>>>>,
+    memo: RefCell<HashMap<State, Vec<Antiunification<K>>>>,
 }
 
-impl<L: Antiunifiable> Antiunifier<L> {
+impl<K: Antiunifiable> Antiunifier<K> {
     /// Initialize an `AntiUnifier` from an `EGraph`.
     /// We first rebuild this egraph to make sure all its invariants hold.
     /// We then create a DFTA from it which we will use for anti-unification
     /// work.
-    pub fn new<A: Analysis<L>>(egraph: &EGraph<L, A>) -> Self {
+    pub fn new<A: Analysis<Expr<K>>>(egraph: &EGraph<Expr<K>, A>) -> Self {
         Self {
             dfta: Dfta::from(egraph).self_intersection(),
             memo: RefCell::new(HashMap::new()),
@@ -246,11 +244,11 @@ impl<L: Antiunifiable> Antiunifier<L> {
     }
 
     /// Perform anti-unification.
-    pub fn anti_unify<A: Analysis<L>>(&mut self) -> Vec<Rewrite<L, A>> {
+    pub fn anti_unify<A: Analysis<Expr<K>>>(&mut self) -> Vec<Rewrite<Expr<K>, A>> {
         // TODO: parallelize this?
         // We then enumerate our transitions as well, additionally converting these
         // anti-unifications into rewrites which we will apply to the egraph.
-        let mut rewrites: Vec<Rewrite<L, A>> = Vec::new();
+        let mut rewrites: Vec<Rewrite<Expr<K>, A>> = Vec::new();
         for state in self.dfta.output_states() {
             self.enumerate(*state);
 
@@ -263,8 +261,9 @@ impl<L: Antiunifiable> Antiunifier<L> {
                 if anti_unification.is_invalid() {
                     continue;
                 }
-                let searcher: Pattern<L> = RecExpr::from(anti_unification.pattern.clone()).into();
-                let applier: Pattern<L> = RecExpr::from(anti_unification.lambdify()).into();
+                let searcher: Pattern<Expr<K>> =
+                    RecExpr::from(anti_unification.pattern.clone()).into();
+                let applier: Pattern<Expr<K>> = RecExpr::from(anti_unification.lambdify()).into();
                 let name = format!("anti-unify {:?}", state);
                 let rewrite =
                     Rewrite::new(name, searcher, applier).unwrap_or_else(|_| unreachable!());
@@ -275,15 +274,18 @@ impl<L: Antiunifiable> Antiunifier<L> {
     }
 
     fn enumerate(&self, state: State) {
-        // TODO: this could infinite loop
         if !self.memo.borrow().contains_key(&state) {
+            // We mark this state as in progress so that we don't accidentally
+            // loop forever.
+            self.memo.borrow_mut().insert(state, Vec::new());
+
             let mut anti_unifications = Vec::new();
 
             // For each node in the eclass, we can create an anti-unification.
             if let Some(rules) = self.dfta.get_by_output(&state) {
                 for (kind, inputs) in rules {
                     // Pair of argument positions, anti-unif program
-                    let mut prev: Vec<(Vec<usize>, Antiunification<L>)> =
+                    let mut prev: Vec<(Vec<Id>, Antiunification<K>)> =
                         vec![(Vec::new(), Antiunification::new())];
 
                     // TODO: pruning optimization
@@ -297,9 +299,7 @@ impl<L: Antiunifiable> Antiunifier<L> {
                         for child_anti_unifications in self.memo.borrow().get(input).unwrap() {
                             for (mut arg_positions, mut anti_unification) in prev.clone() {
                                 anti_unification.extend(child_anti_unifications);
-
-                                arg_positions.push(anti_unification.pattern.len() - 1);
-
+                                arg_positions.push(Id::from(anti_unification.pattern.len() - 1));
                                 cur.push((arg_positions, anti_unification));
                             }
                         }
@@ -308,13 +308,7 @@ impl<L: Antiunifiable> Antiunifier<L> {
 
                     anti_unifications.extend(prev.into_iter().map(
                         |(arg_positions, mut anti_unification)| {
-                            let children_map: HashMap<State, Id> = inputs
-                                .iter()
-                                .copied()
-                                .zip(arg_positions.into_iter().map(Id::from))
-                                .collect();
-                            let children = inputs.iter().map(|state| children_map[state]);
-                            let enode = L::from_parts(kind.clone(), children);
+                            let enode = Expr::from_parts(kind.clone(), arg_positions);
                             anti_unification.pattern.push(ENodeOrVar::ENode(enode));
                             anti_unification
                         },
@@ -332,11 +326,12 @@ impl<L: Antiunifiable> Antiunifier<L> {
     }
 }
 
+// FIXME: These rewrites introduce lambdas that they can apply to.
 /// Anti-unifies within a given `EGraph`, returning a vec of rewrite rules as output.
-pub fn anti_unify<L, A>(egraph: &EGraph<L, A>) -> Vec<Rewrite<L, A>>
+pub fn anti_unify<K, A>(egraph: &EGraph<Expr<K>, A>) -> Vec<Rewrite<Expr<K>, A>>
 where
-    L: Antiunifiable,
-    A: Analysis<L>,
+    K: Antiunifiable,
+    A: Analysis<Expr<K>>,
 {
     Antiunifier::new(egraph).anti_unify()
 }

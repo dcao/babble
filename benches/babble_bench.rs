@@ -76,7 +76,7 @@ use criterion::*;
 // }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut g = EGraph::new(());
+    let mut g = SmileyEGraph::new(());
     let expr = r"
 (let s1 (+ (move 4 4 (scale 2 line)) (+ (move 3 2 line) (+ (move 4 3 (scale 9 circle)) (move 5 2 line))))
   (let s2 (+ (move 4 4 (scale 2 circle)) (+ (move 3 2 circle) (+ (move 4 3 (scale 9 circle)) (move 5 2 circle))))
