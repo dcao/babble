@@ -7,8 +7,8 @@ use crate::{
 };
 use babble_macros::rewrite_rules;
 use egg::{
-    Analysis, AstSize, Condition, EClass, EGraph, Extractor, Id, Language, Rewrite, Runner, Subst,
-    Symbol,
+    Analysis, AstSize, Condition, EClass, EGraph, Extractor, Id, Language, RecExpr, Rewrite,
+    Runner, Subst, Symbol,
 };
 use lazy_static::lazy_static;
 use ordered_float::NotNan;
@@ -17,6 +17,7 @@ use std::{
     collections::HashSet,
     convert::TryInto,
     fmt::{self, Display, Formatter},
+    io::{self, Write},
     iter::FromIterator,
     num::ParseIntError,
     str::FromStr,
@@ -58,6 +59,76 @@ pub enum Smiley {
     /// visual distinction and allows rewrite rules to selectively target
     /// learned functions.
     Lib,
+}
+
+/// Evaluate an expression as an SVG. Currently only implemented for expressions
+/// without functions or let/lib bindings.
+///
+/// # Errors
+///
+/// This function writes to `writer`, which may result in IO errors.
+pub fn eval<W: Write>(writer: &mut W, expr: &RecExpr<AstNode<Smiley>>) -> io::Result<()> {
+    let nodes = expr.as_ref();
+    writeln!(writer, r#"<?xml version="1.0" encoding="utf-8"?>"#)?;
+    writeln!(
+        writer,
+        r#"<svg viewBox="{}" width="{}" height="{}" style="{}" xmlns="{}">"#,
+        "-10 -10 20 20", "100vmin", "100vmin", "margin: 0 auto;", "http://www.w3.org/2000/svg"
+    )?;
+    eval_index(writer, nodes, nodes.len() - 1)?;
+    writeln!(writer, "</svg>")
+}
+
+fn eval_index<W: Write>(writer: &mut W, nodes: &[AstNode<Smiley>], index: usize) -> io::Result<()> {
+    let expr = &nodes[index];
+    let children: Vec<_> = expr.iter().map(|id| usize::from(*id)).collect();
+    match expr.operation() {
+        Smiley::Signed(i) => write!(writer, "{}", i),
+        Smiley::Float(f) => write!(writer, "{}", f),
+        Smiley::Circle => writeln!(
+            writer,
+            r#"<circle r="{}" stroke="{}" fill="{}" vector-effect="{}"/>"#,
+            1, "black", "none", "non-scaling-stroke"
+        ),
+        Smiley::Line => writeln!(
+            writer,
+            r#"<line x1="{}" x2="{}" stroke="{}" vector-effect="{}"/>"#,
+            -5, 5, "black", "non-scaling-stroke"
+        ),
+        Smiley::Move => {
+            write!(writer, r#"<g transform="translate("#)?;
+            eval_index(writer, nodes, children[0])?;
+            write!(writer, ", ")?;
+            eval_index(writer, nodes, children[1])?;
+            writeln!(writer, r#")">"#)?;
+            eval_index(writer, nodes, children[2])?;
+            writeln!(writer, "</g>")
+        }
+        Smiley::Scale => {
+            write!(writer, r#"<g transform="scale("#)?;
+            eval_index(writer, nodes, children[0])?;
+            writeln!(writer, r#")">"#)?;
+            eval_index(writer, nodes, children[1])?;
+            writeln!(writer, "</g>")
+        }
+        Smiley::Rotate => {
+            write!(writer, r#"<g transform="rotate("#)?;
+            eval_index(writer, nodes, children[0])?;
+            writeln!(writer, r#")">"#)?;
+            eval_index(writer, nodes, children[1])?;
+            writeln!(writer, "</g>")
+        }
+        Smiley::Compose => {
+            eval_index(writer, nodes, children[0])?;
+            eval_index(writer, nodes, children[1])
+        }
+        Smiley::Apply
+        | Smiley::Lambda
+        | Smiley::Let
+        | Smiley::Lib
+        | Smiley::Ident(_)
+        | Smiley::Var(_) => unimplemented!(),
+    }
 }
 
 impl Arity for Smiley {

@@ -23,6 +23,7 @@ use std::{
     path::PathBuf,
 };
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clap)]
 #[clap(version, author, about)]
 struct Opts {
@@ -41,6 +42,10 @@ struct Opts {
     /// Enables pretty-printing of JSON output.
     #[clap(long)]
     pretty: bool,
+
+    /// Evaluate the input file and output it as an SVG.
+    #[clap(long)]
+    svg: bool,
 }
 
 fn main() {
@@ -75,17 +80,21 @@ fn main() {
             serde_json::to_writer(io::stdout(), &output).expect("Error printing JSON output");
         }
     } else {
-        let mut runner = Runner::default();
-        if opts.dump_egraphs {
-            runner = runner.with_hook(|runner| {
-                let iteration = runner.iterations.len();
-                let file = format!("egraphs/iteration-{}.svg", iteration);
-                runner.egraph.dot().to_svg(file).map_err(|e| e.to_string())
-            });
-        }
+        let expr = input.parse().expect("Input is not a valid expression");
+        if opts.svg {
+            smiley_lang::eval(&mut io::stdout(), &expr).unwrap();
+        } else {
+            let mut runner = Runner::default();
+            if opts.dump_egraphs {
+                runner = runner.with_hook(|runner| {
+                    let iteration = runner.iterations.len();
+                    let file = format!("egraphs/iteration-{}.svg", iteration);
+                    runner.egraph.dot().to_svg(file).map_err(|e| e.to_string())
+                });
+            }
 
-        let input = input.parse().expect("Input is not a valid expression");
-        let runner = runner.with_expr(&input);
-        smiley_lang::run_single(runner);
+            let runner = runner.with_expr(&expr);
+            smiley_lang::run_single(runner);
+        }
     }
 }
