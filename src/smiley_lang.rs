@@ -1,6 +1,10 @@
 //! The AST defining the smiley language.
 
-use crate::{anti_unify::LearnedLibrary, antiunifiable::Antiunifiable, ast_node::{Arity, AstNode}};
+use crate::{
+    ast_node::{Arity, AstNode},
+    learn::LearnedLibrary,
+    teachable::Teachable,
+};
 use babble_macros::rewrite_rules;
 use egg::{
     Analysis, AstSize, Condition, EClass, EGraph, Extractor, Id, Language, Rewrite, Runner, Subst,
@@ -124,7 +128,7 @@ impl FromStr for Smiley {
     }
 }
 
-impl Antiunifiable for Smiley {
+impl Teachable for Smiley {
     fn lambda<T>(body: T) -> AstNode<Self, T> {
         AstNode::from_parts(Self::Lambda, [body])
     }

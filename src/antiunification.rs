@@ -2,8 +2,8 @@
 //! variables.
 
 use crate::{
-    antiunifiable::Antiunifiable,
     ast_node::{Arity, AstNode},
+    teachable::Teachable,
 };
 use egg::{ENodeOrVar, Id, Pattern, RecExpr, Symbol, Var};
 use std::{
@@ -269,7 +269,7 @@ impl<Op> Antiunification<Op> {
     }
 }
 
-impl<Op: Antiunifiable> Antiunification<Op> {
+impl<Op: Teachable> Antiunification<Op> {
     /// Create a new anti-unification from this one by introducing a named
     /// library function and applying it to each of the metavariables.
     ///

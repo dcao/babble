@@ -1,7 +1,6 @@
 //! The primary interface for library learning through antiunification.
 use crate::{
-    antiunifiable::Antiunifiable, antiunification::Antiunification, ast_node::AstNode, dfta::Dfta,
-    fresh,
+    antiunification::Antiunification, ast_node::AstNode, dfta::Dfta, fresh, teachable::Teachable,
 };
 use egg::{Analysis, EGraph, Id, Pattern, Rewrite};
 use itertools::Itertools;
@@ -33,14 +32,14 @@ impl<Op> Default for LearnedLibrary<Op> {
 
 impl<'a, Op, A> From<&'a EGraph<AstNode<Op>, A>> for LearnedLibrary<Op>
 where
-    Op: Antiunifiable,
+    Op: Teachable,
     A: Analysis<AstNode<Op>>,
 {
     /// Construct a `LearnedLibrary` from an [`EGraph`] by antiunifying pairs of
     /// enodes to find their common structure.
     fn from(egraph: &'a EGraph<AstNode<Op>, A>) -> Self {
         let mut learned_lib = Self::default();
-        let dfta = Dfta::from(egraph).self_intersection();
+        let dfta = Dfta::from(egraph).cross_over();
         for state in dfta.output_states() {
             learned_lib.enumerate(&dfta, *state);
         }
@@ -48,10 +47,9 @@ where
     }
 }
 
-impl<Op: Antiunifiable> LearnedLibrary<Op> {
+impl<Op: Teachable> LearnedLibrary<Op> {
     /// Returns an iterator over rewrite rules that replace expressions with
     /// equivalent calls to a learned library function.
-    #[must_use]
     pub fn rewrites<A: Analysis<AstNode<Op>>>(
         &self,
     ) -> impl Iterator<Item = Rewrite<AstNode<Op>, A>> + '_ {

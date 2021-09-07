@@ -1,9 +1,8 @@
-//! Defines the [`Antiunifiable`] trait for languages that can be antiunified.
-
-use std::{fmt::Debug, hash::Hash};
+//! Defines the [`Teachable`] trait for languages that support library learning.
 
 use crate::ast_node::{Arity, AstNode};
 use egg::{Language, Symbol};
+use std::{fmt::Debug, hash::Hash};
 
 /// A trait for languages that contain the constructs needed to introduce
 /// learned library functions.
@@ -11,7 +10,7 @@ use egg::{Language, Symbol};
 /// Rather than being implemented on a [`Language`] directly, this should be
 /// implemented by the type of operations `Op` in that language, such that
 /// [`AstNode<Op>`] implements [`Language`].
-pub trait Antiunifiable: Arity + Debug + Clone + Ord + Hash + Send + Sync + 'static
+pub trait Teachable: Arity + Debug + Clone + Ord + Hash + Send + Sync + 'static
 where
     // This bound should always be satisfied, but its meaning is clearer than
     // all the supertraits.

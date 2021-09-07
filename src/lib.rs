@@ -15,8 +15,6 @@
     missing_docs
 )]
 
-pub mod learn;
-pub mod antiunifiable;
 pub mod antiunification;
 pub mod ast_node;
 mod dfta;
@@ -24,4 +22,6 @@ pub mod dreamcoder;
 pub mod env_pattern;
 pub mod extract;
 pub mod fresh;
+pub mod learn;
 pub mod smiley_lang;
+pub mod teachable;
