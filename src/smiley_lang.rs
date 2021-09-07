@@ -1,8 +1,9 @@
 //! The AST defining the smiley language.
 
 use crate::{
-    anti_unify::{anti_unify, Antiunifiable},
-    expr::{Arity, Expr},
+    anti_unify::anti_unify,
+    antiunifiable::Antiunifiable,
+    ast_node::{Arity, AstNode},
 };
 use babble_macros::rewrite_rules;
 use egg::{
@@ -128,24 +129,24 @@ impl FromStr for Smiley {
 }
 
 impl Antiunifiable for Smiley {
-    fn lambda() -> Self {
-        Self::Lambda
+    fn lambda<T>(body: T) -> AstNode<Self, T> {
+        AstNode::from_parts(Self::Lambda, [body])
     }
 
-    fn apply() -> Self {
-        Self::Apply
+    fn apply<T>(fun: T, arg: T) -> AstNode<Self, T> {
+        AstNode::from_parts(Self::Apply, [fun, arg])
     }
 
-    fn arg(index: usize) -> Self {
-        Self::Var(index)
+    fn var<T>(index: usize) -> AstNode<Self, T> {
+        AstNode::from_parts(Self::Var(index), [])
     }
 
-    fn ident(name: Symbol) -> Self {
-        Self::Ident(name)
+    fn ident<T>(name: Symbol) -> AstNode<Self, T> {
+        AstNode::from_parts(Self::Ident(name), [])
     }
 
-    fn lib() -> Self {
-        Self::Lib
+    fn lib<T>(name: T, fun: T, body: T) -> AstNode<Self, T> {
+        AstNode::from_parts(Self::Lib, [name, fun, body])
     }
 }
 
@@ -156,7 +157,7 @@ impl Antiunifiable for Smiley {
 #[derive(Default, Clone, Copy, Debug)]
 pub struct SmileyAnalysis;
 
-impl Analysis<Expr<Smiley>> for SmileyAnalysis {
+impl Analysis<AstNode<Smiley>> for SmileyAnalysis {
     type Data = HashSet<Symbol>;
 
     /// Set `a` to the union of `a` and `b`.
@@ -177,8 +178,8 @@ impl Analysis<Expr<Smiley>> for SmileyAnalysis {
     }
 
     /// Return all variables potentially free in `enode`.
-    fn make(egraph: &EGraph<Expr<Smiley>, Self>, enode: &Expr<Smiley>) -> Self::Data {
-        match enode.kind() {
+    fn make(egraph: &EGraph<AstNode<Smiley>, Self>, enode: &AstNode<Smiley>) -> Self::Data {
+        match enode.operation() {
             Smiley::Ident(var) => HashSet::from_iter([*var]),
             Smiley::Let | Smiley::Lib => {
                 let [var, a, b]: [Id; 3] = enode.children().try_into().unwrap();
@@ -214,19 +215,19 @@ where
     }
 }
 
-/// Produces a [`Condition`] which is true if and only if the variable matched by
-/// `var` is not potentially free in the expression matched by `expr`.
-/// Both `expr` and `var` must be pattern variables (e.g. "?e" and "?x").
+/// Produces a [`Condition`] which is true if and only if the variable matched
+/// by `var` is not potentially free in the expression matched by `expr`. Both
+/// `expr` and `var` must be pattern variables (e.g. "?e" and "?x").
 ///
 /// # Panics
 /// Panics if `var` matches something other than a single symbol.
 fn not_free_in(
     expr: &'static str,
     var: &'static str,
-) -> impl Condition<Expr<Smiley>, SmileyAnalysis> {
-    fn get_var_sym<D>(eclass: &EClass<Expr<Smiley>, D>) -> Option<Symbol> {
+) -> impl Condition<AstNode<Smiley>, SmileyAnalysis> {
+    fn get_var_sym<D>(eclass: &EClass<AstNode<Smiley>, D>) -> Option<Symbol> {
         if eclass.nodes.len() == 1 {
-            if let Smiley::Ident(var_sym) = eclass.nodes[0].kind() {
+            if let Smiley::Ident(var_sym) = eclass.nodes[0].operation() {
                 return Some(*var_sym);
             }
         }
@@ -244,8 +245,9 @@ fn not_free_in(
 }
 
 lazy_static! {
-    /// Rewrite rules which move containing expressions inside of [`Smiley::Lib`] expressions.
-    static ref LIFT_LIB_REWRITES: &'static [Rewrite<Expr<Smiley>, SmileyAnalysis>] = rewrite_rules! {
+    /// Rewrite rules which move containing expressions inside of
+    /// [`Smiley::Lib`] expressions.
+    static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<Smiley>, SmileyAnalysis>] = rewrite_rules! {
         // TODO: Check for captures of de Bruijn variables and re-index if necessary.
         lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
 
@@ -276,7 +278,7 @@ lazy_static! {
 
 /// Execute `EGraph` building and program extraction on a single expression
 /// containing all of the programs to extract common fragments out of.
-pub fn run_single(runner: Runner<Expr<Smiley>, SmileyAnalysis>) {
+pub fn run_single(runner: Runner<AstNode<Smiley>, SmileyAnalysis>) {
     // let e1 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 line)))".parse().unwrap()).unwrap();
     // let e2 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 circle)))".parse().unwrap()).unwrap();
     // let e3 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 (scale 3 line))))".parse().unwrap()).unwrap();
