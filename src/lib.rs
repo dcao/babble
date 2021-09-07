@@ -15,7 +15,7 @@
     missing_docs
 )]
 
-pub mod anti_unify;
+pub mod learn;
 pub mod antiunifiable;
 pub mod antiunification;
 pub mod ast_node;

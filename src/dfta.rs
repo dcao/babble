@@ -4,6 +4,10 @@ use std::{
     iter::FromIterator,
 };
 
+use egg::{Analysis, EGraph, Id};
+
+use crate::{antiunifiable::Antiunifiable, ast_node::AstNode};
+
 // TODO: would encoding this directly as an egraph be more efficient?
 /// Conceptually, a DFTA is a list (or rather, a map) of transition rules from
 /// an operand and its argument states to an output state. In practice, we
@@ -92,5 +96,25 @@ where
 impl<K, S> Default for Dfta<K, S> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<Op, A> From<&EGraph<AstNode<Op>, A>> for Dfta<Op, Id>
+where
+    Op: Antiunifiable,
+    A: Analysis<AstNode<Op>>,
+{
+    fn from(egraph: &EGraph<AstNode<Op>, A>) -> Self {
+        let mut dfta = Dfta::new();
+        for eclass in egraph.classes() {
+            for enode in eclass.iter() {
+                dfta.add_rule(
+                    enode.operation().clone(),
+                    enode.iter().map(|id| egraph.find(*id)),
+                    egraph.find(eclass.id),
+                );
+            }
+        }
+        dfta
     }
 }

@@ -1,10 +1,6 @@
 //! The AST defining the smiley language.
 
-use crate::{
-    anti_unify::anti_unify,
-    antiunifiable::Antiunifiable,
-    ast_node::{Arity, AstNode},
-};
+use crate::{anti_unify::LearnedLibrary, antiunifiable::Antiunifiable, ast_node::{Arity, AstNode}};
 use babble_macros::rewrite_rules;
 use egg::{
     Analysis, AstSize, Condition, EClass, EGraph, Extractor, Id, Language, Rewrite, Runner, Subst,
@@ -283,9 +279,10 @@ pub fn run_single(runner: Runner<AstNode<Smiley>, SmileyAnalysis>) {
     // let e2 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 circle)))".parse().unwrap()).unwrap();
     // let e3 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 (scale 3 line))))".parse().unwrap()).unwrap();
 
-    let au_rewrites = anti_unify(&runner.egraph);
+    let learned_lib = LearnedLibrary::from(&runner.egraph);
+    let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
 
-    let mut runner = runner.with_iter_limit(1).run(au_rewrites.iter());
+    let mut runner = runner.with_iter_limit(1).run(lib_rewrites.iter());
 
     // runner.egraph.check_goals(e1, &["(lib ?f (lambda (scale 2 (move 5 7 (rotate 90 $0)))) (apply ?f line))".parse().unwrap()]);
     // runner.egraph.check_goals(e2, &["(lib ?f (lambda (scale 2 (move 5 7 (rotate 90 $0)))) (apply ?f circle))".parse().unwrap()]);

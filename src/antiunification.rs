@@ -166,9 +166,36 @@ impl<Op: Arity> Antiunification<Op> {
             metavars: Vec::new(),
         }
     }
+
+    /// Create an antiunification representing an AST node whose children are
+    /// themselves antiunifications.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the [`arity`] of `operation` does not match the number of
+    /// children.
+    #[must_use]
+    pub fn expr<I>(operation: Op, children: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+    {
+        let mut children = children.into_iter();
+        if let Some(child) = children.next() {
+            let mut indices = vec![child.index()];
+            let mut result = child;
+            for child in children {
+                let index = result.append(child);
+                indices.push(index);
+            }
+            result.push_ast_node(AstNode::from_parts(operation, indices));
+            result
+        } else {
+            Self::leaf(operation)
+        }
+    }
 }
 
-impl<Op: Antiunifiable> Antiunification<Op> {
+impl<Op> Antiunification<Op> {
     /// Construct an antiunification consisting of a single metavariable
     /// representing the state `state`.
     #[must_use]
@@ -234,6 +261,15 @@ impl<Op: Antiunifiable> Antiunification<Op> {
         self.index()
     }
 
+    /// Add `state` to the list of metavariables if it isn't already present.
+    fn add_metavar(&mut self, state: State) {
+        if let Err(index) = self.metavars.binary_search(&state) {
+            self.metavars.insert(index, state);
+        }
+    }
+}
+
+impl<Op: Antiunifiable> Antiunification<Op> {
     /// Create a new anti-unification from this one by introducing a named
     /// library function and applying it to each of the metavariables.
     ///
@@ -250,7 +286,10 @@ impl<Op: Antiunifiable> Antiunification<Op> {
         // metavariable in `metavars`.
         for node in &mut self.expr {
             if let AstNodeOrVar::Var(state) = node {
-                let index = self.metavars.binary_search(state).unwrap_or_else(|_| unreachable!());
+                let index = self
+                    .metavars
+                    .binary_search(state)
+                    .unwrap_or_else(|_| unreachable!());
                 *node = AstNodeOrVar::AstNode(Op::var(index));
             }
         }
@@ -277,13 +316,6 @@ impl<Op: Antiunifiable> Antiunification<Op> {
         // Finally, we generate a lib-binding.
         self.push_ast_node(Op::lib(ident_index, fun_index, body_index));
         self
-    }
-
-    /// Add `state` to the list of metavariables if it isn't already present.
-    fn add_metavar(&mut self, state: State) {
-        if let Err(index) = self.metavars.binary_search(&state) {
-            self.metavars.insert(index, state);
-        }
     }
 }
 
