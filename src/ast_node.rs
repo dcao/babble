@@ -98,8 +98,9 @@ impl<Op: Arity, T> AstNode<Op, T> {
     /// See also [`AstNode::into_parts`].
     ///
     /// # Panics
-    /// Panics if the [`arity`] of the operation does not match the number of
-    /// children.
+    ///
+    /// Panics if the [`arity`](Arity::arity) of the operation does not match
+    /// the number of children.
     #[must_use]
     pub fn from_parts<I>(operation: Op, children: I) -> Self
     where

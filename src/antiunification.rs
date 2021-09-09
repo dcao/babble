@@ -67,7 +67,7 @@ impl<Op> AddAssign<usize> for AstNode<Op, Index> {
     }
 }
 
-/// Convert a [`Dfta`] state (a pair of [`Id`]s) into a pattern variable.
+/// Convert a DFTA state (a pair of [`Id`]s) into a pattern variable.
 #[must_use]
 pub fn state_to_var(state: State) -> Var {
     format!("?x_{}_{}", state.0, state.1)
@@ -75,8 +75,8 @@ pub fn state_to_var(state: State) -> Var {
         .unwrap_or_else(|_| unreachable!())
 }
 
-/// Either an [`AstNode`] with operation of type `Op` and children of type `T`, or
-/// a named metavariable.
+/// Either an [`AstNode`] with operation of type `Op` and children of type `T`,
+/// or a named metavariable.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AstNodeOrVar<Op, T> {
     /// An AST node.
@@ -158,7 +158,7 @@ impl<Op: Arity> Antiunification<Op> {
     ///
     /// # Panics
     ///
-    /// Panics if the [`arity`] of `leaf` is not zero.
+    /// Panics if the [`arity`](Arity::arity) of `leaf` is not zero.
     #[must_use]
     pub fn leaf(leaf: Op) -> Self {
         Self {
@@ -172,8 +172,8 @@ impl<Op: Arity> Antiunification<Op> {
     ///
     /// # Panics
     ///
-    /// Panics if the [`arity`] of `operation` does not match the number of
-    /// children.
+    /// Panics if the [`arity`](Arity::arity) of `operation` does not match the
+    /// number of children.
     #[must_use]
     pub fn expr<I>(operation: Op, children: I) -> Self
     where
