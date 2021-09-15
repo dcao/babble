@@ -26,6 +26,12 @@ pub struct AstNode<Op, T = Id> {
     children: Vec<T>,
 }
 
+impl<Op, T> AsRef<[T]> for AstNode<Op, T> {
+    fn as_ref(&self) -> &[T] {
+        &self.children
+    }
+}
+
 /// A trait for types whose values represent operations which take a specific
 /// number of arguments.
 pub trait Arity {
@@ -82,7 +88,16 @@ impl<Op, T> AstNode<Op, T> {
         self.into_iter()
     }
 
-    /// Convert this [`AstNode`] into its operation and a [`Vec`] of its
+    /// Convert a reference to this AST node into a reference to its operation
+    /// and a slice of its children.
+    ///
+    /// Se also [`AstNode::into_parts`].
+    #[must_use]
+    pub fn as_parts(&self) -> (&Op, &[T]) {
+        (&self.operation, &self.children)
+    }
+
+    /// Convert this AST node into its operation and a [`Vec`] of its
     /// children.
     ///
     /// See also [`AstNode::from_parts`].

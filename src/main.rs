@@ -19,7 +19,7 @@ use clap::Clap;
 use egg::Runner;
 use std::{
     fs,
-    io::{self, Read},
+    io::{self, stdout, Read},
     path::PathBuf,
 };
 
@@ -82,7 +82,8 @@ fn main() {
     } else {
         let expr = input.parse().expect("Input is not a valid expression");
         if opts.svg {
-            smiley_lang::eval(&mut io::stdout(), &expr).unwrap();
+            let value = smiley_lang::eval(&expr).unwrap();
+            value.write_svg(stdout()).unwrap();
         } else {
             let mut runner = Runner::default();
             if opts.dump_egraphs {

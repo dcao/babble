@@ -20,6 +20,7 @@ pub mod ast_node;
 mod dfta;
 pub mod dreamcoder;
 pub mod env_pattern;
+pub mod eval;
 pub mod extract;
 pub mod fresh;
 pub mod learn;

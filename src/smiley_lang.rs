@@ -2,6 +2,7 @@
 
 use crate::{
     ast_node::{Arity, AstNode},
+    eval::{self, Eval},
     learn::LearnedLibrary,
     teachable::Teachable,
 };
@@ -14,20 +15,26 @@ use lazy_static::lazy_static;
 use ordered_float::NotNan;
 use std::{
     cmp::Ordering,
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     convert::TryInto,
     fmt::{self, Display, Formatter},
     io::{self, Write},
     iter::FromIterator,
     num::ParseIntError,
+    ops::Index,
     str::FromStr,
+};
+use thiserror::Error;
+use xml::{
+    writer::{self, XmlEvent},
+    EmitterConfig, EventWriter,
 };
 
 /// The operations/AST nodes of the "Smiley" language.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Smiley {
     /// A signed integer constant.
-    Signed(i32),
+    Int(i32),
     /// A floating-point constant.
     Float(NotNan<f64>),
     /// An identifier. This generally represents a named variable.
@@ -61,80 +68,372 @@ pub enum Smiley {
     Lib,
 }
 
-/// Evaluate an expression as an SVG. Currently only implemented for expressions
-/// without functions or let/lib bindings.
+#[derive(Clone, Debug)]
+struct Context<T> {
+    ident_env: HashMap<Symbol, Value<T>>,
+    arg_env: Vec<Value<T>>,
+}
+
+impl<T> Context<T> {
+    fn new() -> Self {
+        Self {
+            ident_env: HashMap::new(),
+            arg_env: Vec::new(),
+        }
+    }
+
+    fn with_ident(mut self, ident: Symbol, value: Value<T>) -> Self {
+        self.ident_env.insert(ident, value);
+        self
+    }
+
+    fn with_arg(mut self, value: Value<T>) -> Self {
+        self.arg_env.insert(0, value);
+        self
+    }
+}
+
+impl<T> Default for Context<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: Clone> Eval<T> for Context<T> {
+    type Op = Smiley;
+    type Value = Value<T>;
+    type Error = EvalError;
+
+    fn eval_node<N>(
+        &self,
+        node: &AstNode<Self::Op, T>,
+        nodes: &N,
+    ) -> Result<Self::Value, Self::Error>
+    where
+        N: for<'a> Index<&'a T, Output = AstNode<Self::Op, T>>,
+    {
+        let result = match node.as_parts() {
+            (Smiley::Int(i), []) => Value::float(*i),
+            (Smiley::Float(f), []) => Value::float(*f),
+            (Smiley::Circle, []) => Value::circle((0.0, 0.0), 1.0),
+            (Smiley::Line, []) => Value::line((-0.5, 0.0), (0.5, 0.0)),
+            (Smiley::Ident(ident), []) => self.ident_env[ident].clone(),
+            (Smiley::Var(index), []) => self.arg_env[*index].clone(),
+            (Smiley::Lambda, [body]) => Value::lambda(body.clone()),
+            (Smiley::Move, [x_offset, y_offset, expr]) => {
+                let x_offset: f64 = self
+                    .eval_node(&nodes[x_offset], nodes)?
+                    .into_float()
+                    .ok_or(EvalError::TypeError)?;
+                let y_offset: f64 = self
+                    .eval_node(&nodes[y_offset], nodes)?
+                    .into_float()
+                    .ok_or(EvalError::TypeError)?;
+                let val = self.eval_node(&nodes[expr], nodes)?;
+                val.translate(x_offset, y_offset)
+            }
+            (Smiley::Scale, [factor, expr]) => {
+                let factor = self
+                    .eval_node(&nodes[factor], nodes)?
+                    .into_float()
+                    .ok_or(EvalError::TypeError)?;
+                let val = self.eval_node(&nodes[expr], nodes)?;
+                val.scale(factor)
+            }
+            (Smiley::Rotate, [angle, expr]) => {
+                let angle = self
+                    .eval_node(&nodes[angle], nodes)?
+                    .into_float()
+                    .ok_or(EvalError::TypeError)?;
+                let val = self.eval_node(&nodes[expr], nodes)?;
+                val.rotate(angle)
+            }
+            (Smiley::Let | Smiley::Lib, [ident, val, body]) => {
+                let ident = nodes[ident].as_ident().ok_or(EvalError::SyntaxError)?;
+                let val = self.eval_node(&nodes[val], nodes)?;
+                self.clone()
+                    .with_ident(ident, val)
+                    .eval_node(&nodes[body], nodes)?
+            }
+            (Smiley::Apply, [fun, arg]) => {
+                let body = self
+                    .eval_node(&nodes[fun], nodes)?
+                    .into_lambda()
+                    .ok_or(EvalError::TypeError)?;
+                let arg = self.eval_node(&nodes[arg], nodes)?;
+                self.clone().with_arg(arg).eval_node(&nodes[&body], nodes)?
+            }
+            (Smiley::Compose, [expr1, expr2]) => {
+                let val1 = self.eval_node(&nodes[expr1], nodes)?;
+                let val2 = self.eval_node(&nodes[expr2], nodes)?;
+                val1.compose(val2)
+            }
+            _ => unreachable!(),
+        };
+        Ok(result)
+    }
+}
+
+#[derive(Debug, Clone)]
+enum SimpleValue<T = Id> {
+    Float(f64),
+    Circle { center: (f64, f64), radius: f64 },
+    Line { from: (f64, f64), to: (f64, f64) },
+    Lambda(T),
+}
+
+/// The result of evaluating a smiley expression.
+#[derive(Debug, Clone)]
+pub struct Value<T = Id> {
+    simple_values: Vec<SimpleValue<T>>,
+}
+
+/// An error encountered while attempting to evaluate a Smiley expression.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum EvalError {
+    /// A syntax error.
+    #[error("syntax error")]
+    SyntaxError,
+    /// A type error.
+    #[error("type error")]
+    TypeError,
+}
+
+impl<T> AstNode<Smiley, T> {
+    fn as_ident(&self) -> Option<Symbol> {
+        match self.operation() {
+            Smiley::Ident(ident) => Some(*ident),
+            _ => None,
+        }
+    }
+}
+
+impl<T> Value<T> {
+    fn lambda(body: T) -> Self {
+        Self {
+            simple_values: vec![SimpleValue::Lambda(body)],
+        }
+    }
+
+    fn float<F: Into<f64>>(value: F) -> Self {
+        Self {
+            simple_values: vec![SimpleValue::Float(value.into())],
+        }
+    }
+
+    fn circle(center: (f64, f64), radius: f64) -> Self {
+        Self {
+            simple_values: vec![SimpleValue::Circle { center, radius }],
+        }
+    }
+
+    fn line(from: (f64, f64), to: (f64, f64)) -> Self {
+        Self {
+            simple_values: vec![SimpleValue::Line { from, to }],
+        }
+    }
+
+    fn into_float(self) -> Option<f64> {
+        self.into_single().and_then(SimpleValue::into_float)
+    }
+
+    fn into_lambda(self) -> Option<T> {
+        self.into_single().and_then(SimpleValue::into_lambda)
+    }
+
+    fn into_single(self) -> Option<SimpleValue<T>> {
+        let [simple_value]: [_; 1] = self.simple_values.try_into().ok()?;
+        Some(simple_value)
+    }
+
+    /// Write this value as an SVG to the given writer.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if writing to `writer` produces an IO error.
+    pub fn write_svg<W: Write>(&self, writer: W) -> io::Result<()> {
+        let mut xml_writer = EmitterConfig::new()
+            .perform_indent(true)
+            .create_writer(writer);
+        self.to_svg(&mut xml_writer).map_err(|e| match e {
+            writer::Error::Io(e) => e,
+            _ => unreachable!(),
+        })
+    }
+
+    fn to_svg<W: Write>(&self, xml_writer: &mut EventWriter<W>) -> writer::Result<()> {
+        xml_writer.write(
+            XmlEvent::start_element("svg")
+                .default_ns("http://www.w3.org/2000/svg")
+                .attr("viewBox", "-25 -25 50 50"),
+        )?;
+        xml_writer.write(XmlEvent::start_element("style"))?;
+        xml_writer.write(XmlEvent::cdata(
+            r#"
+            svg {
+              width: 100vmin;
+              height: 100vmin;
+              margin: 0 auto;
+            }
+
+            circle, line {
+              fill: none;
+              stroke: black;
+              vector-effect: non-scaling-stroke;
+            }
+           "#,
+        ))?;
+        xml_writer.write(XmlEvent::end_element())?;
+
+        for simple_value in &self.simple_values {
+            simple_value.to_svg(xml_writer)?;
+        }
+
+        xml_writer.write(XmlEvent::end_element())
+    }
+
+    fn translate(self, x_offset: f64, y_offset: f64) -> Self {
+        Self {
+            simple_values: self
+                .simple_values
+                .into_iter()
+                .map(|v| v.translate(x_offset, y_offset))
+                .collect(),
+        }
+    }
+
+    fn rotate(self, angle: f64) -> Self {
+        Self {
+            simple_values: self
+                .simple_values
+                .into_iter()
+                .map(|v| v.rotate(angle))
+                .collect(),
+        }
+    }
+
+    fn scale(self, factor: f64) -> Self {
+        Self {
+            simple_values: self
+                .simple_values
+                .into_iter()
+                .map(|v| v.scale(factor))
+                .collect(),
+        }
+    }
+
+    fn compose(mut self, other: Self) -> Self {
+        self.simple_values.extend(other.simple_values);
+        self
+    }
+}
+
+impl<T> SimpleValue<T> {
+    fn into_float(self) -> Option<f64> {
+        match self {
+            Self::Float(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    fn into_lambda(self) -> Option<T> {
+        match self {
+            Self::Lambda(body) => Some(body),
+            _ => None,
+        }
+    }
+
+    fn to_svg<W: Write>(&self, xml_writer: &mut EventWriter<W>) -> writer::Result<()> {
+        match self {
+            Self::Float(_) => panic!("float"),
+            Self::Circle {
+                center: (cx, cy),
+                radius: r,
+            } => {
+                xml_writer.write(
+                    XmlEvent::start_element("circle")
+                        .attr("cx", &cx.to_string())
+                        .attr("cy", &cy.to_string())
+                        .attr("r", &r.to_string()),
+                )?;
+                xml_writer.write(XmlEvent::end_element())
+            }
+            Self::Line {
+                from: (x1, y1),
+                to: (x2, y2),
+            } => {
+                xml_writer.write(
+                    XmlEvent::start_element("line")
+                        .attr("x1", &x1.to_string())
+                        .attr("y1", &y1.to_string())
+                        .attr("x2", &x2.to_string())
+                        .attr("y2", &y2.to_string()),
+                )?;
+                xml_writer.write(XmlEvent::end_element())
+            }
+            Self::Lambda(_) => panic!("lambda"),
+        }
+    }
+
+    fn similarity_transform<F>(self, transform_point: F) -> Self
+    where
+        F: Fn(f64, f64) -> (f64, f64),
+    {
+        match self {
+            Self::Circle {
+                center: (x, y),
+                radius,
+            } => {
+                let (x1, y1) = transform_point(x, y);
+                let (x2, y2) = transform_point(x + radius, y);
+                let new_radius = (x2 - x1).hypot(y2 - y1);
+                Self::Circle {
+                    center: (x1, y1),
+                    radius: new_radius,
+                }
+            }
+            Self::Line {
+                from: (x1, y1),
+                to: (x2, y2),
+            } => Self::Line {
+                from: transform_point(x1, y1),
+                to: transform_point(x2, y2),
+            },
+            other => other,
+        }
+    }
+
+    fn translate(self, x_offset: f64, y_offset: f64) -> Self {
+        self.similarity_transform(|x, y| (x + x_offset, y + y_offset))
+    }
+
+    fn rotate(self, angle: f64) -> Self {
+        let (sin, cos) = angle.to_radians().sin_cos();
+        // Matrix multiplication
+        // |cos -sin| |x|
+        // |sin  cos| |y|
+        self.similarity_transform(|x, y| (x * cos - y * sin, x * sin + y * cos))
+    }
+
+    fn scale(self, factor: f64) -> Self {
+        self.similarity_transform(|x, y| (x * factor, y * factor))
+    }
+}
+
+/// Evaluate the expression `expr`.
 ///
 /// # Errors
 ///
-/// This function writes to `writer`, which may result in IO errors.
-pub fn eval<W: Write>(writer: &mut W, expr: &RecExpr<AstNode<Smiley>>) -> io::Result<()> {
-    let nodes = expr.as_ref();
-    writeln!(writer, r#"<?xml version="1.0" encoding="utf-8"?>"#)?;
-    writeln!(
-        writer,
-        r#"<svg viewBox="{}" width="{}" height="{}" style="{}" xmlns="{}">"#,
-        "-10 -10 20 20", "100vmin", "100vmin", "margin: 0 auto;", "http://www.w3.org/2000/svg"
-    )?;
-    eval_index(writer, nodes, nodes.len() - 1)?;
-    writeln!(writer, "</svg>")
-}
-
-fn eval_index<W: Write>(writer: &mut W, nodes: &[AstNode<Smiley>], index: usize) -> io::Result<()> {
-    let expr = &nodes[index];
-    let children: Vec<_> = expr.iter().map(|id| usize::from(*id)).collect();
-    match expr.operation() {
-        Smiley::Signed(i) => write!(writer, "{}", i),
-        Smiley::Float(f) => write!(writer, "{}", f),
-        Smiley::Circle => writeln!(
-            writer,
-            r#"<circle r="{}" stroke="{}" fill="{}" vector-effect="{}"/>"#,
-            1, "black", "none", "non-scaling-stroke"
-        ),
-        Smiley::Line => writeln!(
-            writer,
-            r#"<line x1="{}" x2="{}" stroke="{}" vector-effect="{}"/>"#,
-            -5, 5, "black", "non-scaling-stroke"
-        ),
-        Smiley::Move => {
-            write!(writer, r#"<g transform="translate("#)?;
-            eval_index(writer, nodes, children[0])?;
-            write!(writer, ", ")?;
-            eval_index(writer, nodes, children[1])?;
-            writeln!(writer, r#")">"#)?;
-            eval_index(writer, nodes, children[2])?;
-            writeln!(writer, "</g>")
-        }
-        Smiley::Scale => {
-            write!(writer, r#"<g transform="scale("#)?;
-            eval_index(writer, nodes, children[0])?;
-            writeln!(writer, r#")">"#)?;
-            eval_index(writer, nodes, children[1])?;
-            writeln!(writer, "</g>")
-        }
-        Smiley::Rotate => {
-            write!(writer, r#"<g transform="rotate("#)?;
-            eval_index(writer, nodes, children[0])?;
-            writeln!(writer, r#")">"#)?;
-            eval_index(writer, nodes, children[1])?;
-            writeln!(writer, "</g>")
-        }
-        Smiley::Compose => {
-            eval_index(writer, nodes, children[0])?;
-            eval_index(writer, nodes, children[1])
-        }
-        Smiley::Apply
-        | Smiley::Lambda
-        | Smiley::Let
-        | Smiley::Lib
-        | Smiley::Ident(_)
-        | Smiley::Var(_) => unimplemented!(),
-    }
+/// Returns `Err` if the expression is malformed or contains a type error.
+pub fn eval(expr: &RecExpr<AstNode<Smiley>>) -> Result<Value, EvalError> {
+    let context = Context::new();
+    eval::eval(&context, expr)
 }
 
 impl Arity for Smiley {
     fn arity(&self) -> usize {
         match self {
-            Self::Signed(_)
+            Self::Int(_)
             | Self::Float(_)
             | Self::Ident(_)
             | Self::Var(_)
@@ -150,7 +449,7 @@ impl Arity for Smiley {
 impl Display for Smiley {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Signed(n) => n.fmt(f),
+            Self::Int(n) => n.fmt(f),
             Self::Float(g) => g.fmt(f),
             Self::Ident(s) => s.fmt(f),
             Self::Var(i) => write!(f, "${}", i),
@@ -187,7 +486,7 @@ impl FromStr for Smiley {
                 if let Some(i) = s.strip_prefix('$') {
                     Self::Var(i.parse()?)
                 } else if let Ok(n) = s.parse() {
-                    Self::Signed(n)
+                    Self::Int(n)
                 } else if let Ok(f) = s.parse() {
                     Self::Float(f)
                 } else {
