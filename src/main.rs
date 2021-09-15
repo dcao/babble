@@ -82,8 +82,9 @@ fn main() {
     } else {
         let expr = input.parse().expect("Input is not a valid expression");
         if opts.svg {
-            let value = smiley_lang::eval(&expr).unwrap();
-            value.write_svg(stdout()).unwrap();
+            let value = smiley_lang::eval(&expr).expect("Failed to evaluate expression");
+            let picture = value.into_picture().expect("Result of evaluation is not a picture");
+            picture.write_svg(stdout()).expect("Error writing SVG");
         } else {
             let mut runner = Runner::default();
             if opts.dump_egraphs {

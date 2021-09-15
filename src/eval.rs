@@ -1,7 +1,7 @@
 //! Defines the [`Eval`] trait for evaluating expressions.
 
 use crate::ast_node::AstNode;
-use egg::{Id, RecExpr};
+use egg::{Id, Language, RecExpr};
 use std::ops::Index;
 
 /// A trait for evaluating expressions. This should be implemented by a type
@@ -43,7 +43,10 @@ pub trait Eval<T = Id>: Sized {
 pub fn eval<Context: Eval>(
     context: &Context,
     expr: &RecExpr<AstNode<Context::Op>>,
-) -> Result<Context::Value, Context::Error> {
+) -> Result<Context::Value, Context::Error>
+where
+    AstNode<Context::Op>: Language,
+{
     let root = expr.as_ref().last().unwrap();
     context.eval_node(root, expr)
 }

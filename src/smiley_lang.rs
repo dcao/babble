@@ -99,7 +99,7 @@ impl<T> Default for Context<T> {
     }
 }
 
-impl<T: Clone> Eval<T> for Context<T> {
+impl<T: Copy> Eval<T> for Context<T> {
     type Op = Smiley;
     type Value = Value<T>;
     type Error = EvalError;
@@ -113,60 +113,73 @@ impl<T: Clone> Eval<T> for Context<T> {
         M: Index<T, Output = AstNode<Self::Op, T>>,
     {
         let result = match node.as_parts() {
-            (Smiley::Int(i), []) => Value::float(*i),
-            (Smiley::Float(f), []) => Value::float(*f),
-            (Smiley::Circle, []) => Value::circle((0.0, 0.0), 1.0),
-            (Smiley::Line, []) => Value::line((-0.5, 0.0), (0.5, 0.0)),
+            (&Smiley::Int(i), []) => Value::Float(i.into()),
+            (&Smiley::Float(f), []) => Value::Float(f.into()),
+            (Smiley::Circle, []) => Value::Shapes(vec![Shape::Circle {
+                center: (0.0, 0.0),
+                radius: 1.0,
+            }]),
+            (Smiley::Line, []) => Value::Shapes(vec![Shape::Line {
+                start: (-0.5, 0.0),
+                end: (0.5, 0.0),
+            }]),
             (Smiley::Ident(ident), []) => self.ident_env[ident].clone(),
-            (Smiley::Var(index), []) => self.arg_env[*index].clone(),
-            (Smiley::Lambda, [body]) => Value::lambda(*body),
-            (Smiley::Move, [x_offset, y_offset, expr]) => {
+            (&Smiley::Var(index), []) => self.arg_env[index].clone(),
+            (Smiley::Lambda, &[body]) => Value::Lambda(body),
+            (Smiley::Move, &[x_offset, y_offset, expr]) => {
                 let x_offset: f64 = self
-                    .eval_node(&nodes[*x_offset], nodes)?
-                    .into_float()
+                    .eval_node(&nodes[x_offset], nodes)?
+                    .as_float()
                     .ok_or(EvalError::TypeError)?;
                 let y_offset: f64 = self
-                    .eval_node(&nodes[*y_offset], nodes)?
-                    .into_float()
+                    .eval_node(&nodes[y_offset], nodes)?
+                    .as_float()
                     .ok_or(EvalError::TypeError)?;
-                let val = self.eval_node(&nodes[*expr], nodes)?;
-                val.translate(x_offset, y_offset)
+                let val = self.eval_node(&nodes[expr], nodes)?;
+                val.map_shapes(|shape| shape.translate(x_offset, y_offset))
             }
-            (Smiley::Scale, [factor, expr]) => {
+            (Smiley::Scale, &[factor, expr]) => {
                 let factor = self
-                    .eval_node(&nodes[*factor], nodes)?
-                    .into_float()
+                    .eval_node(&nodes[factor], nodes)?
+                    .as_float()
                     .ok_or(EvalError::TypeError)?;
-                let val = self.eval_node(&nodes[*expr], nodes)?;
-                val.scale(factor)
+                let val = self.eval_node(&nodes[expr], nodes)?;
+                val.map_shapes(|shape| shape.scale(factor))
             }
-            (Smiley::Rotate, [angle, expr]) => {
+            (Smiley::Rotate, &[angle, expr]) => {
                 let angle = self
-                    .eval_node(&nodes[*angle], nodes)?
-                    .into_float()
+                    .eval_node(&nodes[angle], nodes)?
+                    .as_float()
                     .ok_or(EvalError::TypeError)?;
-                let val = self.eval_node(&nodes[*expr], nodes)?;
-                val.rotate(angle)
+                let val = self.eval_node(&nodes[expr], nodes)?;
+                val.map_shapes(|shape| shape.rotate(angle))
             }
-            (Smiley::Let | Smiley::Lib, [ident, val, body]) => {
-                let ident = nodes[*ident].as_ident().ok_or(EvalError::SyntaxError)?;
-                let val = self.eval_node(&nodes[*val], nodes)?;
+            (Smiley::Let | Smiley::Lib, &[ident, val, body]) => {
+                let ident = nodes[ident].as_ident().ok_or(EvalError::SyntaxError)?;
+                let val = self.eval_node(&nodes[val], nodes)?;
                 self.clone()
                     .with_ident(ident, val)
-                    .eval_node(&nodes[*body], nodes)?
+                    .eval_node(&nodes[body], nodes)?
             }
-            (Smiley::Apply, [fun, arg]) => {
+            (Smiley::Apply, &[fun, arg]) => {
                 let body = self
-                    .eval_node(&nodes[*fun], nodes)?
-                    .into_lambda()
+                    .eval_node(&nodes[fun], nodes)?
+                    .as_lambda()
                     .ok_or(EvalError::TypeError)?;
-                let arg = self.eval_node(&nodes[*arg], nodes)?;
+                let arg = self.eval_node(&nodes[arg], nodes)?;
                 self.clone().with_arg(arg).eval_node(&nodes[body], nodes)?
             }
-            (Smiley::Compose, [expr1, expr2]) => {
-                let val1 = self.eval_node(&nodes[*expr1], nodes)?;
-                let val2 = self.eval_node(&nodes[*expr2], nodes)?;
-                val1.compose(val2)
+            (Smiley::Compose, &[expr1, expr2]) => {
+                let mut shapes1 = self
+                    .eval_node(&nodes[expr1], nodes)?
+                    .into_shapes()
+                    .ok_or(EvalError::TypeError)?;
+                let shapes2 = self
+                    .eval_node(&nodes[expr2], nodes)?
+                    .into_shapes()
+                    .ok_or(EvalError::TypeError)?;
+                shapes1.extend(shapes2);
+                Value::Shapes(shapes1)
             }
             _ => unreachable!(),
         };
@@ -174,18 +187,40 @@ impl<T: Clone> Eval<T> for Context<T> {
     }
 }
 
-#[derive(Debug, Clone)]
-enum SimpleValue<T = Id> {
-    Float(f64),
-    Circle { center: (f64, f64), radius: f64 },
-    Line { from: (f64, f64), to: (f64, f64) },
-    Lambda(T),
+/// The primitive components of a [`Picture`].
+#[derive(Debug, Clone, Copy)]
+pub enum Shape {
+    /// A circle
+    Circle {
+        /// The circle's center point
+        center: (f64, f64),
+        /// The circle's radius
+        radius: f64,
+    },
+    /// A line segment
+    Line {
+        /// The starting point of the line segment
+        start: (f64, f64),
+        /// The end point of the line segment
+        end: (f64, f64),
+    },
 }
 
-/// The result of evaluating a smiley expression.
+/// The result of evaluating an expression in the "Smiley" language.
 #[derive(Debug, Clone)]
-pub struct Value<T = Id> {
-    simple_values: Vec<SimpleValue<T>>,
+pub enum Value<T = Id> {
+    /// A floating-point number
+    Float(f64),
+    /// A function with body `T`
+    Lambda(T),
+    /// A collection of shapes
+    Shapes(Vec<Shape>),
+}
+
+/// A picture, made up of [`Shape`]s
+#[derive(Debug, Clone)]
+pub struct Picture {
+    shapes: Vec<Shape>,
 }
 
 /// An error encountered while attempting to evaluate a Smiley expression.
@@ -201,52 +236,58 @@ pub enum EvalError {
 
 impl<T> AstNode<Smiley, T> {
     fn as_ident(&self) -> Option<Symbol> {
-        match self.operation() {
-            Smiley::Ident(ident) => Some(*ident),
+        match *self.operation() {
+            Smiley::Ident(ident) => Some(ident),
             _ => None,
         }
     }
 }
 
 impl<T> Value<T> {
-    fn lambda(body: T) -> Self {
-        Self {
-            simple_values: vec![SimpleValue::Lambda(body)],
+    fn as_float(&self) -> Option<f64> {
+        match *self {
+            Self::Float(f) => Some(f),
+            _ => None,
         }
     }
 
-    fn float<F: Into<f64>>(value: F) -> Self {
-        Self {
-            simple_values: vec![SimpleValue::Float(value.into())],
+    fn as_lambda(&self) -> Option<T>
+    where
+        T: Copy,
+    {
+        match *self {
+            Self::Lambda(node) => Some(node),
+            _ => None,
         }
     }
 
-    fn circle(center: (f64, f64), radius: f64) -> Self {
-        Self {
-            simple_values: vec![SimpleValue::Circle { center, radius }],
+    fn into_shapes(self) -> Option<Vec<Shape>> {
+        match self {
+            Self::Shapes(shapes) => Some(shapes),
+            _ => None,
         }
     }
 
-    fn line(from: (f64, f64), to: (f64, f64)) -> Self {
-        Self {
-            simple_values: vec![SimpleValue::Line { from, to }],
+    /// Try to convert this value into a picture. If the value isn't a
+    /// collection of shapes, returns `None`.
+    pub fn into_picture(self) -> Option<Picture> {
+        let shapes = self.into_shapes()?;
+        Some(Picture { shapes })
+    }
+
+    fn map_shapes<F>(self, f: F) -> Self
+    where
+        F: FnMut(Shape) -> Shape,
+    {
+        match self {
+            Self::Shapes(shapes) => Self::Shapes(shapes.into_iter().map(f).collect()),
+            other => other,
         }
     }
+}
 
-    fn into_float(self) -> Option<f64> {
-        self.into_single().and_then(SimpleValue::into_float)
-    }
-
-    fn into_lambda(self) -> Option<T> {
-        self.into_single().and_then(SimpleValue::into_lambda)
-    }
-
-    fn into_single(self) -> Option<SimpleValue<T>> {
-        let [simple_value]: [_; 1] = self.simple_values.try_into().ok()?;
-        Some(simple_value)
-    }
-
-    /// Write this value as an SVG to the given writer.
+impl Picture {
+    /// Output an SVG representation of this picture to the writer `writer`.
     ///
     /// # Errors
     ///
@@ -255,13 +296,13 @@ impl<T> Value<T> {
         let mut xml_writer = EmitterConfig::new()
             .perform_indent(true)
             .create_writer(writer);
-        self.to_svg(&mut xml_writer).map_err(|e| match e {
+        self.fmt_svg(&mut xml_writer).map_err(|e| match e {
             writer::Error::Io(e) => e,
             _ => unreachable!(),
         })
     }
 
-    fn to_svg<W: Write>(&self, xml_writer: &mut EventWriter<W>) -> writer::Result<()> {
+    fn fmt_svg<W: Write>(&self, xml_writer: &mut EventWriter<W>) -> xml::writer::Result<()> {
         xml_writer.write(
             XmlEvent::start_element("svg")
                 .default_ns("http://www.w3.org/2000/svg")
@@ -285,67 +326,17 @@ impl<T> Value<T> {
         ))?;
         xml_writer.write(XmlEvent::end_element())?;
 
-        for simple_value in &self.simple_values {
-            simple_value.to_svg(xml_writer)?;
+        for shape in &self.shapes {
+            shape.fmt_svg(xml_writer)?;
         }
 
         xml_writer.write(XmlEvent::end_element())
     }
-
-    fn translate(self, x_offset: f64, y_offset: f64) -> Self {
-        Self {
-            simple_values: self
-                .simple_values
-                .into_iter()
-                .map(|v| v.translate(x_offset, y_offset))
-                .collect(),
-        }
-    }
-
-    fn rotate(self, angle: f64) -> Self {
-        Self {
-            simple_values: self
-                .simple_values
-                .into_iter()
-                .map(|v| v.rotate(angle))
-                .collect(),
-        }
-    }
-
-    fn scale(self, factor: f64) -> Self {
-        Self {
-            simple_values: self
-                .simple_values
-                .into_iter()
-                .map(|v| v.scale(factor))
-                .collect(),
-        }
-    }
-
-    fn compose(mut self, other: Self) -> Self {
-        self.simple_values.extend(other.simple_values);
-        self
-    }
 }
 
-impl<T> SimpleValue<T> {
-    fn into_float(self) -> Option<f64> {
+impl Shape {
+    fn fmt_svg<W: Write>(&self, xml_writer: &mut EventWriter<W>) -> xml::writer::Result<()> {
         match self {
-            Self::Float(f) => Some(f),
-            _ => None,
-        }
-    }
-
-    fn into_lambda(self) -> Option<T> {
-        match self {
-            Self::Lambda(body) => Some(body),
-            _ => None,
-        }
-    }
-
-    fn to_svg<W: Write>(&self, xml_writer: &mut EventWriter<W>) -> writer::Result<()> {
-        match self {
-            Self::Float(_) => panic!("float"),
             Self::Circle {
                 center: (cx, cy),
                 radius: r,
@@ -359,8 +350,8 @@ impl<T> SimpleValue<T> {
                 xml_writer.write(XmlEvent::end_element())
             }
             Self::Line {
-                from: (x1, y1),
-                to: (x2, y2),
+                start: (x1, y1),
+                end: (x2, y2),
             } => {
                 xml_writer.write(
                     XmlEvent::start_element("line")
@@ -371,7 +362,6 @@ impl<T> SimpleValue<T> {
                 )?;
                 xml_writer.write(XmlEvent::end_element())
             }
-            Self::Lambda(_) => panic!("lambda"),
         }
     }
 
@@ -393,13 +383,12 @@ impl<T> SimpleValue<T> {
                 }
             }
             Self::Line {
-                from: (x1, y1),
-                to: (x2, y2),
+                start: (x1, y1),
+                end: (x2, y2),
             } => Self::Line {
-                from: transform_point(x1, y1),
-                to: transform_point(x2, y2),
+                start: transform_point(x1, y1),
+                end: transform_point(x2, y2),
             },
-            other => other,
         }
     }
 
@@ -407,11 +396,8 @@ impl<T> SimpleValue<T> {
         self.similarity_transform(|x, y| (x + x_offset, y + y_offset))
     }
 
-    fn rotate(self, angle: f64) -> Self {
-        let (sin, cos) = angle.to_radians().sin_cos();
-        // Matrix multiplication
-        // |cos -sin| |x|
-        // |sin  cos| |y|
+    fn rotate(self, degrees: f64) -> Self {
+        let (sin, cos) = degrees.to_radians().sin_cos();
         self.similarity_transform(|x, y| (x * cos - y * sin, x * sin + y * cos))
     }
 
