@@ -27,7 +27,7 @@ pub trait Eval<T = Id>: Sized {
         node_map: &M,
     ) -> Result<Self::Value, Self::Error>
     where
-        M: for<'a> Index<&'a T, Output = AstNode<Self::Op, T>>;
+        M: Index<T, Output = AstNode<Self::Op, T>>;
 }
 
 /// Evaluate the expression `expr` in the context `context`.
@@ -45,17 +45,5 @@ pub fn eval<Context: Eval>(
     expr: &RecExpr<AstNode<Context::Op>>,
 ) -> Result<Context::Value, Context::Error> {
     let root = expr.as_ref().last().unwrap();
-    let node_map = NodeMap(expr);
-    context.eval_node(root, &node_map)
-}
-
-/// A wrapper around [`RecExpr`] which allows indexing by [`&Id`].
-struct NodeMap<'a, Op>(&'a RecExpr<AstNode<Op>>);
-
-impl<'a, 'k, Op> Index<&'k Id> for NodeMap<'a, Op> {
-    type Output = AstNode<Op>;
-
-    fn index(&self, index: &'k Id) -> &Self::Output {
-        &self.0.as_ref()[usize::from(*index)]
-    }
+    context.eval_node(root, expr)
 }

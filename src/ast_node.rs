@@ -8,28 +8,23 @@ use std::{
     error::Error,
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
-    iter::FromIterator,
+    iter::{self, FromIterator},
     slice,
     str::FromStr,
     vec,
 };
 use thiserror::Error;
 
-/// An abstract syntax tree node with operation of type `K` and children of
-/// type `T`.
+/// An abstract syntax tree (AST) node with operation of type `Op` and children
+/// of type `T`.
 ///
-/// Typically `T` is a type whose values correspond to other `AstNode<K, T>`s,
-/// such as an index into an array or key to a hash table.
+/// Typically `T` is a type used to identify another AST node, such as an index
+/// into an array or key to a hash table. Several methods rely on `T` being
+/// [`Copy`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AstNode<Op, T = Id> {
     operation: Op,
     children: Vec<T>,
-}
-
-impl<Op, T> AsRef<[T]> for AstNode<Op, T> {
-    fn as_ref(&self) -> &[T] {
-        &self.children
-    }
 }
 
 /// A trait for types whose values represent operations which take a specific
@@ -78,7 +73,10 @@ impl<Op, T> AstNode<Op, T> {
     }
 
     /// Returns an iterator over the children of this AST node.
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
+    pub fn iter(&self) -> impl Iterator<Item = T> + '_
+    where
+        T: Copy,
+    {
         self.into_iter()
     }
 
@@ -130,13 +128,25 @@ impl<Op: Arity, T> AstNode<Op, T> {
     }
 }
 
-impl<'a, Op, T> IntoIterator for &'a AstNode<Op, T> {
-    type Item = &'a T;
+impl<Op, T> AsRef<[T]> for AstNode<Op, T> {
+    fn as_ref(&self) -> &[T] {
+        &self.children
+    }
+}
 
-    type IntoIter = slice::Iter<'a, T>;
+impl<Op, T> AsMut<[T]> for AstNode<Op, T> {
+    fn as_mut(&mut self) -> &mut [T] {
+        &mut self.children
+    }
+}
+
+impl<'a, Op, T: Copy> IntoIterator for &'a AstNode<Op, T> {
+    type Item = T;
+
+    type IntoIter = iter::Copied<slice::Iter<'a, T>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.children.iter()
+        self.children.iter().copied()
     }
 }
 
@@ -160,26 +170,26 @@ impl<Op, T> IntoIterator for AstNode<Op, T> {
     }
 }
 
-impl<O> Language for AstNode<O>
+impl<Op> Language for AstNode<Op>
 where
-    O: Ord + Debug + Clone + Hash,
+    Op: Ord + Debug + Clone + Hash,
 {
     fn matches(&self, other: &Self) -> bool {
         self.operation == other.operation
     }
 
     fn children(&self) -> &[Id] {
-        &self.children
+        self.as_ref()
     }
 
     // We also implement most of the default methods for better performance.
 
     fn children_mut(&mut self) -> &mut [Id] {
-        &mut self.children
+        self.as_mut()
     }
 
     fn for_each<F: FnMut(Id)>(&self, f: F) {
-        self.iter().copied().for_each(f);
+        self.iter().for_each(f);
     }
 
     fn for_each_mut<F: FnMut(&mut Id)>(&mut self, f: F) {
@@ -191,7 +201,7 @@ where
         F: FnMut(Id) -> Result<(), E>,
         E: Clone,
     {
-        self.iter().copied().try_for_each(f)
+        self.iter().try_for_each(f)
     }
 
     fn len(&self) -> usize {
@@ -207,21 +217,21 @@ where
         F: FnMut(T, Id) -> T,
         T: Clone,
     {
-        self.iter().copied().fold(init, f)
+        self.iter().fold(init, f)
     }
 
     fn all<F>(&self, f: F) -> bool
     where
         F: FnMut(Id) -> bool,
     {
-        self.iter().copied().all(f)
+        self.iter().all(f)
     }
 
     fn any<F>(&self, f: F) -> bool
     where
         F: FnMut(Id) -> bool,
     {
-        self.iter().copied().all(f)
+        self.iter().any(f)
     }
 }
 

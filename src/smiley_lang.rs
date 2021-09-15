@@ -104,13 +104,13 @@ impl<T: Clone> Eval<T> for Context<T> {
     type Value = Value<T>;
     type Error = EvalError;
 
-    fn eval_node<N>(
+    fn eval_node<M>(
         &self,
         node: &AstNode<Self::Op, T>,
-        nodes: &N,
+        nodes: &M,
     ) -> Result<Self::Value, Self::Error>
     where
-        N: for<'a> Index<&'a T, Output = AstNode<Self::Op, T>>,
+        M: Index<T, Output = AstNode<Self::Op, T>>,
     {
         let result = match node.as_parts() {
             (Smiley::Int(i), []) => Value::float(*i),
@@ -119,53 +119,53 @@ impl<T: Clone> Eval<T> for Context<T> {
             (Smiley::Line, []) => Value::line((-0.5, 0.0), (0.5, 0.0)),
             (Smiley::Ident(ident), []) => self.ident_env[ident].clone(),
             (Smiley::Var(index), []) => self.arg_env[*index].clone(),
-            (Smiley::Lambda, [body]) => Value::lambda(body.clone()),
+            (Smiley::Lambda, [body]) => Value::lambda(*body),
             (Smiley::Move, [x_offset, y_offset, expr]) => {
                 let x_offset: f64 = self
-                    .eval_node(&nodes[x_offset], nodes)?
+                    .eval_node(&nodes[*x_offset], nodes)?
                     .into_float()
                     .ok_or(EvalError::TypeError)?;
                 let y_offset: f64 = self
-                    .eval_node(&nodes[y_offset], nodes)?
+                    .eval_node(&nodes[*y_offset], nodes)?
                     .into_float()
                     .ok_or(EvalError::TypeError)?;
-                let val = self.eval_node(&nodes[expr], nodes)?;
+                let val = self.eval_node(&nodes[*expr], nodes)?;
                 val.translate(x_offset, y_offset)
             }
             (Smiley::Scale, [factor, expr]) => {
                 let factor = self
-                    .eval_node(&nodes[factor], nodes)?
+                    .eval_node(&nodes[*factor], nodes)?
                     .into_float()
                     .ok_or(EvalError::TypeError)?;
-                let val = self.eval_node(&nodes[expr], nodes)?;
+                let val = self.eval_node(&nodes[*expr], nodes)?;
                 val.scale(factor)
             }
             (Smiley::Rotate, [angle, expr]) => {
                 let angle = self
-                    .eval_node(&nodes[angle], nodes)?
+                    .eval_node(&nodes[*angle], nodes)?
                     .into_float()
                     .ok_or(EvalError::TypeError)?;
-                let val = self.eval_node(&nodes[expr], nodes)?;
+                let val = self.eval_node(&nodes[*expr], nodes)?;
                 val.rotate(angle)
             }
             (Smiley::Let | Smiley::Lib, [ident, val, body]) => {
-                let ident = nodes[ident].as_ident().ok_or(EvalError::SyntaxError)?;
-                let val = self.eval_node(&nodes[val], nodes)?;
+                let ident = nodes[*ident].as_ident().ok_or(EvalError::SyntaxError)?;
+                let val = self.eval_node(&nodes[*val], nodes)?;
                 self.clone()
                     .with_ident(ident, val)
-                    .eval_node(&nodes[body], nodes)?
+                    .eval_node(&nodes[*body], nodes)?
             }
             (Smiley::Apply, [fun, arg]) => {
                 let body = self
-                    .eval_node(&nodes[fun], nodes)?
+                    .eval_node(&nodes[*fun], nodes)?
                     .into_lambda()
                     .ok_or(EvalError::TypeError)?;
-                let arg = self.eval_node(&nodes[arg], nodes)?;
-                self.clone().with_arg(arg).eval_node(&nodes[&body], nodes)?
+                let arg = self.eval_node(&nodes[*arg], nodes)?;
+                self.clone().with_arg(arg).eval_node(&nodes[body], nodes)?
             }
             (Smiley::Compose, [expr1, expr2]) => {
-                let val1 = self.eval_node(&nodes[expr1], nodes)?;
-                let val2 = self.eval_node(&nodes[expr2], nodes)?;
+                let val1 = self.eval_node(&nodes[*expr1], nodes)?;
+                let val2 = self.eval_node(&nodes[*expr2], nodes)?;
                 val1.compose(val2)
             }
             _ => unreachable!(),

@@ -41,7 +41,7 @@ where
         let mut learned_lib = Self::default();
         let dfta = Dfta::from(egraph).cross_over();
         for state in dfta.output_states() {
-            learned_lib.enumerate(&dfta, *state);
+            learned_lib.enumerate(&dfta, state);
         }
         learned_lib
     }
@@ -92,7 +92,7 @@ impl<Op: Teachable> LearnedLibrary<Op> {
 
         let mut antiunifications = Vec::new();
 
-        if let Some(rules) = dfta.get_by_output(&state) {
+        if let Some(rules) = dfta.get_by_output(state) {
             for (operation, inputs) in rules {
                 if inputs.is_empty() {
                     antiunifications.push(Antiunification::leaf(operation.clone()));

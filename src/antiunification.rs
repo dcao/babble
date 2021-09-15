@@ -248,7 +248,7 @@ impl<Op> Antiunification<Op> {
     /// the index of the last thing added to this antiunification.
     pub fn push_ast_node(&mut self, ast_node: AstNode<Op, Index>) -> Index {
         let max_index = self.index();
-        assert!(ast_node.iter().all(|index| *index <= max_index));
+        assert!(ast_node.iter().all(|index| index <= max_index));
         self.expr.push(AstNodeOrVar::AstNode(ast_node));
         self.index()
     }
