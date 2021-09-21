@@ -11,10 +11,7 @@
     unused_lifetimes
 )]
 
-use babble::{
-    dreamcoder::{self, json::CompressionInput},
-    smiley_lang,
-};
+use babble::{dreamcoder::{self, json::CompressionInput}, list_lang, smiley_lang};
 use clap::Clap;
 use egg::Runner;
 use std::{
@@ -82,9 +79,9 @@ fn main() {
     } else {
         let expr = input.parse().expect("Input is not a valid expression");
         if opts.svg {
-            let value = smiley_lang::eval(&expr).expect("Failed to evaluate expression");
-            let picture = value.into_picture().expect("Result of evaluation is not a picture");
-            picture.write_svg(stdout()).expect("Error writing SVG");
+            // let value = smiley_lang::eval(&expr).expect("Failed to evaluate expression");
+            // let picture = value.into_picture().expect("Result of evaluation is not a picture");
+            // picture.write_svg(stdout()).expect("Error writing SVG");
         } else {
             let mut runner = Runner::default();
             if opts.dump_egraphs {
@@ -96,7 +93,7 @@ fn main() {
             }
 
             let runner = runner.with_expr(&expr);
-            smiley_lang::run_single(runner);
+            list_lang::run_single(runner);
         }
     }
 }

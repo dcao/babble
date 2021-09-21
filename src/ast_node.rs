@@ -8,7 +8,7 @@ use std::{
     error::Error,
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
-    iter::{self, FromIterator},
+    iter::FromIterator,
     slice,
     str::FromStr,
     vec,
@@ -19,13 +19,18 @@ use thiserror::Error;
 /// of type `T`.
 ///
 /// Typically `T` is a type used to identify another AST node, such as an index
-/// into an array or key to a hash table. Several methods rely on `T` being
-/// [`Copy`].
+/// into an array or key to a hash table.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AstNode<Op, T = Id> {
     operation: Op,
     children: Vec<T>,
 }
+
+pub use expr::Expr;
+pub use partial_expr::PartialExpr;
+
+mod expr;
+mod partial_expr;
 
 /// A trait for types whose values represent operations which take a specific
 /// number of arguments.
@@ -73,10 +78,7 @@ impl<Op, T> AstNode<Op, T> {
     }
 
     /// Returns an iterator over the children of this AST node.
-    pub fn iter(&self) -> impl Iterator<Item = T> + '_
-    where
-        T: Copy,
-    {
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.into_iter()
     }
 
@@ -115,7 +117,7 @@ impl<Op: Arity, T> AstNode<Op, T> {
     /// Panics if the [`arity`](Arity::arity) of the operation does not match
     /// the number of children.
     #[must_use]
-    pub fn from_parts<I>(operation: Op, children: I) -> Self
+    pub fn new<I>(operation: Op, children: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
@@ -125,6 +127,11 @@ impl<Op: Arity, T> AstNode<Op, T> {
             operation,
             children,
         }
+    }
+
+    #[must_use]
+    pub fn new_leaf(leaf: Op) -> Self {
+        Self::new(leaf, [])
     }
 }
 
@@ -140,13 +147,13 @@ impl<Op, T> AsMut<[T]> for AstNode<Op, T> {
     }
 }
 
-impl<'a, Op, T: Copy> IntoIterator for &'a AstNode<Op, T> {
-    type Item = T;
+impl<'a, Op, T> IntoIterator for &'a AstNode<Op, T> {
+    type Item = &'a T;
 
-    type IntoIter = iter::Copied<slice::Iter<'a, T>>;
+    type IntoIter = slice::Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.children.iter().copied()
+        self.children.iter()
     }
 }
 
@@ -189,7 +196,7 @@ where
     }
 
     fn for_each<F: FnMut(Id)>(&self, f: F) {
-        self.iter().for_each(f);
+        self.iter().copied().for_each(f);
     }
 
     fn for_each_mut<F: FnMut(&mut Id)>(&mut self, f: F) {
@@ -201,7 +208,7 @@ where
         F: FnMut(Id) -> Result<(), E>,
         E: Clone,
     {
-        self.iter().try_for_each(f)
+        self.iter().copied().try_for_each(f)
     }
 
     fn len(&self) -> usize {
@@ -217,21 +224,21 @@ where
         F: FnMut(T, Id) -> T,
         T: Clone,
     {
-        self.iter().fold(init, f)
+        self.iter().copied().fold(init, f)
     }
 
     fn all<F>(&self, f: F) -> bool
     where
         F: FnMut(Id) -> bool,
     {
-        self.iter().all(f)
+        self.iter().copied().all(f)
     }
 
     fn any<F>(&self, f: F) -> bool
     where
         F: FnMut(Id) -> bool,
     {
-        self.iter().any(f)
+        self.iter().copied().any(f)
     }
 }
 
@@ -249,6 +256,8 @@ where
     /// An operator was applied to the wrong number of arguments.
     #[error("wrong number of arguments: expected {expected} but received {actual}")]
     ArityError {
+        /// The operation.
+        operation: Op,
         /// The expected number of arguments.
         expected: usize,
         /// The given number of arguments.
@@ -264,12 +273,14 @@ where
     type Error = ParseError<Op>;
 
     fn from_op(op: &str, children: Vec<Id>) -> Result<Self, Self::Error> {
-        let kind: Op = op.parse().map_err(ParseError::ParseError)?;
-        if kind.arity() == children.len() {
-            Ok(Self::from_parts(kind, children))
+        let op: Op = op.parse().map_err(ParseError::ParseError)?;
+        let arity = op.arity();
+        if arity == children.len() {
+            Ok(Self::new(op, children))
         } else {
             Err(ParseError::ArityError {
-                expected: kind.arity(),
+                operation: op,
+                expected: arity,
                 actual: children.len(),
             })
         }

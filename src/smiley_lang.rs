@@ -3,23 +3,18 @@
 use crate::{
     ast_node::{Arity, AstNode},
     eval::{self, Eval},
+    free_vars::{and, not_free_in, FreeVarAnalysis, FreeVars},
     learn::LearnedLibrary,
     teachable::Teachable,
 };
 use babble_macros::rewrite_rules;
-use egg::{
-    Analysis, AstSize, Condition, EClass, EGraph, Extractor, Id, Language, RecExpr, Rewrite,
-    Runner, Subst, Symbol,
-};
+use egg::{AstSize, Extractor, Id, RecExpr, Rewrite, Runner, Symbol};
 use lazy_static::lazy_static;
 use ordered_float::NotNan;
 use std::{
-    cmp::Ordering,
     collections::{HashMap, HashSet},
-    convert::TryInto,
     fmt::{self, Display, Formatter},
     io::{self, Write},
-    iter::FromIterator,
     num::ParseIntError,
     ops::Index,
     str::FromStr,
@@ -211,7 +206,7 @@ pub enum Shape {
 pub enum Value<T = Id> {
     /// A floating-point number
     Float(f64),
-    /// A function with body `T`
+    /// A function and a reference to its body
     Lambda(T),
     /// A collection of shapes
     Shapes(Vec<Shape>),
@@ -486,124 +481,54 @@ impl FromStr for Smiley {
 
 impl Teachable for Smiley {
     fn lambda<T>(body: T) -> AstNode<Self, T> {
-        AstNode::from_parts(Self::Lambda, [body])
+        AstNode::new(Self::Lambda, [body])
     }
 
     fn apply<T>(fun: T, arg: T) -> AstNode<Self, T> {
-        AstNode::from_parts(Self::Apply, [fun, arg])
+        AstNode::new(Self::Apply, [fun, arg])
     }
 
     fn var<T>(index: usize) -> AstNode<Self, T> {
-        AstNode::from_parts(Self::Var(index), [])
+        AstNode::new(Self::Var(index), [])
     }
 
     fn ident<T>(name: Symbol) -> AstNode<Self, T> {
-        AstNode::from_parts(Self::Ident(name), [])
+        AstNode::new(Self::Ident(name), [])
     }
 
     fn lib<T>(name: T, fun: T, body: T) -> AstNode<Self, T> {
-        AstNode::from_parts(Self::Lib, [name, fun, body])
+        AstNode::new(Self::Lib, [name, fun, body])
     }
 }
 
-/// Analysis which maintains a set of potentially free variables for each
-/// e-class. For example, the set of potentially free variables for an e-class
-/// representing the expressions `(app f circle)`, `(scale 1 x)`, and `line`
-/// will be `{f, x}`.
-#[derive(Default, Clone, Copy, Debug)]
-pub struct SmileyAnalysis;
-
-impl Analysis<AstNode<Smiley>> for SmileyAnalysis {
-    type Data = HashSet<Symbol>;
-
-    /// Set `a` to the union of `a` and `b`.
-    fn merge(&self, a: &mut Self::Data, b: Self::Data) -> Option<Ordering> {
-        if a.is_subset(&b) {
-            if a.is_superset(&b) {
-                Some(Ordering::Equal)
-            } else {
-                *a = b;
-                Some(Ordering::Less)
-            }
-        } else if a.is_superset(&b) {
-            Some(Ordering::Greater)
-        } else {
-            a.extend(b.into_iter());
-            None
+impl FreeVars for Smiley {
+    fn ident_symbol(&self) -> Option<Symbol> {
+        match *self {
+            Self::Ident(ident) => Some(ident),
+            _ => None,
         }
     }
 
-    /// Return all variables potentially free in `enode`.
-    fn make(egraph: &EGraph<AstNode<Smiley>, Self>, enode: &AstNode<Smiley>) -> Self::Data {
-        match enode.operation() {
-            Smiley::Ident(var) => HashSet::from_iter([*var]),
-            Smiley::Let | Smiley::Lib => {
-                let [var, a, b]: [Id; 3] = enode.children().try_into().unwrap();
-                let mut free = egraph[b].data.clone();
-                for var in &egraph[var].data {
-                    free.remove(var);
-                }
-                free.extend(&egraph[a].data);
-                free
+    fn free_vars(&self, children: &[&HashSet<Symbol>]) -> HashSet<Symbol> {
+        match (self, children) {
+            (&Self::Ident(ident), []) => {
+                let mut result = HashSet::new();
+                result.insert(ident);
+                result
             }
-            _ => enode
-                .children()
+            (Self::Let | Self::Lib, &[ident, val, body]) => &(body - ident) | val,
+            (_, children) => children
                 .iter()
-                .flat_map(|child| &egraph[*child].data)
-                .copied()
+                .flat_map(|child| child.iter().copied())
                 .collect(),
         }
-    }
-}
-
-/// Produces a `Condition` which is true if and only if the `Condition`s `p` and
-/// `q` are both true. If `p` is false, this condition short-circuits and does
-/// not check `q`.
-fn and<L, A, P, Q>(p: P, q: Q) -> impl Condition<L, A>
-where
-    L: Language,
-    A: Analysis<L>,
-    P: Condition<L, A>,
-    Q: Condition<L, A>,
-{
-    move |egraph: &mut EGraph<L, A>, id: Id, subst: &Subst| {
-        p.check(egraph, id, subst) && q.check(egraph, id, subst)
-    }
-}
-
-/// Produces a [`Condition`] which is true if and only if the variable matched
-/// by `var` is not potentially free in the expression matched by `expr`. Both
-/// `expr` and `var` must be pattern variables (e.g. "?e" and "?x").
-///
-/// # Panics
-/// Panics if `var` matches something other than a single symbol.
-fn not_free_in(
-    expr: &'static str,
-    var: &'static str,
-) -> impl Condition<AstNode<Smiley>, SmileyAnalysis> {
-    fn get_var_sym<D>(eclass: &EClass<AstNode<Smiley>, D>) -> Option<Symbol> {
-        if eclass.nodes.len() == 1 {
-            if let Smiley::Ident(var_sym) = eclass.nodes[0].operation() {
-                return Some(*var_sym);
-            }
-        }
-        None
-    }
-
-    let var_metavar = var.parse().unwrap();
-    let expr_metavar = expr.parse().unwrap();
-    move |egraph: &mut EGraph<_, SmileyAnalysis>, _, subst: &Subst| {
-        let var_eclass = &egraph[subst[var_metavar]];
-        let var_sym = get_var_sym(var_eclass).expect("not a variable");
-        let free_vars = &egraph[subst[expr_metavar]].data;
-        !free_vars.contains(&var_sym)
     }
 }
 
 lazy_static! {
     /// Rewrite rules which move containing expressions inside of
     /// [`Smiley::Lib`] expressions.
-    static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<Smiley>, SmileyAnalysis>] = rewrite_rules! {
+    static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<Smiley>, FreeVarAnalysis<Smiley>>] = rewrite_rules! {
         // TODO: Check for captures of de Bruijn variables and re-index if necessary.
         lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
 
@@ -634,7 +559,7 @@ lazy_static! {
 
 /// Execute `EGraph` building and program extraction on a single expression
 /// containing all of the programs to extract common fragments out of.
-pub fn run_single(runner: Runner<AstNode<Smiley>, SmileyAnalysis>) {
+pub fn run_single(runner: Runner<AstNode<Smiley>, FreeVarAnalysis<Smiley>>) {
     // let e1 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 line)))".parse().unwrap()).unwrap();
     // let e2 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 circle)))".parse().unwrap()).unwrap();
     // let e3 = runner.egraph.lookup_expr(&"(scale 2 (move 5 7 (rotate 90 (scale 3 line))))".parse().unwrap()).unwrap();

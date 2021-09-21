@@ -15,7 +15,6 @@
     missing_docs
 )]
 
-pub mod antiunification;
 pub mod ast_node;
 mod dfta;
 pub mod dreamcoder;
@@ -26,3 +25,5 @@ pub mod fresh;
 pub mod learn;
 pub mod smiley_lang;
 pub mod teachable;
+pub mod list_lang;
+pub mod free_vars;

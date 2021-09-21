@@ -104,7 +104,7 @@ where
             for enode in eclass.iter() {
                 dfta.add_rule(
                     enode.operation().clone(),
-                    enode.iter().map(|id| egraph.find(id)),
+                    enode.iter().map(|&id| egraph.find(id)),
                     egraph.find(eclass.id),
                 );
             }
