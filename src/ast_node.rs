@@ -1,8 +1,4 @@
-//! The [`AstNode`] type and various related constructs. An [`AstNode`] is a pair of a
-//! "kind" and a list of children. This type implements [`Language`] when
-//! the children have type [`Id`], but can be simpler to implement and more
-//! flexible.
-
+//! Abstract syntax trees.
 use egg::{FromOp, Id, Language};
 use std::{
     error::Error,
@@ -15,11 +11,10 @@ use std::{
 };
 use thiserror::Error;
 
-/// An abstract syntax tree (AST) node with operation of type `Op` and children
-/// of type `T`.
+/// An abstract syntax tree node with operation of type `Op` and children of
+/// type `T`.
 ///
-/// Typically `T` is a type used to identify another AST node, such as an index
-/// into an array or key to a hash table.
+/// This type implements [`Language`] for children of type [`Id`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AstNode<Op, T = Id> {
     operation: Op,
@@ -32,33 +27,41 @@ pub use partial_expr::PartialExpr;
 mod expr;
 mod partial_expr;
 
-/// A trait for types whose values represent operations which take a specific
-/// number of arguments.
+/// A trait for operations which take a specific number of arguments.
 pub trait Arity {
-    /// The number of arguments this operation takes. For example, the addition
-    /// operator has an arity of 2, whereas the logical negation operator has an
-    /// arity of 1.
-    ///
-    /// Constants are considered operations which take no arguments, and so have
-    /// an arity of 0.
+    /// Returns the number of arguments this operation takes. For example, the
+    /// addition operator `x + y` has arity two. Constants are considered arity
+    /// zero.
     #[must_use]
     fn arity(&self) -> usize;
 }
 
 impl<Op, T> AstNode<Op, T> {
-    /// The operation this AST node represents.
+    /// Returns the operation the node represents.
     #[must_use]
     pub fn operation(&self) -> &Op {
         &self.operation
     }
 
-    /// Does this AST node have any children?
+    /// Returns a slice containing the node's children.
+    #[must_use]
+    pub fn children(&self) -> &[T] {
+        &self.children
+    }
+
+    /// Returns a slice which allows modifying the node's children.
+    #[must_use]
+    pub fn children_mut(&mut self) -> &mut [T] {
+        &mut self.children
+    }
+
+    /// Returns `true` if the node has no children.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.children.is_empty()
     }
 
-    /// The number of children this AST node has.
+    /// Returns the number of children the node has.
     #[must_use]
     pub fn len(&self) -> usize {
         self.children.len()
@@ -77,28 +80,17 @@ impl<Op, T> AstNode<Op, T> {
         }
     }
 
-    /// Returns an iterator over the children of this AST node.
+    /// Returns an iterator over the node's children.
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.into_iter()
     }
 
-    /// Returns an iterator over mutable references to the children of this AST
-    /// node.
+    /// Returns an iterator that allows modifying the node's children.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.into_iter()
     }
 
-    /// Convert a reference to this AST node into a reference to its operation
-    /// and a slice of its children.
-    ///
-    /// Se also [`AstNode::into_parts`].
-    #[must_use]
-    pub fn as_parts(&self) -> (&Op, &[T]) {
-        (&self.operation, &self.children)
-    }
-
-    /// Convert this AST node into its operation and a [`Vec`] of its
-    /// children.
+    /// Decomposes a node into its operation and children.
     ///
     /// See also [`AstNode::from_parts`].
     #[must_use]
@@ -108,14 +100,14 @@ impl<Op, T> AstNode<Op, T> {
 }
 
 impl<Op: Arity, T> AstNode<Op, T> {
-    /// Create an AST node with the given operation and children.
+    /// Creates a node with the given operation and children.
     ///
     /// See also [`AstNode::into_parts`].
     ///
     /// # Panics
     ///
-    /// Panics if the [`arity`](Arity::arity) of the operation does not match
-    /// the number of children.
+    /// Panics if the number of children does not match the
+    /// [`arity`](Arity::arity) of the operation.
     #[must_use]
     pub fn new<I>(operation: Op, children: I) -> Self
     where
@@ -129,21 +121,28 @@ impl<Op: Arity, T> AstNode<Op, T> {
         }
     }
 
+    /// Creates a leaf node with the given operation.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the [`arity`](Arity::arity) of the operation is not zero.
     #[must_use]
-    pub fn new_leaf(leaf: Op) -> Self {
-        Self::new(leaf, [])
+    pub fn leaf(operation: Op) -> Self {
+        Self::new(operation, [])
     }
 }
 
 impl<Op, T> AsRef<[T]> for AstNode<Op, T> {
+    /// Returns a reference to the node's children.
     fn as_ref(&self) -> &[T] {
-        &self.children
+        self.children()
     }
 }
 
 impl<Op, T> AsMut<[T]> for AstNode<Op, T> {
+    /// Returns a reference which allows modifying the node's children.
     fn as_mut(&mut self) -> &mut [T] {
-        &mut self.children
+        self.children_mut()
     }
 }
 
@@ -172,6 +171,7 @@ impl<Op, T> IntoIterator for AstNode<Op, T> {
 
     type IntoIter = vec::IntoIter<T>;
 
+    /// Converts the node into an iterator over its children.
     fn into_iter(self) -> Self::IntoIter {
         self.children.into_iter()
     }
@@ -186,13 +186,13 @@ where
     }
 
     fn children(&self) -> &[Id] {
-        self.as_ref()
+        self.children()
     }
 
-    // We also implement most of the default methods for better performance.
+    // Default methods
 
     fn children_mut(&mut self) -> &mut [Id] {
-        self.as_mut()
+        self.children_mut()
     }
 
     fn for_each<F: FnMut(Id)>(&self, f: F) {
@@ -242,19 +242,19 @@ where
     }
 }
 
-/// An error while attempting to parse an expression from a string.
+/// An error which can be returned when parsing an expression using [`FromOp`].
 #[derive(Debug, Error)]
-pub enum ParseError<Op>
+pub enum ParseNodeError<Op>
 where
     Op: FromStr + Debug,
     <Op as FromStr>::Err: Error,
 {
-    /// An error while attempting to parse an operator.
+    /// The operator failed to parse.
     #[error(transparent)]
     ParseError(<Op as FromStr>::Err),
 
-    /// An operator was applied to the wrong number of arguments.
-    #[error("wrong number of arguments: expected {expected} but received {actual}")]
+    /// The operator was given the wrong number of arguments.
+    #[error("the operation `{operation:?}` takes {expected} argument(s) but was applied to {actual}")]
     ArityError {
         /// The operation.
         operation: Op,
@@ -270,15 +270,15 @@ where
     Op: Arity + FromStr + Debug + Clone + Ord + Hash + 'static,
     <Op as FromStr>::Err: Error,
 {
-    type Error = ParseError<Op>;
+    type Error = ParseNodeError<Op>;
 
     fn from_op(op: &str, children: Vec<Id>) -> Result<Self, Self::Error> {
-        let op: Op = op.parse().map_err(ParseError::ParseError)?;
+        let op: Op = op.parse().map_err(ParseNodeError::ParseError)?;
         let arity = op.arity();
         if arity == children.len() {
             Ok(Self::new(op, children))
         } else {
-            Err(ParseError::ArityError {
+            Err(ParseNodeError::ArityError {
                 operation: op,
                 expected: arity,
                 actual: children.len(),
@@ -287,9 +287,9 @@ where
     }
 }
 
-/// The [`Display`] implementation must match what [`egg`] is expecting. For
-/// that reason, we only bother to implement it when the children have type
-/// [`Id`].
+/// The `Display` implementation must match what [`egg`] is expecting. The
+/// implementation is unintuitive, so to reduce confusion we only implement
+/// `Display` for the concrete type [`AstNode<Op, Id>`].
 impl<Op: Display> Display for AstNode<Op> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.operation.fmt(f)

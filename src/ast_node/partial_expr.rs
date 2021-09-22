@@ -1,4 +1,4 @@
-use super::{Arity, AstNode, Expr};
+use super::{AstNode, Expr};
 use egg::{ENodeOrVar, Id, Language, Pattern, RecExpr, Var};
 use std::{
     cell::RefCell,
@@ -7,33 +7,63 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
 };
 
-/// An expression with holes. This is essentially an [`Expr`], but with some of
-/// the nodes replaced by "holes" of type `T`.
+/// A partial expression. This is a generalization of an abstract syntax tree
+/// where subexpressions can be replaced by "holes", i.e., values of type `T`.
+/// The type [`Expr<Op>`] is isomorphic to `PartialExpr<Op, !>`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PartialExpr<Op, T> {
+    /// A node in the abstract syntax tree.
     Node(AstNode<Op, Self>),
+    /// A hole containing a value of type `T`.
     Hole(T),
 }
 
 impl<Op, T> PartialExpr<Op, T> {
+    /// Is this partial expression a node?
     #[must_use]
     pub fn is_node(&self) -> bool {
         matches!(self, Self::Node(_))
     }
 
+    /// Is this partial expression a hole?
     #[must_use]
     pub fn is_hole(&self) -> bool {
         matches!(self, Self::Hole(_))
     }
 
+    /// Unwraps the [`Node`](Self::Node) `self` to produce the underlying
+    /// [`AstNode`]. If `self` is a hole, produces [`None`].
     #[must_use]
-    pub fn is_expr(&self) -> bool {
+    pub fn node(self) -> Option<AstNode<Op, Self>> {
         match self {
-            PartialExpr::Node(node) => node.iter().all(Self::is_expr),
+            PartialExpr::Node(node) => Some(node),
+            PartialExpr::Hole(_) => None,
+        }
+    }
+
+    /// Unwraps the [`Hole`](Self::Hole) `self` to produce the underlying value.
+    /// if `self` is an AST node, produces [`None`].
+    #[must_use]
+    pub fn hole(self) -> Option<T> {
+        match self {
+            PartialExpr::Hole(hole) => Some(hole),
+            PartialExpr::Node(_) => None,
+        }
+    }
+
+    /// Returns `true` if `self` is a complete expression containing no holes.
+    #[must_use]
+    pub fn is_complete(&self) -> bool {
+        match self {
+            PartialExpr::Node(node) => node.iter().all(Self::is_complete),
             PartialExpr::Hole(_) => false,
         }
     }
 
+    /// Replaces the holes in a partial expression of type `PartialExpr<Op, T>`
+    /// with partial expressions of type `PartialExpr<Op, U>` to produce a new
+    /// partial expression of type `PartialExpr<Op, U>`. Each hole's replacement
+    /// partial expression is determined by applying a function to its value.
     #[must_use]
     pub fn fill<U, F>(self, f: F) -> PartialExpr<Op, U>
     where
@@ -58,22 +88,6 @@ impl<Op, T> PartialExpr<Op, T> {
         }
 
         do_fill(self, &RefCell::new(f))
-    }
-}
-
-impl<Op: Arity, T> PartialExpr<Op, T> {
-    #[must_use]
-    pub fn node<I>(operation: Op, children: I) -> Self
-    where
-        I: IntoIterator<Item = Self>,
-    {
-        let children: Vec<_> = children.into_iter().collect();
-        Self::Node(AstNode::new(operation, children))
-    }
-
-    #[must_use]
-    pub fn leaf(operation: Op) -> Self {
-        Self::Node(AstNode::new_leaf(operation))
     }
 }
 
@@ -127,18 +141,23 @@ impl<Op: Clone> From<Pattern<AstNode<Op>>> for PartialExpr<Op, Var> {
     }
 }
 
+/// An error which can be returned when attempting to convert a [`PartialExpr`]
+/// to an [`Expr`], indicating that the partial expression is incomplete.
 #[derive(Debug, Clone)]
-pub struct UnexpectedHoleError<T>(T);
+pub struct IncompleteExprError<T> {
+    /// The hole encountered.
+    hole: T,
+}
 
-impl<T: Debug> Error for UnexpectedHoleError<T> {}
-impl<T: Debug> Display for UnexpectedHoleError<T> {
+impl<T: Debug> Error for IncompleteExprError<T> {}
+impl<T: Debug> Display for IncompleteExprError<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "found unexpected hole containing {:?}", self.0)
+        write!(f, "expected expression but found hole {:?}", self.hole)
     }
 }
 
 impl<Op, T> TryFrom<PartialExpr<Op, T>> for Expr<Op> {
-    type Error = UnexpectedHoleError<T>;
+    type Error = IncompleteExprError<T>;
 
     fn try_from(partial_expr: PartialExpr<Op, T>) -> Result<Self, Self::Error> {
         match partial_expr {
@@ -157,18 +176,18 @@ impl<Op, T> TryFrom<PartialExpr<Op, T>> for Expr<Op> {
                 };
                 Ok(node.into())
             }
-            PartialExpr::Hole(contents) => Err(UnexpectedHoleError(contents)),
+            PartialExpr::Hole(hole) => Err(IncompleteExprError { hole }),
         }
     }
 }
 
 impl<Op, T> TryFrom<PartialExpr<Op, T>> for AstNode<Op, PartialExpr<Op, T>> {
-    type Error = UnexpectedHoleError<T>;
+    type Error = IncompleteExprError<T>;
 
     fn try_from(partial_expr: PartialExpr<Op, T>) -> Result<Self, Self::Error> {
         match partial_expr {
             PartialExpr::Node(node) => Ok(node),
-            PartialExpr::Hole(contents) => Err(UnexpectedHoleError(contents)),
+            PartialExpr::Hole(hole) => Err(IncompleteExprError { hole }),
         }
     }
 }

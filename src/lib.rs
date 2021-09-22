@@ -14,6 +14,7 @@
     unused_lifetimes,
     missing_docs
 )]
+#![allow(clippy::non_ascii_literal)]
 
 pub mod ast_node;
 mod dfta;

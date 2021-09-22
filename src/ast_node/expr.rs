@@ -1,29 +1,15 @@
-use super::{Arity, AstNode};
+use super::AstNode;
 use egg::{Id, RecExpr};
 
+/// An abstract syntax tree with operations `Op`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Expr<Op>(AstNode<Op, Self>);
 
 impl<Op> Expr<Op> {
+    /// Converts `self` into its underlying [`AstNode`].
     #[must_use]
     pub fn into_inner(self) -> AstNode<Op, Self> {
         self.0
-    }
-}
-
-impl<Op: Arity> Expr<Op> {
-    #[must_use]
-    pub fn new<I>(operation: Op, children: I) -> Self
-    where
-        I: IntoIterator<Item = Self>,
-    {
-        let children: Vec<_> = children.into_iter().collect();
-        Self(AstNode::new(operation, children))
-    }
-
-    #[must_use]
-    pub fn new_leaf(leaf: Op) -> Self {
-        Self(AstNode::new_leaf(leaf))
     }
 }
 

@@ -31,7 +31,7 @@ impl<Op, S> Dfta<Op, S> {
 impl<Op, S> Dfta<Op, S>
 where
     Op: Ord + Hash + Clone,
-    S: Ord + Hash + Copy,
+    S: Ord + Hash + Clone,
 {
     /// Adds a new transition rule to the DFTA.
     pub(crate) fn add_rule<I>(&mut self, operation: Op, inputs: I, output: S)
@@ -42,25 +42,11 @@ where
         self.by_operation
             .entry(operation.clone())
             .or_default()
-            .insert((inputs.clone(), output));
+            .insert((inputs.clone(), output.clone()));
         self.by_output
             .entry(output)
             .or_default()
             .insert((operation, inputs));
-    }
-
-    /// Returns an iterator over the states in the DFTA which are the output of
-    /// some transition rule.
-    pub(crate) fn output_states(&self) -> impl Iterator<Item = S> + '_ {
-        self.by_output.keys().copied()
-    }
-
-    /// Get all the transition rules which have this state as an output. If
-    /// there are no transition rules to this state, this is guaranteed to
-    /// return `None`.
-    #[must_use]
-    pub(crate) fn get_by_output(&self, output: S) -> Option<&BTreeSet<(Op, Vec<S>)>> {
-        self.by_output.get(&output)
     }
 
     /// Intersect the DFTA with itself to produce a new DFTA over pairs of
@@ -74,13 +60,32 @@ where
             for rule1 in rules {
                 for (inputs2, output2) in rules.range(rule1..) {
                     let (inputs1, output1) = rule1;
-                    let new_inputs = inputs1.iter().copied().zip(inputs2.iter().copied());
-                    let new_output = (*output1, *output2);
+                    let new_inputs = inputs1.iter().cloned().zip(inputs2.iter().cloned());
+                    let new_output = (output1.clone(), output2.clone());
                     new_dfta.add_rule(op.clone(), new_inputs, new_output);
                 }
             }
         }
         new_dfta
+    }
+}
+
+impl<Op, S> Dfta<Op, S>
+where
+    S: Eq + Hash,
+{
+    /// Returns an iterator over the states in the DFTA which are the output of
+    /// some transition rule.
+    pub(crate) fn output_states(&self) -> impl Iterator<Item = &S> {
+        self.by_output.keys()
+    }
+
+    /// Get all the transition rules which have this state as an output. If
+    /// there are no transition rules to this state, this is guaranteed to
+    /// return `None`.
+    #[must_use]
+    pub(crate) fn get_by_output(&self, output: &S) -> Option<&BTreeSet<(Op, Vec<S>)>> {
+        self.by_output.get(output)
     }
 }
 

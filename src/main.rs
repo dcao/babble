@@ -11,8 +11,11 @@
     unused_lifetimes
 )]
 
-use babble::{dreamcoder::{self, json::CompressionInput}, list_lang, smiley_lang};
-use clap::Clap;
+use babble::{
+    dreamcoder::{self, json::CompressionInput},
+    list_lang, smiley_lang,
+};
+use clap::{crate_authors, crate_description, crate_name, crate_version, App, Clap};
 use egg::Runner;
 use std::{
     fs,
@@ -44,6 +47,22 @@ struct Opts {
     #[clap(long)]
     svg: bool,
 }
+
+// fn init_app() -> App {
+//     App::new(crate_name!())
+//         .version(crate_version!())
+//         .author(crate_authors!(", "))
+//         .about(crate_description!())
+//         .subcommand(
+//             App::new("dreamcoder")
+//                 .about("Emulate DreamCoder's `compression` binary")
+//                 .arg(Arg::new("INPUT").about("The input json file").index(1)),
+//         )
+//         .subcommand(
+//             App::new("learn")
+//                 .about("Run library learning on a program")
+//         )
+// }
 
 fn main() {
     env_logger::init();

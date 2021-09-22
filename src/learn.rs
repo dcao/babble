@@ -1,6 +1,6 @@
 //! The primary interface for library learning through antiunification.
 use crate::{
-    ast_node::{AstNode, PartialExpr},
+    ast_node::{Arity, AstNode, PartialExpr},
     dfta::Dfta,
     fresh,
     teachable::Teachable,
@@ -10,40 +10,38 @@ use itertools::Itertools;
 use std::{
     collections::{HashMap, HashSet},
     fmt::{Debug, Display},
+    hash::Hash,
 };
-
-/// States in the anti-unified [`Dfta`].
-type State = (Id, Id);
 
 /// A `LearnedLibrary<Op>` is a collection of functions learned from an
 /// [`EGraph<AstNode<Op>, _>`] by antiunifying pairs of enodes to find their
 /// common structure.
 ///
-/// You can create a `LearnedLibrary` using [`LearnedLibrary::from(&some_egraph)`].
+/// You can create a `LearnedLibrary` using [`LearnedLibrary::from(&your_egraph)`].
 #[derive(Debug, Clone)]
-pub struct LearnedLibrary<Op> {
-    /// A map from DFTA states (i.e. pairs of enodes) to their
-    /// [`Antiunification`]s.
-    antiunifications_by_state: HashMap<State, Vec<PartialExpr<Op, State>>>,
-    antiunifications: HashSet<PartialExpr<Op, Var>>,
+pub struct LearnedLibrary<Op, T> {
+    /// A map from DFTA states (i.e. pairs of enodes) to their antiunifications.
+    aus_by_state: HashMap<T, HashSet<PartialExpr<Op, T>>>,
+    /// A set of all the nontrivial antiunifications discovered.
+    nontrivial_aus: HashSet<PartialExpr<Op, Var>>,
 }
 
-impl<Op> Default for LearnedLibrary<Op> {
+impl<Op, T> Default for LearnedLibrary<Op, T> {
     /// Create an empty learned library.
     fn default() -> Self {
         Self {
-            antiunifications_by_state: HashMap::new(),
-            antiunifications: HashSet::new(),
+            aus_by_state: HashMap::new(),
+            nontrivial_aus: HashSet::new(),
         }
     }
 }
 
-impl<'a, Op, A> From<&'a EGraph<AstNode<Op>, A>> for LearnedLibrary<Op>
+impl<'a, Op, A> From<&'a EGraph<AstNode<Op>, A>> for LearnedLibrary<Op, (Id, Id)>
 where
     Op: Teachable,
     A: Analysis<AstNode<Op>>,
 {
-    /// Construct a `LearnedLibrary` from an [`EGraph`] by antiunifying pairs of
+    /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
     /// enodes to find their common structure.
     fn from(egraph: &'a EGraph<AstNode<Op>, A>) -> Self {
         let mut learned_lib = Self::default();
@@ -55,33 +53,71 @@ where
     }
 }
 
-impl<Op: Teachable> LearnedLibrary<Op> {
+impl<Op, T> From<Dfta<Op, T>> for LearnedLibrary<Op, T>
+where
+    Op: Teachable,
+    T: Ord + Hash + Clone,
+{
+    /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
+    /// enodes to find their common structure.
+    fn from(dfta: Dfta<Op, T>) -> Self {
+        let mut learned_lib = Self::default();
+        for state in dfta.output_states() {
+            learned_lib.enumerate(&dfta, state);
+        }
+        learned_lib
+    }
+}
+
+impl<Op: Teachable, T> LearnedLibrary<Op, T> {
     /// Returns an iterator over rewrite rules that replace expressions with
     /// equivalent calls to a learned library function.
+    ///
+    /// For example, the expression
+    ///
+    /// ```text
+    /// (* (+ 1 2) 5)
+    /// ```
+    ///
+    /// might be rewritten to
+    ///
+    /// ```text
+    /// (lib f (lambda (* (+ 1 $0) 5))
+    ///  (apply f 2))
+    /// ```
+    ///
+    /// by a rewrite rule
+    ///
+    /// ```text
+    /// (* (+ 1 ?x) 5) => (lib f (lambda (* (+ 1 $0) 5)) (apply f ?x))
+    /// ```
     pub fn rewrites<A: Analysis<AstNode<Op>>>(
         &self,
     ) -> impl Iterator<Item = Rewrite<AstNode<Op>, A>> + '_
     where
         Op: Display,
     {
-        self.antiunifications
-            .iter()
-            .enumerate()
-            .map(|(i, antiunification)| {
-                let searcher: Pattern<_> = antiunification.clone().into();
-                let applier: Pattern<_> = library_fun(antiunification.clone(), fresh::gen("f")).into();
-                let name = format!("anti-unify {}", i);
-                eprintln!("{}: {} -> {}", name, searcher, applier);
-                Rewrite::new(name, searcher, applier).unwrap()
-            })
-    }
+        self.nontrivial_aus.iter().enumerate().map(|(i, au)| {
+            let searcher: Pattern<_> = au.clone().into();
+            let applier: Pattern<_> = reify(au.clone(), fresh::gen("f")).into();
+            let name = format!("anti-unify {}", i);
+            eprintln!("{}: {} => {}", name, searcher, applier);
 
-    /// Compute the antiunifications of `state` in the DFTA `dfta` and update
-    /// `self.antiunifications_by_state` accordingly.
-    fn enumerate(&mut self, dfta: &Dfta<Op, State>, state: State) {
-        // If we've already computed the antiunifications of this state, we
-        // don't need to do anything.
-        if self.antiunifications_by_state.contains_key(&state) {
+            // Both patterns contain the same variables, so this can never fail.
+            Rewrite::new(name, searcher, applier).unwrap_or_else(|_| unreachable!())
+        })
+    }
+}
+
+impl<Op, T> LearnedLibrary<Op, T>
+where
+    Op: Eq + Hash + Clone + Arity,
+    T: Eq + Hash + Clone,
+{
+    /// Computes the antiunifications of `state` in the DFTA `dfta`.
+    fn enumerate(&mut self, dfta: &Dfta<Op, T>, state: &T) {
+        if self.aus_by_state.contains_key(state) {
+            // We've already enumerated this state, so there's nothing to do.
             return;
         }
 
@@ -93,17 +129,17 @@ impl<Op: Teachable> LearnedLibrary<Op> {
         // By initially setting the antiunifications of this state to empty, we
         // exclude any antiunifications that would come from looping sequences
         // of rules.
-        self.antiunifications_by_state.insert(state, Vec::new());
-
-        let mut antiunifications = Vec::new();
+        self.aus_by_state.insert(state.clone(), HashSet::new());
+        let mut aus: HashSet<PartialExpr<_, _>> = HashSet::new();
 
         if let Some(rules) = dfta.get_by_output(state) {
             for (operation, inputs) in rules {
                 if inputs.is_empty() {
-                    antiunifications.push(PartialExpr::leaf(operation.clone()));
+                    aus.insert(AstNode::leaf(operation.clone()).into());
                 } else {
+                    // Recursively enumerate the inputs to this rule.
                     for input in inputs {
-                        self.enumerate(dfta, *input);
+                        self.enumerate(dfta, input);
                     }
 
                     // For a rule `op(s1, ..., sn) -> state`, we add an
@@ -112,95 +148,111 @@ impl<Op: Teachable> LearnedLibrary<Op> {
                     // input states `s1, ..., sn`, i.e., for every `(a1, ..., an)`
                     // in the cartesian product
                     // `antiunifications_by_state[s1] × ... × antiunifications_by_state[sn]`
-                    antiunifications.extend(
-                        inputs
-                            .iter()
-                            .map(|input| self.antiunifications_by_state[input].iter())
-                            .multi_cartesian_product()
-                            .map(|inputs| {
-                                PartialExpr::node(operation.clone(), inputs.into_iter().cloned())
-                            }),
-                    );
+                    let new_aus = inputs
+                        .iter()
+                        .map(|input| self.aus_by_state[input].iter().cloned())
+                        .multi_cartesian_product()
+                        .map(|inputs| AstNode::new(operation.clone(), inputs).into());
+
+                    aus.extend(new_aus);
                 }
             }
 
-            self.antiunifications.extend(
-                antiunifications
-                    .iter()
-                    .filter(|au| !au.is_expr())
-                    .cloned()
-                    .map(replace_states),
-            );
+            // We filter out the anti-unifications which are just concrete
+            // expressions with no variables, and then convert the contained
+            // states to pattern variables. The conversion takes
+            // alpha-equivalent anti-unifications to the same value, effectively
+            // discarding redundant anti-unifications.
+            let nontrivial_aus = aus
+                .iter()
+                .filter(|au| !au.is_complete())
+                .cloned()
+                .map(normalize);
+
+            self.nontrivial_aus.extend(nontrivial_aus);
         } else {
             // This state isn't the output of any rules, so we treat it as a
             // metavariable. We don't do this for states that are rule outputs
             // to ensure we're getting only the "least general generalization",
             // rather than all generalizations.
-            antiunifications.push(PartialExpr::Hole(state));
+            aus.insert(PartialExpr::Hole(state.clone()));
         }
 
-        self.antiunifications_by_state
-            .insert(state, antiunifications);
+        *self.aus_by_state.get_mut(state).unwrap() = aus;
     }
 }
 
+/// Replaces the metavariables in an anti-unification with pattern variables.
+/// Normalizing alpha-equivalent anti-unifications produces identical
+/// anti-unifications.
 #[must_use]
-fn replace_states<Op>(partial_expr: PartialExpr<Op, State>) -> PartialExpr<Op, Var> {
-    let mut states = Vec::new();
-    let state_to_var = |tag| {
-        let index = states
+fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> PartialExpr<Op, Var> {
+    let mut metavars = Vec::new();
+    let to_var = |metavar| {
+        let index = metavars
             .iter()
-            .position(|&state| state == tag)
+            .position(|other| other == &metavar)
             .unwrap_or_else(|| {
-                states.push(tag);
-                states.len() - 1
+                metavars.push(metavar);
+                metavars.len() - 1
             });
-        let var = format!("?x{}", index).parse().unwrap();
+
+        let var = format!("?x{}", index)
+            .parse()
+            .unwrap_or_else(|_| unreachable!());
         PartialExpr::Hole(var)
     };
-    partial_expr.fill(state_to_var)
+    au.fill(to_var)
 }
 
-/// Create a new anti-unification from this one by introducing a named
-/// library function and applying it to each of the metavariables.
+/// Converts an anti-unification into a partial expression which defines a new
+/// named function and applies it to the metavariables in the anti-unification.
+/// The new function reifies the anti-unification, replacing metavariables by
+/// lambda arguments.
 ///
-/// This transforms an anti-unification like `(+ ?X ?Y)` into the
-/// anti-unification
+/// For example, the anti-unification
+///
 /// ```text
-/// (lib f0 (lambda (lambda (+ $0 $1)))
-///   (apply (apply f0 ?Y) ?X))
+/// (* ?x (+ ?y 1))
 /// ```
+///
+/// would be converted to the partial expression
+///
+/// ```text
+/// (lib foo (lambda (lambda (* $0 (+ $1 1))))
+///  (apply (apply foo ?y) ?x))
+/// ```
+///
+/// assuming `name` is "foo".
 #[must_use]
-fn library_fun<Op: Teachable>(
-    partial_expr: PartialExpr<Op, Var>,
-    name: Symbol,
-) -> PartialExpr<Op, Var> {
-    let mut vars = Vec::new();
-    // We start by replacing every metavariable in this antiunification with
-    // a de Bruijn-indexed variable whose index is the position of the
-    // metavariable in `metavars`.
-    let mut fun = partial_expr.fill(|var| {
-        let index = vars.iter().position(|&v| v == var).unwrap_or_else(|| {
-            vars.push(var);
-            vars.len() - 1
-        });
+fn reify<Op: Teachable, T: Eq>(au: PartialExpr<Op, T>, name: Symbol) -> PartialExpr<Op, T> {
+    let mut metavars = Vec::new();
+
+    // Replace every metavariable in this antiunification with a de
+    // Bruijn-indexed variable.
+    let mut fun = au.fill(|metavar| {
+        let index = metavars
+            .iter()
+            .position(|other| other == &metavar)
+            .unwrap_or_else(|| {
+                metavars.push(metavar);
+                metavars.len() - 1
+            });
         Op::var(index).into()
     });
 
-    // Now add a lambda for each variable.
-    for _ in 0..vars.len() {
-        fun = PartialExpr::Node(Op::lambda(fun));
+    // Wrap that in a lambda-abstraction, one for each variable we introduced.
+    for _ in 0..metavars.len() {
+        fun = Op::lambda(fun).into();
     }
 
-    let ident: PartialExpr<Op, Var> = PartialExpr::Node(Op::ident(name));
-
-    // We apply that named library function to each of the metavariables, in
-    // reverse order of their de Bruijn indices.
-    let mut body = ident.clone();
-    for i in 1..=vars.len() {
-        let var = vars[vars.len() - i];
-        body = PartialExpr::Node(Op::apply(body, PartialExpr::Hole(var)));
+    // Now apply the new function to the metavariables in reverse order so they
+    // match the correct de Bruijn indexed variable.
+    let mut body = PartialExpr::Node(Op::ident(name));
+    while let Some(metavar) = metavars.pop() {
+        body = Op::apply(body, PartialExpr::Hole(metavar)).into();
     }
 
-    PartialExpr::Node(Op::lib(ident, fun, body))
+    let ident = PartialExpr::Node(Op::ident(name));
+    Op::lib(ident, fun, body).into()
 }

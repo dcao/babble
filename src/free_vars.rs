@@ -65,9 +65,8 @@ where
 
     /// Return all variables potentially free in `enode`.
     fn make(egraph: &EGraph<AstNode<Op>, Self>, enode: &AstNode<Op>) -> Self::Data {
-        let (op, children) = enode.as_parts();
-        let children: Vec<_> = children.iter().map(|&id| &egraph[id].data).collect();
-        op.free_vars(&children)
+        let children: Vec<_> = enode.iter().map(|&id| &egraph[id].data).collect();
+        enode.operation().free_vars(&children)
     }
 }
 
