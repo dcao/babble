@@ -233,9 +233,11 @@ fn reify<Op: Teachable, T: Eq>(au: PartialExpr<Op, T>, name: Symbol) -> PartialE
     let mut fun = au.fill(|metavar| {
         let index = metavars
             .iter()
+            // TODO: cant always replace metavar w same de brujin index. context dependent
             .position(|other| other == &metavar)
             .unwrap_or_else(|| {
                 metavars.push(metavar);
+                // TODO: darn
                 metavars.len() - 1
             });
         Op::var(index).into()
