@@ -1,7 +1,6 @@
 use super::{AstNode, Expr};
 use egg::{ENodeOrVar, Id, Language, Pattern, RecExpr, Var};
 use std::{
-    cell::RefCell,
     convert::{TryFrom, TryInto},
     error::Error,
     fmt::{self, Debug, Display, Formatter},
@@ -53,10 +52,10 @@ impl<Op, T> PartialExpr<Op, T> {
 
     /// Returns `true` if `self` is a complete expression containing no holes.
     #[must_use]
-    pub fn is_complete(&self) -> bool {
+    pub fn has_holes(&self) -> bool {
         match self {
-            PartialExpr::Node(node) => node.iter().all(Self::is_complete),
-            PartialExpr::Hole(_) => false,
+            PartialExpr::Node(node) => node.iter().any(Self::has_holes),
+            PartialExpr::Hole(_) => true,
         }
     }
 
@@ -65,29 +64,26 @@ impl<Op, T> PartialExpr<Op, T> {
     /// partial expression of type `PartialExpr<Op, U>`. Each hole's replacement
     /// partial expression is determined by applying a function to its value.
     #[must_use]
-    pub fn fill<U, F>(self, f: F) -> PartialExpr<Op, U>
+    pub fn fill<U, F>(self, mut f: F) -> PartialExpr<Op, U>
     where
         F: FnMut(T) -> PartialExpr<Op, U>,
     {
-        // TODO: There should be a way to write this without `RefCell`.
-        fn do_fill<Op, T, U, F>(
-            partial_expr: PartialExpr<Op, T>,
-            f: &RefCell<F>,
-        ) -> PartialExpr<Op, U>
-        where
-            F: FnMut(T) -> PartialExpr<Op, U>,
-        {
-            match partial_expr {
-                PartialExpr::Node(node) => {
-                    // Nested closures create ownership headaches.
-                    let node = node.map(|child| do_fill(child, f));
-                    PartialExpr::Node(node)
-                }
-                PartialExpr::Hole(contents) => f.borrow_mut()(contents),
-            }
-        }
+        self.fill_mut(&mut f)
+    }
 
-        do_fill(self, &RefCell::new(f))
+    /// Helper for [`Self::fill`] which takes its closure by mutable reference.
+    #[must_use]
+    fn fill_mut<U, F>(self, f: &mut F) -> PartialExpr<Op, U>
+    where
+        F: FnMut(T) -> PartialExpr<Op, U>,
+    {
+        match self {
+            PartialExpr::Node(node) => {
+                let node = node.map(|child| child.fill_mut(f));
+                PartialExpr::Node(node)
+            }
+            PartialExpr::Hole(hole) => f(hole),
+        }
     }
 }
 

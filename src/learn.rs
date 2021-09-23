@@ -130,7 +130,7 @@ where
         // exclude any antiunifications that would come from looping sequences
         // of rules.
         self.aus_by_state.insert(state.clone(), HashSet::new());
-        let mut aus: HashSet<PartialExpr<_, _>> = HashSet::new();
+        let mut aus: HashSet<PartialExpr<Op, T>> = HashSet::new();
 
         if let Some(rules) = dfta.get_by_output(state) {
             for (operation, inputs) in rules {
@@ -165,7 +165,7 @@ where
             // discarding redundant anti-unifications.
             let nontrivial_aus = aus
                 .iter()
-                .filter(|au| !au.is_complete())
+                .filter(|au| au.has_holes())
                 .cloned()
                 .map(normalize);
 
