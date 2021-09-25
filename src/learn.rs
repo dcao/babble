@@ -248,8 +248,8 @@ fn reify<Op: Teachable, T: Eq>(au: PartialExpr<Op, T>, name: Symbol) -> PartialE
 
     let offset = metavars.len();
 
-    fun = fun.map_leaves(|op| match op.var_index() {
-        Some(index) => Op::var(index + offset).into(),
+    fun = fun.map_leaves_with_binders(|op, binders| match op.var_index() {
+        Some(index) if index > binders => Op::var(index + offset).into(),
         _ => AstNode::leaf(op).into(),
     });
 

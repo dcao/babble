@@ -44,6 +44,36 @@ impl<Op: Teachable, T> PartialExpr<Op, T> {
             PartialExpr::Hole(hole) => f(hole, binders),
         }
     }
+
+    /// Replaces the leaves in the partial expression by applying a function to
+    /// the operation of and number of binders above each leaf.
+    #[must_use]
+    pub fn map_leaves_with_binders<F>(self, mut f: F) -> Self
+    where
+        F: FnMut(Op, usize) -> Self,
+    {
+        self.map_leaves_with_binders_mut(&mut f, 0)
+    }
+
+    fn map_leaves_with_binders_mut<F>(self, f: &mut F, mut binders: usize) -> Self
+    where
+        F: FnMut(Op, usize) -> Self,
+    {
+        match self {
+            PartialExpr::Node(node) => {
+                if node.is_empty() {
+                    f(node.operation, binders)
+                } else {
+                    if Op::is_lambda(&node) {
+                        binders += 1
+                    }
+                    let node = node.map(|child| child.map_leaves_with_binders_mut(f, binders));
+                    PartialExpr::Node(node)
+                }
+            }
+            hole => hole,
+        }
+    }
 }
 
 impl<Op, T> PartialExpr<Op, T> {
@@ -115,32 +145,7 @@ impl<Op, T> PartialExpr<Op, T> {
         }
     }
 
-    /// Replaces the leaves in the partial expression by applying a function to
-    /// each leaf's operation.
-    #[must_use]
-    pub fn map_leaves<F>(self, mut f: F) -> Self
-    where
-        F: FnMut(Op) -> Self,
-    {
-        self.map_leaves_mut(&mut f)
-    }
 
-    fn map_leaves_mut<F>(self, f: &mut F) -> Self
-    where
-        F: FnMut(Op) -> Self,
-    {
-        match self {
-            PartialExpr::Node(node) => {
-                if node.is_empty() {
-                    f(node.operation)
-                } else {
-                    let node = node.map(|child| child.map_leaves_mut(f));
-                    PartialExpr::Node(node)
-                }
-            }
-            hole => hole,
-        }
-    }
 }
 
 impl<Op> From<PartialExpr<Op, Var>> for Pattern<AstNode<Op>>
