@@ -30,6 +30,10 @@ where
     /// Return an AST node representing a de Bruijn-indexed variable.
     fn var<T>(index: usize) -> AstNode<Self, T>;
 
+    /// If `self` represents a de Bruijn-indexed variable, returns its index.
+    /// Otherwise, returns [`None`].
+    fn var_index(&self) -> Option<usize>;
+
     /// Return an AST node representing a named identifier.
     fn ident<T>(name: Symbol) -> AstNode<Self, T>;
 

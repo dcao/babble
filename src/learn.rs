@@ -241,9 +241,19 @@ fn reify<Op: Teachable, T: Eq>(au: PartialExpr<Op, T>, name: Symbol) -> PartialE
             .unwrap_or_else(|| {
                 metavars.push(metavar);
                 metavars.len() - 1
-            }) + binders;
-        Op::var(index).into()
+            })
+            + binders;
+        PartialExpr::Hole(index)
     });
+
+    let offset = metavars.len();
+
+    fun = fun.map_leaves(|op| match op.var_index() {
+        Some(index) => Op::var(index + offset).into(),
+        _ => AstNode::leaf(op).into(),
+    });
+
+    let mut fun = fun.fill(|index| Op::var(index).into());
 
     // Wrap that in a lambda-abstraction, one for each variable we introduced.
     for _ in 0..metavars.len() {

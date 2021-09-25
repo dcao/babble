@@ -496,6 +496,14 @@ impl Teachable for Smiley {
         AstNode::new(Self::Var(index), [])
     }
 
+    fn var_index(&self) -> Option<usize> {
+        if let Self::Var(index) = *self {
+            Some(index)
+        } else {
+            None
+        }
+    }
+
     fn ident<T>(name: Symbol) -> AstNode<Self, T> {
         AstNode::new(Self::Ident(name), [])
     }

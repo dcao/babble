@@ -164,6 +164,14 @@ impl Teachable for ListOp {
         AstNode::new(Self::Var(DeBruijnIndex(index)), [])
     }
 
+    fn var_index(&self) -> Option<usize> {
+        if let Self::Var(DeBruijnIndex(index)) = *self {
+            Some(index)
+        } else {
+            None
+        }
+    }
+
     fn ident<T>(name: Symbol) -> AstNode<Self, T> {
         AstNode::new(Self::Ident(name), [])
     }

@@ -254,7 +254,9 @@ where
     ParseError(<Op as FromStr>::Err),
 
     /// The operator was given the wrong number of arguments.
-    #[error("the operation `{operation:?}` takes {expected} argument(s) but was applied to {actual}")]
+    #[error(
+        "the operation `{operation:?}` takes {expected} argument(s) but was applied to {actual}"
+    )]
     ArityError {
         /// The operation.
         operation: Op,

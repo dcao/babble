@@ -1,4 +1,4 @@
-use super::{AstNode, Expr, super::teachable::Teachable};
+use super::{super::teachable::Teachable, AstNode, Expr};
 use egg::{ENodeOrVar, Id, Language, Pattern, RecExpr, Var};
 use std::{
     convert::{TryFrom, TryInto},
@@ -112,6 +112,33 @@ impl<Op, T> PartialExpr<Op, T> {
                 PartialExpr::Node(node)
             }
             PartialExpr::Hole(hole) => f(hole),
+        }
+    }
+
+    /// Replaces the leaves in the partial expression by applying a function to
+    /// each leaf's operation.
+    #[must_use]
+    pub fn map_leaves<F>(self, mut f: F) -> Self
+    where
+        F: FnMut(Op) -> Self,
+    {
+        self.map_leaves_mut(&mut f)
+    }
+
+    fn map_leaves_mut<F>(self, f: &mut F) -> Self
+    where
+        F: FnMut(Op) -> Self,
+    {
+        match self {
+            PartialExpr::Node(node) => {
+                if node.is_empty() {
+                    f(node.operation)
+                } else {
+                    let node = node.map(|child| child.map_leaves_mut(f));
+                    PartialExpr::Node(node)
+                }
+            }
+            hole => hole,
         }
     }
 }
