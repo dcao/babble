@@ -152,6 +152,10 @@ impl Teachable for ListOp {
         AstNode::new(Self::Lambda, [body])
     }
 
+    fn is_lambda<T>(node: &AstNode<Self, T>) -> bool {
+        node.operation() == &Self::Lambda
+    }
+
     fn apply<T>(fun: T, arg: T) -> AstNode<Self, T> {
         AstNode::new(Self::Apply, [fun, arg])
     }

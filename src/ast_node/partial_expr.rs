@@ -1,4 +1,4 @@
-use super::{AstNode, Expr};
+use super::{AstNode, Expr, super::teachable::Teachable};
 use egg::{ENodeOrVar, Id, Language, Pattern, RecExpr, Var};
 use std::{
     convert::{TryFrom, TryInto},
@@ -15,6 +15,35 @@ pub enum PartialExpr<Op, T> {
     Node(AstNode<Op, Self>),
     /// A hole containing a value of type `T`.
     Hole(T),
+}
+
+impl<Op: Teachable, T> PartialExpr<Op, T> {
+    /// Same as [`Self::fill`], but also provides the number of outer binders
+    /// to the function.
+    pub fn fill_with_binders<U, F>(self, mut f: F) -> PartialExpr<Op, U>
+    where
+        F: FnMut(T, usize) -> PartialExpr<Op, U>,
+    {
+        self.fill_with_binders_helper(&mut f, 0)
+    }
+
+    fn fill_with_binders_helper<U, F>(self, f: &mut F, binders: usize) -> PartialExpr<Op, U>
+    where
+        F: FnMut(T, usize) -> PartialExpr<Op, U>,
+    {
+        match self {
+            PartialExpr::Node(node) => {
+                let new_binders = if Op::is_lambda(&node) {
+                    binders + 1
+                } else {
+                    binders
+                };
+                let node = node.map(|child| child.fill_with_binders_helper(f, new_binders));
+                PartialExpr::Node(node)
+            }
+            PartialExpr::Hole(hole) => f(hole, binders),
+        }
+    }
 }
 
 impl<Op, T> PartialExpr<Op, T> {

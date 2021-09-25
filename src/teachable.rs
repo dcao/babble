@@ -20,6 +20,9 @@ where
     /// `body`.
     fn lambda<T>(body: T) -> AstNode<Self, T>;
 
+    /// Checks if an AST node is a binder/lambda.
+    fn is_lambda<T>(node: &AstNode<Self, T>) -> bool;
+
     /// Return an AST node representing an application of the function `fun` to
     /// an expression `arg`.
     fn apply<T>(fun: T, arg: T) -> AstNode<Self, T>;

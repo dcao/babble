@@ -230,16 +230,18 @@ fn reify<Op: Teachable, T: Eq>(au: PartialExpr<Op, T>, name: Symbol) -> PartialE
 
     // Replace every metavariable in this antiunification with a de
     // Bruijn-indexed variable.
-    let mut fun = au.fill(|metavar| {
+    // Metavariables might be located inside lambdas. To deal with this,
+    // the de Brujin index that we return is equal to the index of the
+    // metavar, added to however many lambdas wrap the metavar at that
+    // point.
+    let mut fun = au.fill_with_binders(|metavar, binders| {
         let index = metavars
             .iter()
-            // TODO: cant always replace metavar w same de brujin index. context dependent
             .position(|other| other == &metavar)
             .unwrap_or_else(|| {
                 metavars.push(metavar);
-                // TODO: darn
                 metavars.len() - 1
-            });
+            }) + binders;
         Op::var(index).into()
     });
 
