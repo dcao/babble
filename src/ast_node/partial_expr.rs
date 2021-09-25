@@ -18,13 +18,13 @@ pub enum PartialExpr<Op, T> {
 }
 
 impl<Op, T> PartialExpr<Op, T> {
-    /// Is this partial expression a node?
+    /// Returns `true` if the partial expression is a node.
     #[must_use]
     pub fn is_node(&self) -> bool {
         matches!(self, Self::Node(_))
     }
 
-    /// Is this partial expression a hole?
+    /// Returns `true` if the partial expression is a hole.
     #[must_use]
     pub fn is_hole(&self) -> bool {
         matches!(self, Self::Hole(_))
