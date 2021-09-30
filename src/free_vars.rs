@@ -1,8 +1,8 @@
 //! Defines an [`Analysis`] tracking free variables.
 
 use crate::ast_node::AstNode;
-use egg::{Analysis, Condition, EClass, EGraph, Id, Language, Subst, Symbol};
-use std::{cmp::Ordering, collections::HashSet, marker::PhantomData};
+use egg::{Analysis, Condition, DidMerge, EClass, EGraph, Id, Language, Subst, Symbol};
+use std::{collections::HashSet, marker::PhantomData};
 
 /// Analysis which maintains a set of potentially free variables for each
 /// eclass. For example, the set of potentially free variables for an eclass
@@ -47,20 +47,13 @@ where
     type Data = HashSet<Symbol>;
 
     /// Set `a` to the union of `a` and `b`.
-    fn merge(&self, a: &mut Self::Data, b: Self::Data) -> Option<Ordering> {
-        if a.is_subset(&b) {
-            if a.is_superset(&b) {
-                Some(Ordering::Equal)
-            } else {
-                *a = b;
-                Some(Ordering::Less)
-            }
-        } else if a.is_superset(&b) {
-            Some(Ordering::Greater)
-        } else {
-            a.extend(b.into_iter());
-            None
-        }
+    fn merge(&self, a: &mut Self::Data, b: Self::Data) -> DidMerge {
+        let a_len = a.len();
+        let b_len = b.len();
+        a.extend(b);
+        let is_a = a.len() == a_len;
+        let is_b = a.len() == b_len;
+        DidMerge(!is_a, !is_b)
     }
 
     /// Return all variables potentially free in `enode`.

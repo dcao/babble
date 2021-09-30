@@ -10,6 +10,7 @@ use crate::{
 use babble_macros::rewrite_rules;
 use egg::{AstSize, Extractor, Rewrite, Runner, Symbol};
 use lazy_static::lazy_static;
+use log::info;
 use std::{
     collections::HashSet,
     convert::Infallible,
@@ -31,7 +32,7 @@ pub enum ListOp {
     /// A function application
     Apply,
     /// A de Bruijn-indexed variable
-    Var(DeBruijnIndex),
+    Index(DeBruijnIndex),
     /// An identifier
     Ident(Symbol),
     /// An anonymous function
@@ -47,7 +48,7 @@ pub enum ListOp {
 impl Arity for ListOp {
     fn min_arity(&self) -> usize {
         match self {
-            Self::Bool(_) | Self::Int(_) | Self::Var(_) | Self::Ident(_) | Self::List => 0,
+            Self::Bool(_) | Self::Int(_) | Self::Index(_) | Self::Ident(_) | Self::List => 0,
             Self::Lambda => 1,
             Self::Cons | Self::Apply => 2,
             Self::If | Self::Let | Self::Lib => 3,
@@ -78,7 +79,7 @@ impl Display for ListOp {
             Self::Int(i) => {
                 return write!(f, "{}", i);
             }
-            Self::Var(index) => {
+            Self::Index(index) => {
                 return write!(f, "{}", index);
             }
             Self::Ident(ident) => {
@@ -103,7 +104,7 @@ impl FromStr for ListOp {
             input => input
                 .parse()
                 .map(Self::Bool)
-                .or_else(|_| input.parse().map(Self::Var))
+                .or_else(|_| input.parse().map(Self::Index))
                 .or_else(|_| input.parse().map(Self::Int))
                 .unwrap_or_else(|_| Self::Ident(input.into())),
         };
@@ -116,7 +117,7 @@ impl Teachable for ListOp {
         match binding_expr {
             BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
-            BindingExpr::Index(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
+            BindingExpr::Index(index) => AstNode::leaf(Self::Index(DeBruijnIndex(index))),
             BindingExpr::Ident(ident) => AstNode::leaf(Self::Ident(ident)),
             BindingExpr::Lib { ident, value, body } => {
                 AstNode::new(Self::Lib, [ident, value, body])
@@ -128,7 +129,7 @@ impl Teachable for ListOp {
         let binding_expr = match node.as_parts() {
             (Self::Lambda, [body]) => BindingExpr::Lambda(body),
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
-            (&Self::Var(DeBruijnIndex(index)), []) => BindingExpr::Index(index),
+            (&Self::Index(index), []) => BindingExpr::Index(*index),
             (&Self::Ident(ident), []) => BindingExpr::Ident(ident),
             (Self::Lib, [ident, value, body]) => BindingExpr::Lib { ident, value, body },
             _ => return None,
@@ -188,6 +189,7 @@ lazy_static! {
         rules.leak()
     };
 }
+
 /// Execute `EGraph` building and program extraction on a single expression
 /// containing all of the programs to extract common fragments out of.
 pub fn run_single(runner: Runner<AstNode<ListOp>, FreeVarAnalysis<ListOp>>) {
@@ -200,11 +202,11 @@ pub fn run_single(runner: Runner<AstNode<ListOp>, FreeVarAnalysis<ListOp>>) {
     let runner = runner.with_iter_limit(30).run(*LIFT_LIB_REWRITES);
     // After running, `runner.stop_reason` is guaranteed to not be `None`.
     let stop_reason = runner.stop_reason.unwrap_or_else(|| unreachable!());
-    eprintln!("Stop reason: {:?}", stop_reason);
+    info!("Stop reason: {:?}", stop_reason);
 
     let num_iterations = runner.iterations.len() - 1;
-    eprintln!("Number of iterations: {}", num_iterations);
-    eprintln!("Number of nodes: {}", runner.egraph.total_size());
+    info!("Number of iterations: {}", num_iterations);
+    info!("Number of nodes: {}", runner.egraph.total_size());
 
     let extractor = Extractor::new(&runner.egraph, AstSize);
     let (cost, expr) = extractor.find_best(runner.roots[0]);

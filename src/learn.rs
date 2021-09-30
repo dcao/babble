@@ -7,6 +7,7 @@ use crate::{
 };
 use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Symbol, Var};
 use itertools::Itertools;
+use log::debug;
 use std::{
     collections::{HashMap, HashSet},
     fmt::{Debug, Display},
@@ -106,7 +107,7 @@ where
             let searcher: Pattern<_> = au.clone().into();
             let applier: Pattern<_> = reify(au.clone(), fresh::gen("f")).into();
             let name = format!("anti-unify {}", i);
-            eprintln!("{}: {} => {}", name, searcher, applier);
+            debug!("Found rewrite \"{}\":\n{} => {}", name, searcher, applier);
 
             // Both patterns contain the same variables, so this can never fail.
             Rewrite::new(name, searcher, applier).unwrap_or_else(|_| unreachable!())

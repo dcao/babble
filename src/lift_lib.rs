@@ -5,7 +5,9 @@ use crate::{
     free_vars::{FreeVarAnalysis, FreeVars},
     teachable::{BindingExpr, Teachable},
 };
-use egg::{Applier, EGraph, Id, Language, Rewrite, SearchMatches, Searcher, Subst, Var};
+use egg::{
+    Applier, EGraph, Id, Language, PatternAst, Rewrite, SearchMatches, Searcher, Subst, Symbol, Var,
+};
 use lazy_static::lazy_static;
 use std::{collections::HashMap, sync::Mutex};
 
@@ -142,7 +144,7 @@ where
         &self,
         egraph: &EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
         eclass: Id,
-    ) -> Option<SearchMatches> {
+    ) -> Option<SearchMatches<'_, AstNode<Op>>> {
         let mut substs = Vec::new();
         for enode in egraph[eclass].iter() {
             if enode.operation() == &self.operation {
@@ -154,7 +156,11 @@ where
         if substs.is_empty() {
             None
         } else {
-            Some(SearchMatches { eclass, substs })
+            Some(SearchMatches {
+                eclass,
+                substs,
+                ast: None,
+            })
         }
     }
 
@@ -173,6 +179,8 @@ where
         egraph: &mut EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
         eclass: Id,
         subst: &Subst,
+        _searcher_ast: Option<&PatternAst<AstNode<Op>>>,
+        _rule_name: Symbol,
     ) -> Vec<Id> {
         let ident = *subst.get(*IDENT_VAR).unwrap();
         let value = *subst.get(*VALUE_VAR).unwrap();
@@ -188,8 +196,13 @@ where
 
         let body = egraph.add(AstNode::new(self.operation.clone(), items));
         let lib = egraph.add(BindingExpr::Lib { ident, value, body }.into());
+        let were_unioned = egraph.union(eclass, lib);
 
-        vec![lib, eclass]
+        if were_unioned {
+            vec![body, lib, eclass]
+        } else {
+            Vec::new()
+        }
     }
 
     fn vars(&self) -> Vec<Var> {

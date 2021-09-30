@@ -74,7 +74,7 @@ fn app(s: &str) -> ParseResult<'_, Expr> {
     context(
         "app",
         parenthesized(flat_map(expr, |fun| {
-            fold_many1(preceded(multispace1, expr), fun, Expr::app)
+            fold_many1(preceded(multispace1, expr), move || fun.clone(), Expr::app)
         })),
     )(s)
 }
