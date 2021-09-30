@@ -1,6 +1,6 @@
 //! The language of list transformations.
 
-use crate::{
+use babble::{
     ast_node::{Arity, AstNode},
     free_vars::{and, not_free_in, FreeVarAnalysis, FreeVars},
     learn::LearnedLibrary,
@@ -89,6 +89,7 @@ impl Display for ListOp {
         f.write_str(s)
     }
 }
+
 impl FromStr for ListOp {
     type Err = Infallible;
 

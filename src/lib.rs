@@ -14,16 +14,12 @@
     unused_lifetimes,
     missing_docs
 )]
-#![allow(clippy::non_ascii_literal)]
 
 pub mod ast_node;
 mod dfta;
-pub mod dreamcoder;
 pub mod eval;
 pub mod free_vars;
 pub mod fresh;
 pub mod learn;
 pub mod lift_lib;
-pub mod list_lang;
-pub mod smiley_lang;
 pub mod teachable;

@@ -7,6 +7,7 @@ use egg::Symbol;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
+#[allow(single_use_lifetimes)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 struct RawType<'a> {
     constructor: &'a str,

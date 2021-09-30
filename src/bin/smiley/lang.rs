@@ -1,6 +1,6 @@
 //! The AST defining the smiley language.
 
-use crate::{
+use babble::{
     ast_node::{Arity, AstNode},
     eval::{self, Eval},
     free_vars::{and, not_free_in, FreeVarAnalysis, FreeVars},
@@ -150,7 +150,10 @@ impl<T: Copy> Eval<T> for Context<T> {
                 val.map_shapes(|shape| shape.rotate(angle))
             }
             (Smiley::Let | Smiley::Lib, &[ident, val, body]) => {
-                let ident = nodes[ident].as_ident().ok_or(EvalError::SyntaxError)?;
+                let ident = match *nodes[ident].operation() {
+                    Smiley::Ident(ident) => ident,
+                    _ => return Err(EvalError::SyntaxError),
+                };
                 let val = self.eval_node(&nodes[val], nodes)?;
                 self.clone()
                     .with_ident(ident, val)
@@ -227,15 +230,6 @@ pub enum EvalError {
     /// A type error.
     #[error("type error")]
     TypeError,
-}
-
-impl<T> AstNode<Smiley, T> {
-    fn as_ident(&self) -> Option<Symbol> {
-        match *self.operation() {
-            Smiley::Ident(ident) => Some(ident),
-            _ => None,
-        }
-    }
 }
 
 impl<T> Value<T> {
@@ -433,15 +427,15 @@ impl Display for Smiley {
             Self::Int(n) => n.fmt(f),
             Self::Float(g) => g.fmt(f),
             Self::Ident(s) => s.fmt(f),
-            Self::Var(i) => write!(f, "${}", i),
+            Self::Var(i) => write!(f, "{}", i),
             Self::Circle => f.write_str("circle"),
             Self::Line => f.write_str("line"),
             Self::Move => f.write_str("move"),
             Self::Scale => f.write_str("scale"),
             Self::Rotate => f.write_str("rotate"),
             Self::Compose => f.write_str("+"),
-            Self::Apply => f.write_str("apply"),
-            Self::Lambda => f.write_str("lambda"),
+            Self::Apply => f.write_str("@"),
+            Self::Lambda => f.write_str("λ"),
             Self::Let => f.write_str("let"),
             Self::Lib => f.write_str("lib"),
         }
@@ -455,11 +449,11 @@ impl FromStr for Smiley {
         let kind = match s {
             "circle" => Self::Circle,
             "line" => Self::Line,
-            "lambda" => Self::Lambda,
+            "lambda" | "λ" => Self::Lambda,
             "scale" => Self::Scale,
             "move" => Self::Move,
             "rotate" => Self::Rotate,
-            "apply" => Self::Apply,
+            "apply" | "@" => Self::Apply,
             "let" => Self::Let,
             "lib" => Self::Lib,
             "+" => Self::Compose,

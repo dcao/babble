@@ -18,6 +18,7 @@ use super::{
     util::{parens, DeBruijnIndex},
 };
 
+#[allow(single_use_lifetimes)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 struct RawExpr<'a>(Cow<'a, str>);
