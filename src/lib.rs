@@ -25,6 +25,7 @@ pub mod extract;
 pub mod free_vars;
 pub mod fresh;
 pub mod learn;
+pub mod lift_lib;
 pub mod list_lang;
 pub mod smiley_lang;
 pub mod teachable;

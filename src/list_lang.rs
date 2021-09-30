@@ -4,16 +4,14 @@ use crate::{
     ast_node::{Arity, AstNode},
     free_vars::{and, not_free_in, FreeVarAnalysis, FreeVars},
     learn::LearnedLibrary,
+    lift_lib::LiftLib,
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
 use babble_macros::rewrite_rules;
-use egg::{
-    Applier, AstSize, EGraph, Extractor, Id, Language, Rewrite, Runner, SearchMatches, Searcher,
-    Subst, Symbol, Var,
-};
+use egg::{AstSize, Extractor, Rewrite, Runner, Symbol};
 use lazy_static::lazy_static;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     convert::Infallible,
     fmt::{self, Display, Formatter},
     str::FromStr,
@@ -140,7 +138,7 @@ impl Teachable for ListOp {
 }
 
 impl FreeVars for ListOp {
-    fn ident_symbol(&self) -> Option<Symbol> {
+    fn get_ident(&self) -> Option<Symbol> {
         match *self {
             Self::Ident(ident) => Some(ident),
             _ => None,
@@ -181,174 +179,15 @@ lazy_static! {
         };
 
         rules.extend([
-            LiftLibRewrite::rewrite("lift_list", ListOp::List),
-            LiftLibRewrite::rewrite("lift_if", ListOp::If),
-            LiftLibRewrite::rewrite("lift_cons", ListOp::Cons),
-            LiftLibRewrite::rewrite("lift_apply", ListOp::Apply),
+            LiftLib::rewrite("lift_list", ListOp::List),
+            LiftLib::rewrite("lift_if", ListOp::If),
+            LiftLib::rewrite("lift_cons", ListOp::Cons),
+            LiftLib::rewrite("lift_apply", ListOp::Apply),
         ]);
 
         rules.leak()
     };
 }
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct LiftLibRewrite<Op> {
-    operation: Op,
-}
-
-impl<Op> LiftLibRewrite<Op> {
-    fn new(operation: Op) -> Self {
-        Self { operation }
-    }
-}
-
-impl<Op> LiftLibRewrite<Op>
-where
-    Op: FreeVars + Teachable + Arity + Eq + Clone + Send + Sync + 'static,
-    AstNode<Op>: Language,
-{
-    fn rewrite(name: &str, operation: Op) -> Rewrite<AstNode<Op>, FreeVarAnalysis<Op>> {
-        Rewrite::new(name, Self::new(operation.clone()), Self::new(operation)).unwrap()
-    }
-
-    fn search_operation(
-        egraph: &EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
-        args: &[Id],
-    ) -> Vec<Subst> {
-        let mut idents = HashMap::new();
-        let mut arg_maps = Vec::new();
-        let mut vars = Vec::new();
-        for (i, &arg) in args.iter().enumerate() {
-            let var = format!("?e{}", i).parse().unwrap();
-            vars.push(var);
-
-            let mut arg_map = HashMap::new();
-            for node in egraph[arg].iter().cloned() {
-                if let Some(BindingExpr::Lib {
-                    ident: &x,
-                    value: &v,
-                    body: &e,
-                }) = node.as_binding_expr()
-                {
-                    idents.insert(x, v);
-                    arg_map.insert(x, e);
-                }
-            }
-            arg_maps.push(arg_map);
-        }
-
-        let ident_var = "?x".parse().unwrap();
-        let fun_var = "?v".parse().unwrap();
-        let mut substs = Vec::new();
-
-        for (&ident_id, &fun) in &idents {
-            let mut subst = Subst::with_capacity(args.len() + 2);
-            subst.insert(ident_var, ident_id);
-            subst.insert(fun_var, fun);
-
-            let ident = egraph[ident_id].nodes[0]
-                .operation()
-                .ident_symbol()
-                .unwrap();
-            let mut can_rewrite = true;
-            for (i, &arg) in args.iter().enumerate() {
-                if egraph[arg].data.contains(&ident) {
-                    can_rewrite = false;
-                    break;
-                }
-
-                let arg_map = &arg_maps[i];
-                let var = vars[i];
-                let id = *arg_map.get(&ident_id).unwrap_or(&ident_id);
-                subst.insert(var, id);
-                if let Some(&e) = arg_map.get(&ident_id) {
-                    subst.insert(var, e);
-                } else {
-                    subst.insert(var, arg);
-                }
-            }
-
-            if can_rewrite {
-                substs.push(subst);
-            }
-        }
-
-        substs
-    }
-}
-
-impl<Op> Searcher<AstNode<Op>, FreeVarAnalysis<Op>> for LiftLibRewrite<Op>
-where
-    Op: Teachable + FreeVars + Arity + Eq + Clone + Send + Sync + 'static,
-    AstNode<Op>: Language,
-{
-    fn search_eclass(
-        &self,
-        egraph: &EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
-        eclass: Id,
-    ) -> Option<SearchMatches> {
-        let mut substs = Vec::new();
-        for enode in egraph[eclass].iter() {
-            if enode.operation() == &self.operation {
-                let list_substs = Self::search_operation(egraph, enode.children());
-                substs.extend(list_substs);
-            }
-        }
-
-        if substs.is_empty() {
-            None
-        } else {
-            Some(SearchMatches { eclass, substs })
-        }
-    }
-
-    fn vars(&self) -> Vec<Var> {
-        vec!["?x".parse().unwrap(), "?v".parse().unwrap()]
-    }
-}
-
-impl<Op> Applier<AstNode<Op>, FreeVarAnalysis<Op>> for LiftLibRewrite<Op>
-where
-    Op: Teachable + FreeVars + Arity + Clone,
-    AstNode<Op>: Language,
-{
-    fn apply_one(
-        &self,
-        egraph: &mut EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
-        eclass: Id,
-        subst: &Subst,
-    ) -> Vec<Id> {
-        let x = *subst.get("?x".parse().unwrap()).unwrap();
-        let v = *subst.get("?v".parse().unwrap()).unwrap();
-        let mut items = Vec::new();
-
-        for i in 0.. {
-            let var = format!("?e{}", i).parse().unwrap();
-            if let Some(&id) = subst.get(var) {
-                items.push(id);
-            } else {
-                break;
-            }
-        }
-
-        let body = egraph.add(AstNode::new(self.operation.clone(), items));
-        let lib = egraph.add(
-            BindingExpr::Lib {
-                ident: x,
-                value: v,
-                body,
-            }
-            .into(),
-        );
-
-        vec![lib, eclass]
-    }
-
-    fn vars(&self) -> Vec<Var> {
-        vec!["?x".parse().unwrap(), "?v".parse().unwrap()]
-    }
-}
-
 /// Execute `EGraph` building and program extraction on a single expression
 /// containing all of the programs to extract common fragments out of.
 pub fn run_single(runner: Runner<AstNode<ListOp>, FreeVarAnalysis<ListOp>>) {

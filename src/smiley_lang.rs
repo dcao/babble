@@ -506,7 +506,7 @@ impl Teachable for Smiley {
 }
 
 impl FreeVars for Smiley {
-    fn ident_symbol(&self) -> Option<Symbol> {
+    fn get_ident(&self) -> Option<Symbol> {
         match *self {
             Self::Ident(ident) => Some(ident),
             _ => None,

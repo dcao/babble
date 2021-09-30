@@ -31,8 +31,8 @@ impl<Op> Default for FreeVarAnalysis<Op> {
 
 /// A trait for getting the free variables in an expression.
 pub trait FreeVars: Sized {
-    /// If `self` is an identifier, return its name. Otherwise, return `None`.
-    fn ident_symbol(&self) -> Option<Symbol>;
+    /// If `self` is an identifier, returns its name. Otherwise, returns `None`.
+    fn get_ident(&self) -> Option<Symbol>;
 
     /// Get the free variables of an expression, given the free variables in
     /// that expression's subexpressions.
@@ -70,7 +70,7 @@ where
     }
 }
 
-/// Produces a condition which is true if and only if the conditions `p` and
+/// Produces a [`Condition`] which is true if and only if the conditions `p` and
 /// `q` are both true. If `p` is false, this condition short-circuits and does
 /// not check `q`.
 #[must_use]
@@ -107,7 +107,7 @@ where
 {
     fn ident_symbol<Op: FreeVars, D>(eclass: &EClass<AstNode<Op>, D>) -> Option<Symbol> {
         if eclass.nodes.len() == 1 {
-            let var_sym = eclass.nodes[0].operation().ident_symbol()?;
+            let var_sym = eclass.nodes[0].operation().get_ident()?;
             Some(var_sym)
         } else {
             None
