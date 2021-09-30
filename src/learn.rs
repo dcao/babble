@@ -3,9 +3,9 @@ use crate::{
     ast_node::{Arity, AstNode, PartialExpr},
     dfta::Dfta,
     fresh,
-    teachable::Teachable,
+    teachable::{BindingExpr, Teachable},
 };
-use egg::{Analysis, EGraph, Id, Pattern, Rewrite, Symbol, Var};
+use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Symbol, Var};
 use itertools::Itertools;
 use std::{
     collections::{HashMap, HashSet},
@@ -38,7 +38,8 @@ impl<Op, T> Default for LearnedLibrary<Op, T> {
 
 impl<'a, Op, A> From<&'a EGraph<AstNode<Op>, A>> for LearnedLibrary<Op, (Id, Id)>
 where
-    Op: Teachable,
+    Op: Arity + Clone + Hash + Ord,
+    AstNode<Op>: Language,
     A: Analysis<AstNode<Op>>,
 {
     /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
@@ -55,7 +56,7 @@ where
 
 impl<Op, T> From<Dfta<Op, T>> for LearnedLibrary<Op, T>
 where
-    Op: Teachable,
+    Op: Arity + Eq + Clone + Hash,
     T: Ord + Hash + Clone,
 {
     /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
@@ -69,7 +70,10 @@ where
     }
 }
 
-impl<Op: Teachable, T> LearnedLibrary<Op, T> {
+impl<Op, T> LearnedLibrary<Op, T>
+where
+    Op: Teachable + Arity,
+{
     /// Returns an iterator over rewrite rules that replace expressions with
     /// equivalent calls to a learned library function.
     ///
@@ -95,7 +99,8 @@ impl<Op: Teachable, T> LearnedLibrary<Op, T> {
         &self,
     ) -> impl Iterator<Item = Rewrite<AstNode<Op>, A>> + '_
     where
-        Op: Display,
+        Op: Display + Send + Sync + Clone + 'static,
+        AstNode<Op>: Language,
     {
         self.nontrivial_aus.iter().enumerate().map(|(i, au)| {
             let searcher: Pattern<_> = au.clone().into();
@@ -225,7 +230,11 @@ fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> PartialExpr<Op, Var> {
 ///
 /// assuming `name` is "foo".
 #[must_use]
-fn reify<Op: Teachable, T: Eq>(au: PartialExpr<Op, T>, name: Symbol) -> PartialExpr<Op, T> {
+fn reify<Op, T>(au: PartialExpr<Op, T>, name: Symbol) -> PartialExpr<Op, T>
+where
+    Op: Teachable + Arity,
+    T: Eq,
+{
     let mut metavars = Vec::new();
 
     // Replace every metavariable in this antiunification with a de
@@ -248,12 +257,12 @@ fn reify<Op: Teachable, T: Eq>(au: PartialExpr<Op, T>, name: Symbol) -> PartialE
 
     let offset = metavars.len();
 
-    fun = fun.map_leaves_with_binders(|op, binders| match op.var_index() {
-        Some(index) if index > binders => Op::var(index + offset).into(),
-        _ => AstNode::leaf(op).into(),
+    fun = fun.map_leaves_with_binders(|node, binders| match node.as_binding_expr() {
+        Some(BindingExpr::Index(index)) if index > binders => Op::index(index + offset).into(),
+        _ => node.into(),
     });
 
-    let mut fun = fun.fill(|index| Op::var(index).into());
+    let mut fun = fun.fill(|index| Op::index(index).into());
 
     // Wrap that in a lambda-abstraction, one for each variable we introduced.
     for _ in 0..metavars.len() {
@@ -262,11 +271,18 @@ fn reify<Op: Teachable, T: Eq>(au: PartialExpr<Op, T>, name: Symbol) -> PartialE
 
     // Now apply the new function to the metavariables in reverse order so they
     // match the correct de Bruijn indexed variable.
-    let mut body = PartialExpr::Node(Op::ident(name));
+    let mut body = Op::ident(name).into();
     while let Some(metavar) = metavars.pop() {
         body = Op::apply(body, PartialExpr::Hole(metavar)).into();
     }
 
-    let ident = PartialExpr::Node(Op::ident(name));
-    Op::lib(ident, fun, body).into()
+    let ident = Op::ident(name).into();
+    PartialExpr::Node(
+        BindingExpr::Lib {
+            ident,
+            value: fun,
+            body,
+        }
+        .into(),
+    )
 }

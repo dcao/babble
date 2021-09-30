@@ -1,3 +1,5 @@
+use crate::teachable::BindingExpr;
+
 use super::{super::teachable::Teachable, AstNode, Expr};
 use egg::{ENodeOrVar, Id, Language, Pattern, RecExpr, Var};
 use std::{
@@ -17,7 +19,10 @@ pub enum PartialExpr<Op, T> {
     Hole(T),
 }
 
-impl<Op: Teachable, T> PartialExpr<Op, T> {
+impl<Op, T> PartialExpr<Op, T>
+where
+    Op: Teachable,
+{
     /// Same as [`Self::fill`], but also provides the number of outer binders
     /// to the function.
     pub fn fill_with_binders<U, F>(self, mut f: F) -> PartialExpr<Op, U>
@@ -27,21 +32,20 @@ impl<Op: Teachable, T> PartialExpr<Op, T> {
         self.fill_with_binders_helper(&mut f, 0)
     }
 
-    fn fill_with_binders_helper<U, F>(self, f: &mut F, binders: usize) -> PartialExpr<Op, U>
+    fn fill_with_binders_helper<U, F>(self, f: &mut F, depth: usize) -> PartialExpr<Op, U>
     where
         F: FnMut(T, usize) -> PartialExpr<Op, U>,
     {
         match self {
             PartialExpr::Node(node) => {
-                let new_binders = if Op::is_lambda(&node) {
-                    binders + 1
-                } else {
-                    binders
+                let binders = match node.as_binding_expr() {
+                    Some(BindingExpr::Lambda(_)) => depth + 1,
+                    _ => depth,
                 };
-                let node = node.map(|child| child.fill_with_binders_helper(f, new_binders));
+                let node = node.map(|child| child.fill_with_binders_helper(f, binders));
                 PartialExpr::Node(node)
             }
-            PartialExpr::Hole(hole) => f(hole, binders),
+            PartialExpr::Hole(hole) => f(hole, depth),
         }
     }
 
@@ -50,28 +54,29 @@ impl<Op: Teachable, T> PartialExpr<Op, T> {
     #[must_use]
     pub fn map_leaves_with_binders<F>(self, mut f: F) -> Self
     where
-        F: FnMut(Op, usize) -> Self,
+        F: FnMut(AstNode<Op, Self>, usize) -> Self,
     {
         self.map_leaves_with_binders_mut(&mut f, 0)
     }
 
-    fn map_leaves_with_binders_mut<F>(self, f: &mut F, mut binders: usize) -> Self
+    fn map_leaves_with_binders_mut<F>(self, f: &mut F, depth: usize) -> Self
     where
-        F: FnMut(Op, usize) -> Self,
+        F: FnMut(AstNode<Op, Self>, usize) -> Self,
     {
         match self {
             PartialExpr::Node(node) => {
                 if node.is_empty() {
-                    f(node.operation, binders)
+                    f(node, depth)
                 } else {
-                    if Op::is_lambda(&node) {
-                        binders += 1
-                    }
+                    let binders = match node.as_binding_expr() {
+                        Some(BindingExpr::Lambda(_)) => depth + 1,
+                        _ => depth,
+                    };
                     let node = node.map(|child| child.map_leaves_with_binders_mut(f, binders));
                     PartialExpr::Node(node)
                 }
             }
-            hole => hole,
+            hole @ PartialExpr::Hole(_) => hole,
         }
     }
 }
@@ -144,8 +149,6 @@ impl<Op, T> PartialExpr<Op, T> {
             PartialExpr::Hole(hole) => f(hole),
         }
     }
-
-
 }
 
 impl<Op> From<PartialExpr<Op, Var>> for Pattern<AstNode<Op>>

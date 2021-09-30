@@ -5,6 +5,7 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
     iter::FromIterator,
+    ops::{Bound, RangeBounds},
     slice,
     str::FromStr,
     vec,
@@ -29,11 +30,26 @@ mod partial_expr;
 
 /// A trait for operations which take a specific number of arguments.
 pub trait Arity {
-    /// Returns the number of arguments this operation takes. For example, the
-    /// addition operator `x + y` has arity two. Constants are considered arity
-    /// zero.
-    #[must_use]
-    fn arity(&self) -> usize;
+    /// Returns the minimum number of arguments this operation can take.
+    fn min_arity(&self) -> usize;
+
+    /// Returns the maximum number of arguments this operation can take, or
+    /// [`None`] if there is no maximum.
+    fn max_arity(&self) -> Option<usize> {
+        Some(self.min_arity())
+    }
+
+    /// Returns a pair of range bounds representing the minimum and maximum
+    /// number of arguments.
+    fn arity(&self) -> (Bound<usize>, Bound<usize>) {
+        let lower_bound = Bound::Included(self.min_arity());
+        let upper_bound = match self.max_arity() {
+            Some(max_arity) => Bound::Included(max_arity),
+            None => Bound::Unbounded,
+        };
+
+        (lower_bound, upper_bound)
+    }
 }
 
 impl<Op, T> AstNode<Op, T> {
@@ -90,9 +106,13 @@ impl<Op, T> AstNode<Op, T> {
         self.into_iter()
     }
 
-    /// Decomposes a node into its operation and children.
-    ///
-    /// See also [`AstNode::from_parts`].
+    /// Returns a reference to the node's operation and a slice of its children.
+    #[must_use]
+    pub fn as_parts(&self) -> (&Op, &[T]) {
+        (&self.operation, &self.children)
+    }
+
+    /// Decomposes the node into its operation and children.
     #[must_use]
     pub fn into_parts(self) -> (Op, Vec<T>) {
         (self.operation, self.children)
@@ -114,7 +134,7 @@ impl<Op: Arity, T> AstNode<Op, T> {
         I: IntoIterator<Item = T>,
     {
         let children = Vec::from_iter(children);
-        assert_eq!(operation.arity(), children.len());
+        assert!(operation.arity().contains(&children.len()));
         Self {
             operation,
             children,
@@ -255,13 +275,13 @@ where
 
     /// The operator was given the wrong number of arguments.
     #[error(
-        "the operation `{operation:?}` takes {expected} argument(s) but was applied to {actual}"
+        "the operation `{operation:?}` takes {expected:?} argument(s) but was applied to {actual}"
     )]
     ArityError {
         /// The operation.
         operation: Op,
         /// The expected number of arguments.
-        expected: usize,
+        expected: (Bound<usize>, Bound<usize>),
         /// The given number of arguments.
         actual: usize,
     },
@@ -277,7 +297,7 @@ where
     fn from_op(op: &str, children: Vec<Id>) -> Result<Self, Self::Error> {
         let op: Op = op.parse().map_err(ParseNodeError::ParseError)?;
         let arity = op.arity();
-        if arity == children.len() {
+        if arity.contains(&children.len()) {
             Ok(Self::new(op, children))
         } else {
             Err(ParseNodeError::ArityError {
@@ -289,9 +309,10 @@ where
     }
 }
 
-/// The `Display` implementation must match what [`egg`] is expecting. The
-/// implementation is unintuitive, so to reduce confusion we only implement
-/// `Display` for the concrete type [`AstNode<Op, Id>`].
+/// [Egg][egg] expects the [`Display`] implementation of a [`Language`] to
+/// display only a node's operation, not its children. This implementation is
+/// unexpected, so we only implement [`Display`] for the concrete type
+/// [`AstNode<Op, Id>`].
 impl<Op: Display> Display for AstNode<Op> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.operation.fmt(f)

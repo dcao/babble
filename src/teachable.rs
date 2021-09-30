@@ -1,44 +1,173 @@
 //! Defines the [`Teachable`] trait for languages that support library learning.
 
-use crate::ast_node::{Arity, AstNode};
-use egg::{Language, Symbol};
-use std::{fmt::Debug, hash::Hash};
+use crate::ast_node::AstNode;
+use egg::Symbol;
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    hash::Hash,
+    num::ParseIntError,
+    ops::{Deref, DerefMut},
+    str::FromStr,
+};
+use thiserror::Error;
 
-/// A trait for languages that contain the constructs needed to introduce
-/// learned library functions.
-///
-/// Rather than being implemented on a [`Language`] directly, this should be
-/// implemented by the type of operations `Op` in that language, such that
-/// [`AstNode<Op>`] implements [`Language`].
-pub trait Teachable: Arity + Debug + Clone + Ord + Hash + Send + Sync + 'static
+/// A trait for languages which support library learning.
+pub trait Teachable
 where
-    // This bound should always be satisfied, but its meaning is clearer than
-    // all the supertraits.
-    AstNode<Self>: Language,
+    Self: Sized,
 {
-    /// Return an AST node representing a de Bruijn-indexed lambda with body
-    /// `body`.
-    fn lambda<T>(body: T) -> AstNode<Self, T>;
+    /// Converts a [`BindingExpr`] into an [`AstNode`] in the language.
+    #[must_use]
+    fn from_binding_expr<T>(binding_expr: BindingExpr<T>) -> AstNode<Self, T>;
 
-    /// Checks if an AST node is a binder/lambda.
-    fn is_lambda<T>(node: &AstNode<Self, T>) -> bool;
+    /// Attempts to convert a reference to an [`AstNode`] in the language into a
+    /// [`BindingExpr`] which references the node's children, returning [`None`]
+    /// if the AST node does not correspond to a [`BindingExpr`].
+    #[must_use]
+    fn as_binding_expr<T>(node: &AstNode<Self, T>) -> Option<BindingExpr<&T>>;
 
-    /// Return an AST node representing an application of the function `fun` to
-    /// an expression `arg`.
-    fn apply<T>(fun: T, arg: T) -> AstNode<Self, T>;
+    /// Creates an AST node representing a de Bruijn-indexed lambda with body `body`.
+    #[must_use]
+    fn lambda<T>(body: T) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::Lambda(body))
+    }
 
-    /// Return an AST node representing a de Bruijn-indexed variable.
-    fn var<T>(index: usize) -> AstNode<Self, T>;
+    /// Creates an AST node representing an application of the function `fun` to
+    /// an argument `arg`.
+    #[must_use]
+    fn apply<T>(fun: T, arg: T) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::Apply(fun, arg))
+    }
 
-    /// If `self` represents a de Bruijn-indexed variable, returns its index.
-    /// Otherwise, returns [`None`].
-    fn var_index(&self) -> Option<usize>;
+    /// Creates a de Bruijn-indexed variable.
+    #[must_use]
+    fn index<T>(index: usize) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::Index(index))
+    }
 
-    /// Return an AST node representing a named identifier.
-    fn ident<T>(name: Symbol) -> AstNode<Self, T>;
+    /// Creates a named variable.
+    #[must_use]
+    fn ident<T>(ident: Symbol) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::Ident(ident))
+    }
 
-    /// Return an AST node representing a let-expression defining a new learned
-    /// library function named `name` with definition `fun` within an expression
-    /// `body`.
-    fn lib<T>(name: T, fun: T, body: T) -> AstNode<Self, T>;
+    /// Creates a let-expression binding `ident` to `value` in `body`.
+    #[must_use]
+    fn lib<T>(ident: T, value: T, body: T) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::Lib { ident, value, body })
+    }
+}
+
+/// A simplified language containing just the constructs necessary for library
+/// learning: functions, applications, let-expressions, and both named and de
+/// Bruijn-indexed variables.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum BindingExpr<T> {
+    /// A de Bruijn index
+    Index(usize),
+    /// An identifier
+    Ident(Symbol),
+    /// A lambda
+    Lambda(T),
+    /// An application of a function to an argument
+    Apply(T, T),
+    /// A let-expression
+    Lib {
+        /// The bound variable's name
+        ident: T,
+        /// The value of the named variable within the body of the let-expression
+        value: T,
+        /// The body of the let-expression
+        body: T,
+    },
+}
+
+impl<Op, T> From<BindingExpr<T>> for AstNode<Op, T>
+where
+    Op: Teachable,
+{
+    fn from(binding_expr: BindingExpr<T>) -> Self {
+        Op::from_binding_expr(binding_expr)
+    }
+}
+
+impl<Op, T> AstNode<Op, T>
+where
+    Op: Teachable,
+{
+    /// Attempts to convert a reference to the AST node into the corresponding
+    /// [`BindingExpr`] referencing the node's children, returning [`None`] if
+    /// there is no corresponding construct.
+    pub fn as_binding_expr(&self) -> Option<BindingExpr<&T>> {
+        Op::as_binding_expr(self)
+    }
+}
+
+/// A newtype wrapper for [`usize`] representing a de Bruijn index. The string
+/// representation of the de Bruijn index is a dollar sign ($) followed by the
+/// integer index, (e.g. `$12`) and its [`Debug`], [`Display`], and [`FromStr`]
+/// implementations reflect that.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct DeBruijnIndex(pub usize);
+
+impl Deref for DeBruijnIndex {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for DeBruijnIndex {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Debug for DeBruijnIndex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        <Self as Display>::fmt(self, f)
+    }
+}
+
+impl Display for DeBruijnIndex {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "${}", self.0)
+    }
+}
+
+impl From<usize> for DeBruijnIndex {
+    fn from(index: usize) -> Self {
+        Self(index)
+    }
+}
+
+impl From<DeBruijnIndex> for usize {
+    fn from(index: DeBruijnIndex) -> Self {
+        index.0
+    }
+}
+
+/// An error when parsing a de Bruijn index.
+#[derive(Clone, Debug, Error)]
+pub enum ParseDeBruijnIndexError {
+    /// The string did not start with "$"
+    #[error("expected de Bruijn index to start with '$")]
+    NoLeadingDollar,
+    /// The index is not a valid unsigned integer
+    #[error(transparent)]
+    InvalidIndex(ParseIntError),
+}
+
+impl FromStr for DeBruijnIndex {
+    type Err = ParseDeBruijnIndexError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(n) = s.strip_prefix('$') {
+            let n = n.parse().map_err(ParseDeBruijnIndexError::InvalidIndex)?;
+            Ok(DeBruijnIndex(n))
+        } else {
+            Err(ParseDeBruijnIndexError::NoLeadingDollar)
+        }
+    }
 }

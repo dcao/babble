@@ -4,19 +4,20 @@ use crate::{
     ast_node::{Arity, AstNode},
     free_vars::{and, not_free_in, FreeVarAnalysis, FreeVars},
     learn::LearnedLibrary,
-    teachable::Teachable,
+    teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
 use babble_macros::rewrite_rules;
-use egg::{AstSize, Extractor, Rewrite, Runner, Symbol};
+use egg::{
+    Applier, AstSize, EGraph, Extractor, Id, Language, Rewrite, Runner, SearchMatches, Searcher,
+    Subst, Symbol, Var,
+};
 use lazy_static::lazy_static;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     convert::Infallible,
     fmt::{self, Display, Formatter},
-    num::ParseIntError,
     str::FromStr,
 };
-use thiserror::Error;
 
 /// List operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -41,15 +42,24 @@ pub enum ListOp {
     Let,
     /// A library function binding
     Lib,
+    /// A list
+    List,
 }
 
 impl Arity for ListOp {
-    fn arity(&self) -> usize {
+    fn min_arity(&self) -> usize {
         match self {
-            Self::Bool(_) | Self::Int(_) | Self::Var(_) | Self::Ident(_) => 0,
+            Self::Bool(_) | Self::Int(_) | Self::Var(_) | Self::Ident(_) | Self::List => 0,
             Self::Lambda => 1,
             Self::Cons | Self::Apply => 2,
             Self::If | Self::Let | Self::Lib => 3,
+        }
+    }
+
+    fn max_arity(&self) -> Option<usize> {
+        match self {
+            Self::List => None,
+            other => Some(other.min_arity()),
         }
     }
 }
@@ -63,6 +73,7 @@ impl Display for ListOp {
             Self::Lambda => "λ",
             Self::Let => "let",
             Self::Lib => "lib",
+            Self::List => "list",
             Self::Bool(b) => {
                 return write!(f, "{}", b);
             }
@@ -79,53 +90,6 @@ impl Display for ListOp {
         f.write_str(s)
     }
 }
-
-/// A de Bruin index.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct DeBruijnIndex(pub usize);
-
-impl Display for DeBruijnIndex {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "${}", self.0)
-    }
-}
-
-impl From<usize> for DeBruijnIndex {
-    fn from(index: usize) -> Self {
-        Self(index)
-    }
-}
-
-impl From<DeBruijnIndex> for usize {
-    fn from(index: DeBruijnIndex) -> Self {
-        index.0
-    }
-}
-
-/// An error when parsing a de Bruijn index.
-#[derive(Clone, Debug, Error)]
-pub enum ParseDeBruijnIndexError {
-    /// Did not start with "$"
-    #[error("expected de Bruijn index to start with '$")]
-    NoLeadingDollar,
-    /// Index is not a valid integer
-    #[error(transparent)]
-    InvalidIndex(ParseIntError),
-}
-
-impl FromStr for DeBruijnIndex {
-    type Err = ParseDeBruijnIndexError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Some(n) = s.strip_prefix('$') {
-            let n = n.parse().map_err(ParseDeBruijnIndexError::InvalidIndex)?;
-            Ok(DeBruijnIndex(n))
-        } else {
-            Err(ParseDeBruijnIndexError::NoLeadingDollar)
-        }
-    }
-}
-
 impl FromStr for ListOp {
     type Err = Infallible;
 
@@ -137,10 +101,12 @@ impl FromStr for ListOp {
             "lambda" | "λ" => Self::Lambda,
             "let" => Self::Let,
             "lib" => Self::Lib,
+            "list" => Self::List,
             input => input
                 .parse()
                 .map(Self::Bool)
                 .or_else(|_| input.parse().map(Self::Var))
+                .or_else(|_| input.parse().map(Self::Int))
                 .unwrap_or_else(|_| Self::Ident(input.into())),
         };
         Ok(op)
@@ -148,36 +114,28 @@ impl FromStr for ListOp {
 }
 
 impl Teachable for ListOp {
-    fn lambda<T>(body: T) -> AstNode<Self, T> {
-        AstNode::new(Self::Lambda, [body])
-    }
-
-    fn is_lambda<T>(node: &AstNode<Self, T>) -> bool {
-        node.operation() == &Self::Lambda
-    }
-
-    fn apply<T>(fun: T, arg: T) -> AstNode<Self, T> {
-        AstNode::new(Self::Apply, [fun, arg])
-    }
-
-    fn var<T>(index: usize) -> AstNode<Self, T> {
-        AstNode::new(Self::Var(DeBruijnIndex(index)), [])
-    }
-
-    fn var_index(&self) -> Option<usize> {
-        if let Self::Var(DeBruijnIndex(index)) = *self {
-            Some(index)
-        } else {
-            None
+    fn from_binding_expr<T>(binding_expr: BindingExpr<T>) -> AstNode<Self, T> {
+        match binding_expr {
+            BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
+            BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
+            BindingExpr::Index(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
+            BindingExpr::Ident(ident) => AstNode::leaf(Self::Ident(ident)),
+            BindingExpr::Lib { ident, value, body } => {
+                AstNode::new(Self::Lib, [ident, value, body])
+            }
         }
     }
 
-    fn ident<T>(name: Symbol) -> AstNode<Self, T> {
-        AstNode::new(Self::Ident(name), [])
-    }
-
-    fn lib<T>(name: T, fun: T, body: T) -> AstNode<Self, T> {
-        AstNode::new(Self::Lib, [name, fun, body])
+    fn as_binding_expr<T>(node: &AstNode<Self, T>) -> Option<BindingExpr<&T>> {
+        let binding_expr = match node.as_parts() {
+            (Self::Lambda, [body]) => BindingExpr::Lambda(body),
+            (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
+            (&Self::Var(DeBruijnIndex(index)), []) => BindingExpr::Index(index),
+            (&Self::Ident(ident), []) => BindingExpr::Ident(ident),
+            (Self::Lib, [ident, value, body]) => BindingExpr::Lib { ident, value, body },
+            _ => return None,
+        };
+        Some(binding_expr)
     }
 }
 
@@ -207,37 +165,188 @@ impl FreeVars for ListOp {
 }
 
 lazy_static! {
-    static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<ListOp>, FreeVarAnalysis<ListOp>>] = rewrite_rules! {
-        // TODO: Check for captures of de Bruijn variables and re-index if necessary.
-        lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
+    static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<ListOp>, FreeVarAnalysis<ListOp>>] = {
+        let mut rules = rewrite_rules! {
+            // TODO: Check for captures of de Bruijn variables and re-index if necessary.
+            lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
 
-        // Binary operators
-        lift_cons_both: "(cons (lib ?x ?v ?e1) (lib ?x ?v ?e2))" => "(lib ?x ?v (cons ?e1 ?e2))";
-        lift_cons_left: "(cons (lib ?x ?v ?e1) ?e2)" => "(lib ?x ?v (cons ?e1 ?e2))" if not_free_in("?e2", "?x");
-        lift_cons_right: "(cons ?e1 (lib ?x ?v ?e2))" => "(lib ?x ?v (cons ?e1 ?e2))" if not_free_in("?e1", "?x");
+            // Binding expressions
+            lift_let_both: "(let ?x1 (lib ?x2 ?v2 ?v1) (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if not_free_in("?v2", "?x1");
+            lift_let_body: "(let ?x1 ?v1 (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if and(not_free_in("?v1", "?x2"), not_free_in("?v2", "?x1"));
+            lift_let_binding: "(let ?x1 (lib ?x2 ?v2 ?v1) ?e)" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if not_free_in("?e", "?x2");
 
-        lift_apply_both: "(apply (lib ?x ?v ?e1) (lib ?x ?v ?e2))" => "(lib ?x ?v (apply ?e1 ?e2))";
-        lift_apply_left: "(apply (lib ?x ?v ?e1) ?e2)" => "(lib ?x ?v (apply ?e1 ?e2))" if not_free_in("?e2", "?x");
-        lift_apply_right: "(apply ?e1 (lib ?x ?v ?e2))" => "(lib ?x ?v (apply ?e1 ?e2))" if not_free_in("?e1", "?x");
+            lift_lib_both: "(lib ?x1 (lib ?x2 ?v2 ?v1) (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if not_free_in("?v2", "?x1");
+            lift_lib_body: "(lib ?x1 ?v1 (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if and(not_free_in("?v1", "?x2"), not_free_in("?v2", "?x1"));
+            lift_lib_binding: "(lib ?x1 (lib ?x2 ?v2 ?v1) ?e)" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if not_free_in("?e", "?x2");
+        };
 
-        // Ternary operators
-        lift_if_123: "(if (lib ?x ?v ?e1) (lib ?x ?v ?e2) (lib ?x ?v ?e3))" => "(lib ?x ?v (if ?e1 ?e2 ?e3))";
-        lift_if_12: "(if (lib ?x ?v ?e1) (lib ?x ?v ?e2) ?e3)" => "(lib ?x ?v (if ?e1 ?e2 ?e3))" if not_free_in("?e3", "?x");
-        lift_if_13: "(if (lib ?x ?v ?e1) ?e2 (lib ?x ?v ?e3))" => "(lib ?x ?v (if ?e1 ?e2 ?e3))" if not_free_in("?e2", "?x");
-        lift_if_23: "(if ?e1 (lib ?x ?v ?e2) (lib ?x ?v ?e3))" => "(lib ?x ?v (if ?e1 ?e2 ?e3))" if not_free_in("?e1", "?x");
-        lift_if_1: "(if (lib ?x ?v ?e1) ?e2 ?e3)" => "(lib ?x ?v (if ?e1 ?e2 ?e3))" if and(not_free_in("?e2", "?x"), not_free_in("?e3", "?x"));
-        lift_if_2: "(if ?e1 (lib ?x ?v ?e2) ?e3)" => "(lib ?x ?v (if ?e1 ?e2 ?e3))" if and(not_free_in("?e1", "?x"), not_free_in("?e3", "?x"));
-        lift_if_3: "(if ?e1 ?e2 (lib ?x ?v ?e3))" => "(lib ?x ?v (if ?e1 ?e2 ?e3))" if and(not_free_in("?e1", "?x"), not_free_in("?e2", "?x"));
+        rules.extend([
+            LiftLibRewrite::rewrite("lift_list", ListOp::List),
+            LiftLibRewrite::rewrite("lift_if", ListOp::If),
+            LiftLibRewrite::rewrite("lift_cons", ListOp::Cons),
+            LiftLibRewrite::rewrite("lift_apply", ListOp::Apply),
+        ]);
 
-        // Binding expressions
-        lift_let_both: "(let ?x1 (lib ?x2 ?v2 ?v1) (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if not_free_in("?v2", "?x1");
-        lift_let_body: "(let ?x1 ?v1 (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if and(not_free_in("?v1", "?x2"), not_free_in("?v2", "?x1"));
-        lift_let_binding: "(let ?x1 (lib ?x2 ?v2 ?v1) ?e)" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if not_free_in("?e", "?x2");
+        rules.leak()
+    };
+}
 
-        lift_lib_both: "(lib ?x1 (lib ?x2 ?v2 ?v1) (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if not_free_in("?v2", "?x1");
-        lift_lib_body: "(lib ?x1 ?v1 (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if and(not_free_in("?v1", "?x2"), not_free_in("?v2", "?x1"));
-        lift_lib_binding: "(lib ?x1 (lib ?x2 ?v2 ?v1) ?e)" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if not_free_in("?e", "?x2");
-    }.leak();
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct LiftLibRewrite<Op> {
+    operation: Op,
+}
+
+impl<Op> LiftLibRewrite<Op> {
+    fn new(operation: Op) -> Self {
+        Self { operation }
+    }
+}
+
+impl<Op> LiftLibRewrite<Op>
+where
+    Op: FreeVars + Teachable + Arity + Eq + Clone + Send + Sync + 'static,
+    AstNode<Op>: Language,
+{
+    fn rewrite(name: &str, operation: Op) -> Rewrite<AstNode<Op>, FreeVarAnalysis<Op>> {
+        Rewrite::new(name, Self::new(operation.clone()), Self::new(operation)).unwrap()
+    }
+
+    fn search_operation(
+        egraph: &EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
+        args: &[Id],
+    ) -> Vec<Subst> {
+        let mut idents = HashMap::new();
+        let mut arg_maps = Vec::new();
+        let mut vars = Vec::new();
+        for (i, &arg) in args.iter().enumerate() {
+            let var = format!("?e{}", i).parse().unwrap();
+            vars.push(var);
+
+            let mut arg_map = HashMap::new();
+            for node in egraph[arg].iter().cloned() {
+                if let Some(BindingExpr::Lib {
+                    ident: &x,
+                    value: &v,
+                    body: &e,
+                }) = node.as_binding_expr()
+                {
+                    idents.insert(x, v);
+                    arg_map.insert(x, e);
+                }
+            }
+            arg_maps.push(arg_map);
+        }
+
+        let ident_var = "?x".parse().unwrap();
+        let fun_var = "?v".parse().unwrap();
+        let mut substs = Vec::new();
+
+        for (&ident_id, &fun) in &idents {
+            let mut subst = Subst::with_capacity(args.len() + 2);
+            subst.insert(ident_var, ident_id);
+            subst.insert(fun_var, fun);
+
+            let ident = egraph[ident_id].nodes[0]
+                .operation()
+                .ident_symbol()
+                .unwrap();
+            let mut can_rewrite = true;
+            for (i, &arg) in args.iter().enumerate() {
+                if egraph[arg].data.contains(&ident) {
+                    can_rewrite = false;
+                    break;
+                }
+
+                let arg_map = &arg_maps[i];
+                let var = vars[i];
+                let id = *arg_map.get(&ident_id).unwrap_or(&ident_id);
+                subst.insert(var, id);
+                if let Some(&e) = arg_map.get(&ident_id) {
+                    subst.insert(var, e);
+                } else {
+                    subst.insert(var, arg);
+                }
+            }
+
+            if can_rewrite {
+                substs.push(subst);
+            }
+        }
+
+        substs
+    }
+}
+
+impl<Op> Searcher<AstNode<Op>, FreeVarAnalysis<Op>> for LiftLibRewrite<Op>
+where
+    Op: Teachable + FreeVars + Arity + Eq + Clone + Send + Sync + 'static,
+    AstNode<Op>: Language,
+{
+    fn search_eclass(
+        &self,
+        egraph: &EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
+        eclass: Id,
+    ) -> Option<SearchMatches> {
+        let mut substs = Vec::new();
+        for enode in egraph[eclass].iter() {
+            if enode.operation() == &self.operation {
+                let list_substs = Self::search_operation(egraph, enode.children());
+                substs.extend(list_substs);
+            }
+        }
+
+        if substs.is_empty() {
+            None
+        } else {
+            Some(SearchMatches { eclass, substs })
+        }
+    }
+
+    fn vars(&self) -> Vec<Var> {
+        vec!["?x".parse().unwrap(), "?v".parse().unwrap()]
+    }
+}
+
+impl<Op> Applier<AstNode<Op>, FreeVarAnalysis<Op>> for LiftLibRewrite<Op>
+where
+    Op: Teachable + FreeVars + Arity + Clone,
+    AstNode<Op>: Language,
+{
+    fn apply_one(
+        &self,
+        egraph: &mut EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
+        eclass: Id,
+        subst: &Subst,
+    ) -> Vec<Id> {
+        let x = *subst.get("?x".parse().unwrap()).unwrap();
+        let v = *subst.get("?v".parse().unwrap()).unwrap();
+        let mut items = Vec::new();
+
+        for i in 0.. {
+            let var = format!("?e{}", i).parse().unwrap();
+            if let Some(&id) = subst.get(var) {
+                items.push(id);
+            } else {
+                break;
+            }
+        }
+
+        let body = egraph.add(AstNode::new(self.operation.clone(), items));
+        let lib = egraph.add(
+            BindingExpr::Lib {
+                ident: x,
+                value: v,
+                body,
+            }
+            .into(),
+        );
+
+        vec![lib, eclass]
+    }
+
+    fn vars(&self) -> Vec<Var> {
+        vec!["?x".parse().unwrap(), "?v".parse().unwrap()]
+    }
 }
 
 /// Execute `EGraph` building and program extraction on a single expression
@@ -249,14 +358,17 @@ pub fn run_single(runner: Runner<AstNode<ListOp>, FreeVarAnalysis<ListOp>>) {
     let mut runner = runner.with_iter_limit(1).run(lib_rewrites.iter());
     runner.stop_reason = None;
 
-    let runner = runner
-        .with_iter_limit(30)
-        .with_time_limit(core::time::Duration::from_secs(40))
-        .run(LIFT_LIB_REWRITES.iter());
+    let runner = runner.with_iter_limit(30).run(*LIFT_LIB_REWRITES);
+    // After running, `runner.stop_reason` is guaranteed to not be `None`.
+    let stop_reason = runner.stop_reason.unwrap_or_else(|| unreachable!());
+    eprintln!("Stop reason: {:?}", stop_reason);
+
+    let num_iterations = runner.iterations.len() - 1;
+    eprintln!("Number of iterations: {}", num_iterations);
+    eprintln!("Number of nodes: {}", runner.egraph.total_size());
 
     let extractor = Extractor::new(&runner.egraph, AstSize);
     let (cost, expr) = extractor.find_best(runner.roots[0]);
-
     eprintln!("Cost: {}\n", cost);
     eprintln!("{}", expr.pretty(100));
 }

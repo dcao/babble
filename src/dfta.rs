@@ -1,7 +1,7 @@
 //! Deterministic finite tree automata.
 
-use crate::{ast_node::AstNode, teachable::Teachable};
-use egg::{Analysis, EGraph, Id};
+use crate::ast_node::AstNode;
+use egg::{Analysis, EGraph, Id, Language};
 use std::{
     collections::{BTreeSet, HashMap},
     hash::Hash,
@@ -97,8 +97,9 @@ impl<Op, S> Default for Dfta<Op, S> {
 
 impl<Op, A> From<&EGraph<AstNode<Op>, A>> for Dfta<Op, Id>
 where
-    Op: Teachable,
+    Op: Ord + Hash + Clone,
     A: Analysis<AstNode<Op>>,
+    AstNode<Op>: Language,
 {
     /// Converts an egraph into its equivalent DFTA. Each enode `(op e1 ... en)`
     /// of each eclass `e` in the egraph is represented by a transition rule

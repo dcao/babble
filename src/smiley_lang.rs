@@ -5,7 +5,7 @@ use crate::{
     eval::{self, Eval},
     free_vars::{and, not_free_in, FreeVarAnalysis, FreeVars},
     learn::LearnedLibrary,
-    teachable::Teachable,
+    teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
 use babble_macros::rewrite_rules;
 use egg::{AstSize, Extractor, Id, RecExpr, Rewrite, Runner, Symbol};
@@ -36,7 +36,7 @@ pub enum Smiley {
     Ident(Symbol),
     /// A de Bruijn-indexed variable. These are represented with a dollar sign
     /// followed by the index, i.e. `$0`, `$123`.
-    Var(usize),
+    Var(DeBruijnIndex),
     /// A unit circle.
     Circle,
     /// A unit line.
@@ -119,7 +119,7 @@ impl<T: Copy> Eval<T> for Context<T> {
                 end: (0.5, 0.0),
             }]),
             (Smiley::Ident(ident), []) => self.ident_env[ident].clone(),
-            (&Smiley::Var(index), []) => self.arg_env[index].clone(),
+            (&Smiley::Var(index), []) => self.arg_env[index.0].clone(),
             (Smiley::Lambda, &[body]) => Value::Lambda(body),
             (Smiley::Move, &[x_offset, y_offset, expr]) => {
                 let x_offset: f64 = self
@@ -412,7 +412,7 @@ pub fn eval(expr: &RecExpr<AstNode<Smiley>>) -> Result<Value, EvalError> {
 }
 
 impl Arity for Smiley {
-    fn arity(&self) -> usize {
+    fn min_arity(&self) -> usize {
         match self {
             Self::Int(_)
             | Self::Float(_)
@@ -464,8 +464,8 @@ impl FromStr for Smiley {
             "lib" => Self::Lib,
             "+" => Self::Compose,
             _ => {
-                if let Some(i) = s.strip_prefix('$') {
-                    Self::Var(i.parse()?)
+                if let Ok(index) = s.parse() {
+                    Self::Var(index)
                 } else if let Ok(n) = s.parse() {
                     Self::Int(n)
                 } else if let Ok(f) = s.parse() {
@@ -480,36 +480,28 @@ impl FromStr for Smiley {
 }
 
 impl Teachable for Smiley {
-    fn lambda<T>(body: T) -> AstNode<Self, T> {
-        AstNode::new(Self::Lambda, [body])
-    }
-
-    fn is_lambda<T>(node: &AstNode<Self, T>) -> bool {
-        node.operation() == &Self::Lambda
-    }
-
-    fn apply<T>(fun: T, arg: T) -> AstNode<Self, T> {
-        AstNode::new(Self::Apply, [fun, arg])
-    }
-
-    fn var<T>(index: usize) -> AstNode<Self, T> {
-        AstNode::new(Self::Var(index), [])
-    }
-
-    fn var_index(&self) -> Option<usize> {
-        if let Self::Var(index) = *self {
-            Some(index)
-        } else {
-            None
+    fn from_binding_expr<T>(binding_expr: BindingExpr<T>) -> AstNode<Self, T> {
+        match binding_expr {
+            BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
+            BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
+            BindingExpr::Index(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
+            BindingExpr::Ident(ident) => AstNode::leaf(Self::Ident(ident)),
+            BindingExpr::Lib { ident, value, body } => {
+                AstNode::new(Self::Lib, [ident, value, body])
+            }
         }
     }
 
-    fn ident<T>(name: Symbol) -> AstNode<Self, T> {
-        AstNode::new(Self::Ident(name), [])
-    }
-
-    fn lib<T>(name: T, fun: T, body: T) -> AstNode<Self, T> {
-        AstNode::new(Self::Lib, [name, fun, body])
+    fn as_binding_expr<T>(node: &AstNode<Self, T>) -> Option<BindingExpr<&T>> {
+        let binding_expr = match node.as_parts() {
+            (Self::Lambda, [body]) => BindingExpr::Lambda(body),
+            (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
+            (&Self::Var(DeBruijnIndex(index)), []) => BindingExpr::Index(index),
+            (&Self::Ident(ident), []) => BindingExpr::Ident(ident),
+            (Self::Lib, [ident, value, body]) => BindingExpr::Lib { ident, value, body },
+            _ => return None,
+        };
+        Some(binding_expr)
     }
 }
 
