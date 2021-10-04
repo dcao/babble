@@ -22,4 +22,5 @@ pub mod free_vars;
 pub mod fresh;
 pub mod learn;
 pub mod lift_lib;
+pub mod sexp;
 pub mod teachable;

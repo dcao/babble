@@ -12,9 +12,11 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
+use babble::{ast_node::Expr, sexp::Sexp};
 use clap::Clap;
 use egg::Runner;
 use std::{
+    convert::TryInto,
     fs,
     io::{self, Read},
     path::PathBuf,
@@ -45,7 +47,11 @@ fn main() {
         )
         .expect("Error reading input");
 
-    let expr = input.parse().expect("Input is not a valid expression");
+    let expr: Expr<_> = Sexp::parse(&input)
+        .expect("Failed to parse sexp")
+        .try_into()
+        .expect("Input is not a valid expression");
+    let expr = expr.into();
 
     let runner = Runner::default().with_expr(&expr);
     lang::run_single(runner);

@@ -264,14 +264,10 @@ where
 
 /// An error which can be returned when parsing an expression using [`FromOp`].
 #[derive(Debug, Error)]
-pub enum ParseNodeError<Op>
-where
-    Op: FromStr + Debug,
-    <Op as FromStr>::Err: Error,
-{
+pub enum ParseNodeError<Op, E> {
     /// The operator failed to parse.
     #[error(transparent)]
-    ParseError(<Op as FromStr>::Err),
+    ParseError(E),
 
     /// The operator was given the wrong number of arguments.
     #[error(
@@ -289,10 +285,10 @@ where
 
 impl<Op> FromOp for AstNode<Op>
 where
-    Op: Arity + FromStr + Debug + Clone + Ord + Hash + 'static,
+    Op: Debug + Arity + FromStr + Clone + Ord + Hash + 'static,
     <Op as FromStr>::Err: Error,
 {
-    type Error = ParseNodeError<Op>;
+    type Error = ParseNodeError<Op, <Op as FromStr>::Err>;
 
     fn from_op(op: &str, children: Vec<Id>) -> Result<Self, Self::Error> {
         let op: Op = op.parse().map_err(ParseNodeError::ParseError)?;
