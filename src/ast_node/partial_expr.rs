@@ -170,7 +170,7 @@ where
                     }
                     pattern.push(ENodeOrVar::ENode(AstNode {
                         operation,
-                        children: child_ids,
+                        arguments: child_ids,
                     }));
                 }
                 PartialExpr::Hole(contents) => pattern.push(ENodeOrVar::Var(contents)),
@@ -223,7 +223,7 @@ impl<Op, T> TryFrom<PartialExpr<Op, T>> for Expr<Op> {
         match partial_expr {
             PartialExpr::Node(AstNode {
                 operation,
-                children,
+                arguments: children,
             }) => {
                 let mut new_children = Vec::with_capacity(children.len());
                 for child in children {
@@ -232,7 +232,7 @@ impl<Op, T> TryFrom<PartialExpr<Op, T>> for Expr<Op> {
                 }
                 let node = AstNode {
                     operation,
-                    children: new_children,
+                    arguments: new_children,
                 };
                 Ok(node.into())
             }

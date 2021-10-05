@@ -9,7 +9,7 @@ use egg::{
     Applier, EGraph, Id, Language, PatternAst, Rewrite, SearchMatches, Searcher, Subst, Symbol, Var,
 };
 use lazy_static::lazy_static;
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, fmt::Debug, sync::Mutex};
 
 lazy_static! {
     static ref IDENT_VAR: Var = "?ident".parse().unwrap();
@@ -71,7 +71,7 @@ impl<Op> LiftLib<Op> {
 
 impl<Op> LiftLib<Op>
 where
-    Op: FreeVars + Teachable + Arity + Eq + Clone + Send + Sync + 'static,
+    Op: FreeVars + Teachable + Arity + Eq + Clone + Send + Sync + Debug + 'static,
     AstNode<Op>: Language,
 {
     /// Creates a new [`Rewrite`] named `name` which lifts over the given
@@ -137,7 +137,7 @@ where
 
 impl<Op> Searcher<AstNode<Op>, FreeVarAnalysis<Op>> for LiftLib<Op>
 where
-    Op: Teachable + FreeVars + Arity + Eq + Clone + Send + Sync + 'static,
+    Op: Debug + Teachable + FreeVars + Arity + Eq + Clone + Send + Sync + 'static,
     AstNode<Op>: Language,
 {
     fn search_eclass(
@@ -148,7 +148,7 @@ where
         let mut substs = Vec::new();
         for enode in egraph[eclass].iter() {
             if enode.operation() == &self.operation {
-                let list_substs = Self::search_operation(egraph, enode.children());
+                let list_substs = Self::search_operation(egraph, enode.args());
                 substs.extend(list_substs);
             }
         }
@@ -171,7 +171,7 @@ where
 
 impl<Op> Applier<AstNode<Op>, FreeVarAnalysis<Op>> for LiftLib<Op>
 where
-    Op: Teachable + FreeVars + Arity + Clone,
+    Op: Teachable + FreeVars + Arity + Clone + Debug,
     AstNode<Op>: Language,
 {
     fn apply_one(

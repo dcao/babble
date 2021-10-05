@@ -4,22 +4,20 @@ use std::{
     error::Error,
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
-    iter::FromIterator,
-    ops::{Bound, RangeBounds},
     slice,
     str::FromStr,
     vec,
 };
 use thiserror::Error;
 
-/// An abstract syntax tree node with operation of type `Op` and children of
-/// type `T`.
+/// An abstract syntax tree node with operation of type `Op` applied to
+/// arguments of type `T`.
 ///
-/// This type implements [`Language`] for children of type [`Id`].
+/// This type implements [`Language`] for arguments of type [`Id`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AstNode<Op, T = Id> {
     operation: Op,
-    children: Vec<T>,
+    args: Vec<T>,
 }
 
 pub use expr::Expr;
@@ -30,25 +28,47 @@ mod partial_expr;
 
 /// A trait for operations which take a specific number of arguments.
 pub trait Arity {
-    /// Returns the minimum number of arguments this operation can take.
+    /// Returns the minimum number of arguments the operation can take.
     fn min_arity(&self) -> usize;
 
-    /// Returns the maximum number of arguments this operation can take, or
+    /// Returns the maximum number of arguments the operation can take, or
     /// [`None`] if there is no maximum.
     fn max_arity(&self) -> Option<usize> {
         Some(self.min_arity())
     }
 
-    /// Returns a pair of range bounds representing the minimum and maximum
-    /// number of arguments.
-    fn arity(&self) -> (Bound<usize>, Bound<usize>) {
-        let lower_bound = Bound::Included(self.min_arity());
-        let upper_bound = match self.max_arity() {
-            Some(max_arity) => Bound::Included(max_arity),
-            None => Bound::Unbounded,
-        };
+    /// Returns `true` if the operation can take the given number of arguments.
+    fn has_arity(&self, num_args: usize) -> bool {
+        num_args >= self.min_arity() && self.max_arity().map_or(true, |max| num_args <= max)
+    }
+}
 
-        (lower_bound, upper_bound)
+/// An error indicating that an operation was applied to the wrong number of
+/// arguments.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ArityError<Op, T> {
+    /// The operation.
+    operation: Op,
+    /// The arguments.
+    args: Vec<T>,
+    /// The minimum allowed number of arguments.
+    min: usize,
+    /// The maximum allowed number of arguments.
+    max: Option<usize>,
+}
+
+impl<Op: Debug, T: Debug> Error for ArityError<Op, T> {}
+
+impl<Op: Debug, T> Display for ArityError<Op, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "the operation {:?} expects ", self.operation)?;
+        match (self.min, self.max) {
+            (min, Some(max)) if min == max => write!(f, "{}", max)?,
+            (0, Some(max)) => write!(f, "at most {}", max)?,
+            (min, Some(max)) => write!(f, "between {} and {}", min, max)?,
+            (min, None) => write!(f, "at least {}", min)?,
+        };
+        write!(f, " argument(s), but was given {}", self.args.len(),)
     }
 }
 
@@ -59,32 +79,32 @@ impl<Op, T> AstNode<Op, T> {
         &self.operation
     }
 
-    /// Returns a slice containing the node's children.
+    /// Returns a slice containing the operation's arguments.
     #[must_use]
-    pub fn children(&self) -> &[T] {
-        &self.children
+    pub fn args(&self) -> &[T] {
+        &self.args
     }
 
-    /// Returns a slice which allows modifying the node's children.
+    /// Returns a slice which allows modifying the operation's arguments.
     #[must_use]
-    pub fn children_mut(&mut self) -> &mut [T] {
-        &mut self.children
+    pub fn args_mut(&mut self) -> &mut [T] {
+        &mut self.args
     }
 
-    /// Returns `true` if the node has no children.
+    /// Returns `true` if the operation has no arguments.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.children.is_empty()
+        self.args.is_empty()
     }
 
-    /// Returns the number of children the node has.
+    /// Returns the number of arguments the operation has.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.children.len()
+        self.args.len()
     }
 
     /// Converts an `AstNode<Op, T>` into an `AstNode<Op, U>` by applying a
-    /// function to each of its children.
+    /// function to each of its arguments.
     #[must_use]
     pub fn map<U, F>(self, f: F) -> AstNode<Op, U>
     where
@@ -92,52 +112,50 @@ impl<Op, T> AstNode<Op, T> {
     {
         AstNode {
             operation: self.operation,
-            children: self.children.into_iter().map(f).collect(),
+            args: self.args.into_iter().map(f).collect(),
         }
     }
 
-    /// Returns an iterator over the node's children.
+    /// Returns an iterator over the operation's arguments.
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.into_iter()
     }
 
-    /// Returns an iterator that allows modifying the node's children.
+    /// Returns an iterator that allows modifying the operation's arguments.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.into_iter()
     }
 
-    /// Returns a reference to the node's operation and a slice of its children.
+    /// Returns a reference to the node's operation and a slice of the operation's arguments.
     #[must_use]
     pub fn as_parts(&self) -> (&Op, &[T]) {
-        (&self.operation, &self.children)
+        (&self.operation, &self.args)
     }
 
-    /// Decomposes the node into its operation and children.
+    /// Decomposes the node into the operation and its arguments.
     #[must_use]
     pub fn into_parts(self) -> (Op, Vec<T>) {
-        (self.operation, self.children)
+        (self.operation, self.args)
     }
 }
 
-impl<Op: Arity, T> AstNode<Op, T> {
-    /// Creates a node with the given operation and children.
+impl<Op: Arity + Debug, T> AstNode<Op, T> {
+    /// Creates a node with the given operation and arguments.
     ///
     /// See also [`AstNode::into_parts`].
     ///
     /// # Panics
     ///
-    /// Panics if the number of children does not match the
-    /// [`arity`](Arity::arity) of the operation.
+    /// Panics if the number of arguments does not match the
+    /// [`Arity`] of the operation.
     #[must_use]
-    pub fn new<I>(operation: Op, children: I) -> Self
+    pub fn new<I>(operation: Op, args: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
-        let children = Vec::from_iter(children);
-        assert!(operation.arity().contains(&children.len()));
-        Self {
-            operation,
-            children,
+        match Self::try_new(operation, args) {
+            Ok(node) => node,
+            Err(e) => panic!("{}", e),
         }
     }
 
@@ -145,24 +163,60 @@ impl<Op: Arity, T> AstNode<Op, T> {
     ///
     /// # Panics
     ///
-    /// Panics if the [`arity`](Arity::arity) of the operation is not zero.
+    /// Panics if the [`Arity`] of the operation cannot be zero.
     #[must_use]
     pub fn leaf(operation: Op) -> Self {
         Self::new(operation, [])
     }
 }
 
+impl<Op: Arity, T> AstNode<Op, T> {
+    /// Creates a new node with the provided operation and arguments.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the [`Arity`] of the operation doesn't match the
+    /// number of arguments.
+    pub fn try_new<I>(operation: Op, args: I) -> Result<Self, ArityError<Op, T>>
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let args: Vec<_> = args.into_iter().collect();
+        if operation.has_arity(args.len()) {
+            Ok(Self {
+                operation,
+                args,
+            })
+        } else {
+            let (min, max) = (operation.min_arity(), operation.max_arity());
+            Err(ArityError {
+                operation,
+                args,
+                min,
+                max,
+            })
+        }
+    }
+}
+
 impl<Op, T> AsRef<[T]> for AstNode<Op, T> {
-    /// Returns a reference to the node's children.
+    /// Returns a reference to the operation's arguments.
     fn as_ref(&self) -> &[T] {
-        self.children()
+        self.args()
+    }
+}
+
+impl<Op, T> AsRef<Op> for AstNode<Op, T> {
+    /// Returns a reference to the node's operation.
+    fn as_ref(&self) -> &Op {
+        self.operation()
     }
 }
 
 impl<Op, T> AsMut<[T]> for AstNode<Op, T> {
-    /// Returns a reference which allows modifying the node's children.
+    /// Returns a reference which allows modifying the operation's arguments.
     fn as_mut(&mut self) -> &mut [T] {
-        self.children_mut()
+        self.args_mut()
     }
 }
 
@@ -172,7 +226,7 @@ impl<'a, Op, T> IntoIterator for &'a AstNode<Op, T> {
     type IntoIter = slice::Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.children.iter()
+        self.args.iter()
     }
 }
 
@@ -182,7 +236,7 @@ impl<'a, Op, T> IntoIterator for &'a mut AstNode<Op, T> {
     type IntoIter = slice::IterMut<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.children.iter_mut()
+        self.args.iter_mut()
     }
 }
 
@@ -191,9 +245,9 @@ impl<Op, T> IntoIterator for AstNode<Op, T> {
 
     type IntoIter = vec::IntoIter<T>;
 
-    /// Converts the node into an iterator over its children.
+    /// Converts the node into an iterator over its arguments.
     fn into_iter(self) -> Self::IntoIter {
-        self.children.into_iter()
+        self.args.into_iter()
     }
 }
 
@@ -206,13 +260,13 @@ where
     }
 
     fn children(&self) -> &[Id] {
-        self.children()
+        self.args()
     }
 
     // Default methods
 
     fn children_mut(&mut self) -> &mut [Id] {
-        self.children_mut()
+        self.args_mut()
     }
 
     fn for_each<F: FnMut(Id)>(&self, f: F) {
@@ -263,24 +317,15 @@ where
 }
 
 /// An error which can be returned when parsing an expression using [`FromOp`].
-#[derive(Debug, Error)]
-pub enum ParseNodeError<Op, E> {
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Error)]
+pub enum ParseNodeError<Op, T, E> {
     /// The operator failed to parse.
     #[error(transparent)]
     ParseError(E),
 
     /// The operator was given the wrong number of arguments.
-    #[error(
-        "the operation `{operation:?}` takes {expected:?} argument(s) but was applied to {actual}"
-    )]
-    ArityError {
-        /// The operation.
-        operation: Op,
-        /// The expected number of arguments.
-        expected: (Bound<usize>, Bound<usize>),
-        /// The given number of arguments.
-        actual: usize,
-    },
+    #[error(transparent)]
+    ArityError(ArityError<Op, T>),
 }
 
 impl<Op> FromOp for AstNode<Op>
@@ -288,20 +333,11 @@ where
     Op: Debug + Arity + FromStr + Clone + Ord + Hash + 'static,
     <Op as FromStr>::Err: Error,
 {
-    type Error = ParseNodeError<Op, <Op as FromStr>::Err>;
+    type Error = ParseNodeError<Op, Id, <Op as FromStr>::Err>;
 
-    fn from_op(op: &str, children: Vec<Id>) -> Result<Self, Self::Error> {
-        let op: Op = op.parse().map_err(ParseNodeError::ParseError)?;
-        let arity = op.arity();
-        if arity.contains(&children.len()) {
-            Ok(Self::new(op, children))
-        } else {
-            Err(ParseNodeError::ArityError {
-                operation: op,
-                expected: arity,
-                actual: children.len(),
-            })
-        }
+    fn from_op(operation: &str, args: Vec<Id>) -> Result<Self, Self::Error> {
+        let operation = operation.parse().map_err(ParseNodeError::ParseError)?;
+        Self::try_new(operation, args).map_err(ParseNodeError::ArityError)
     }
 }
 

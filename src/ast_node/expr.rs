@@ -1,7 +1,7 @@
 use super::{Arity, AstNode, ParseNodeError};
 use crate::sexp::Sexp;
 use egg::{Id, RecExpr};
-use std::{convert::TryFrom, ops::RangeBounds, str::FromStr};
+use std::{convert::TryFrom, str::FromStr};
 
 /// An abstract syntax tree with operations `Op`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -16,7 +16,7 @@ impl<Op> Expr<Op> {
 }
 
 impl<'a, Op: FromStr + Arity> TryFrom<Sexp<'a>> for Expr<Op> {
-    type Error = ParseNodeError<Op, <Op as FromStr>::Err>;
+    type Error = ParseNodeError<Op, Expr<Op>, <Op as FromStr>::Err>;
 
     fn try_from(sexp: Sexp<'a>) -> Result<Self, Self::Error> {
         let (op, args) = match sexp {
@@ -24,17 +24,12 @@ impl<'a, Op: FromStr + Arity> TryFrom<Sexp<'a>> for Expr<Op> {
             Sexp::List(op, args) => (op, args),
         };
         let op: Op = op.parse().map_err(ParseNodeError::ParseError)?;
-        let arity = op.arity();
-        if arity.contains(&args.len()) {
-            let args: Result<Vec<_>, Self::Error> = args.into_iter().map(Self::try_from).collect();
-            Ok(AstNode::new(op, args?).into())
-        } else {
-            Err(ParseNodeError::ArityError {
-                operation: op,
-                expected: arity,
-                actual: args.len(),
-            })
-        }
+        let args = args
+            .into_iter()
+            .map(Self::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        let node = AstNode::try_new(op, args).map_err(ParseNodeError::ArityError)?;
+        Ok(Self(node))
     }
 }
 
@@ -49,7 +44,7 @@ impl<Op> From<Expr<Op>> for RecExpr<AstNode<Op>> {
             }
             rec_expr.push(AstNode {
                 operation,
-                children: child_ids,
+                arguments: child_ids,
             });
         }
 

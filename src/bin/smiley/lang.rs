@@ -107,7 +107,7 @@ impl<T: Copy> Eval<T> for Context<T> {
     where
         M: Index<T, Output = AstNode<Self::Op, T>>,
     {
-        let result = match (node.operation(), node.children()) {
+        let result = match (node.operation(), node.args()) {
             (&Smiley::Int(i), []) => Value::Float(i.into()),
             (&Smiley::Float(f), []) => Value::Float(f.into()),
             (Smiley::Circle, []) => Value::Shapes(vec![Shape::Circle {

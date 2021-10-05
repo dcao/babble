@@ -39,7 +39,7 @@ impl<Op, T> Default for LearnedLibrary<Op, T> {
 
 impl<'a, Op, A> From<&'a EGraph<AstNode<Op>, A>> for LearnedLibrary<Op, (Id, Id)>
 where
-    Op: Arity + Clone + Hash + Ord,
+    Op: Debug + Arity + Clone + Hash + Ord,
     AstNode<Op>: Language,
     A: Analysis<AstNode<Op>>,
 {
@@ -57,7 +57,7 @@ where
 
 impl<Op, T> From<Dfta<Op, T>> for LearnedLibrary<Op, T>
 where
-    Op: Arity + Eq + Clone + Hash,
+    Op: Debug + Arity + Eq + Clone + Hash,
     T: Ord + Hash + Clone,
 {
     /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
@@ -117,7 +117,7 @@ where
 
 impl<Op, T> LearnedLibrary<Op, T>
 where
-    Op: Eq + Hash + Clone + Arity,
+    Op: Debug + Eq + Hash + Clone + Arity,
     T: Eq + Hash + Clone,
 {
     /// Computes the antiunifications of `state` in the DFTA `dfta`.
