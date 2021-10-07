@@ -44,7 +44,7 @@ impl<Op> From<Expr<Op>> for RecExpr<AstNode<Op>> {
             }
             rec_expr.push(AstNode {
                 operation,
-                arguments: child_ids,
+                args: child_ids,
             });
         }
 
