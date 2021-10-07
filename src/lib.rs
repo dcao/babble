@@ -17,7 +17,6 @@
 
 pub mod ast_node;
 mod dfta;
-pub mod eval;
 pub mod free_vars;
 pub mod fresh;
 pub mod learn;

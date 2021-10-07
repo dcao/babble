@@ -10,8 +10,8 @@ use std::{
 };
 use thiserror::Error;
 
-/// An abstract syntax tree node with operation of type `Op` applied to
-/// arguments of type `T`.
+/// An abstract syntax tree node representing an operation of type `Op` applied
+/// to arguments of type `T`.
 ///
 /// This type implements [`Language`] for arguments of type [`Id`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

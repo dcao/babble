@@ -12,17 +12,20 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
+use babble::ast_node::AstNode;
 use clap::Clap;
-use egg::Runner;
+use egg::{RecExpr, Runner};
+use lang::Smiley;
 use std::{
     fs,
     io::{self, Read},
     path::PathBuf,
 };
 
-pub mod lang;
+mod lang;
+mod eval;
+mod svg;
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Clap)]
 #[clap(version, author, about)]
 struct Opts {
@@ -50,9 +53,10 @@ fn main() {
         )
         .expect("Error reading input");
 
-    let expr = input.parse().expect("Input is not a valid expression");
+    let expr: RecExpr<AstNode<Smiley>> = input.parse().expect("Input is not a valid expression");
     if opts.svg {
-        let value = lang::eval(&expr).expect("Failed to evaluate expression");
+        let expr = expr.into();
+        let value = eval::eval(&expr).expect("Failed to evaluate expression");
         let picture = value
             .into_picture()
             .expect("Result of evaluation is not a picture");

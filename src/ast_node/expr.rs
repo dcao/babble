@@ -5,7 +5,7 @@ use std::{convert::TryFrom, str::FromStr};
 
 /// An abstract syntax tree with operations `Op`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Expr<Op>(AstNode<Op, Self>);
+pub struct Expr<Op>(pub AstNode<Op, Self>);
 
 impl<Op> Expr<Op> {
     /// Converts `self` into its underlying [`AstNode`].
