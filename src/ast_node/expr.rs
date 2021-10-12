@@ -36,15 +36,15 @@ impl<'a, Op: FromStr + Arity> TryFrom<Sexp<'a>> for Expr<Op> {
 impl<Op> From<Expr<Op>> for RecExpr<AstNode<Op>> {
     fn from(expr: Expr<Op>) -> Self {
         fn build<Op>(rec_expr: &mut Vec<AstNode<Op>>, expr: Expr<Op>) {
-            let (operation, children) = expr.0.into_parts();
-            let mut child_ids = Vec::with_capacity(children.len());
-            for child in children {
-                build(rec_expr, child);
-                child_ids.push(Id::from(rec_expr.len() - 1));
+            let (operation, args) = expr.0.into_parts();
+            let mut arg_ids = Vec::with_capacity(args.len());
+            for arg in args {
+                build(rec_expr, arg);
+                arg_ids.push(Id::from(rec_expr.len() - 1));
             }
             rec_expr.push(AstNode {
                 operation,
-                args: child_ids,
+                args: arg_ids,
             });
         }
 

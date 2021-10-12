@@ -22,8 +22,8 @@ use std::{
     path::PathBuf,
 };
 
-mod lang;
 mod eval;
+mod lang;
 mod svg;
 
 #[derive(Clap)]

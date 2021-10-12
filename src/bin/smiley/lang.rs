@@ -17,8 +17,6 @@ use std::{
     str::FromStr,
 };
 
-
-
 /// The operations/AST nodes of the "Smiley" language.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum Smiley {

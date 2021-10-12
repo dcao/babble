@@ -162,15 +162,15 @@ where
         ) {
             match partial_expr {
                 PartialExpr::Node(node) => {
-                    let (operation, children) = node.into_parts();
-                    let mut child_ids = Vec::with_capacity(children.len());
-                    for child in children {
-                        build(pattern, child);
-                        child_ids.push(Id::from(pattern.len() - 1));
+                    let (operation, args) = node.into_parts();
+                    let mut arg_ids = Vec::with_capacity(args.len());
+                    for arg in args {
+                        build(pattern, arg);
+                        arg_ids.push(Id::from(pattern.len() - 1));
                     }
                     pattern.push(ENodeOrVar::ENode(AstNode {
                         operation,
-                        args: child_ids,
+                        args: arg_ids,
                     }));
                 }
                 PartialExpr::Hole(contents) => pattern.push(ENodeOrVar::Var(contents)),
@@ -221,18 +221,15 @@ impl<Op, T> TryFrom<PartialExpr<Op, T>> for Expr<Op> {
 
     fn try_from(partial_expr: PartialExpr<Op, T>) -> Result<Self, Self::Error> {
         match partial_expr {
-            PartialExpr::Node(AstNode {
-                operation,
-                args: children,
-            }) => {
-                let mut new_children = Vec::with_capacity(children.len());
-                for child in children {
-                    let new_child = child.try_into()?;
-                    new_children.push(new_child);
+            PartialExpr::Node(AstNode { operation, args }) => {
+                let mut new_args = Vec::with_capacity(args.len());
+                for arg in args {
+                    let new_child = arg.try_into()?;
+                    new_args.push(new_child);
                 }
                 let node = AstNode {
                     operation,
-                    args: new_children,
+                    args: new_args,
                 };
                 Ok(node.into())
             }

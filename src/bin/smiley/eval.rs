@@ -76,7 +76,7 @@ impl<'a> Context<'a> {
                 let body = self.eval(fun)?.get_body().ok_or(EvalError::TypeError)?;
                 let arg = self.eval(arg)?;
                 let context = self.clone().with_arg(arg);
-                context.eval(&body)?
+                context.eval(body)?
             }
             (Smiley::Compose, [expr1, expr2]) => {
                 let mut shapes1 = self
@@ -237,5 +237,5 @@ impl Shape {
 ///
 /// Returns `Err` if the expression is malformed or contains a type error.
 pub(crate) fn eval(expr: &Expr<Smiley>) -> Result<Value<'_>, EvalError> {
-    Context::new().eval(&expr)
+    Context::new().eval(expr)
 }

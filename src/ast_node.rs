@@ -183,10 +183,7 @@ impl<Op: Arity, T> AstNode<Op, T> {
     {
         let args: Vec<_> = args.into_iter().collect();
         if operation.has_arity(args.len()) {
-            Ok(Self {
-                operation,
-                args,
-            })
+            Ok(Self { operation, args })
         } else {
             let (min, max) = (operation.min_arity(), operation.max_arity());
             Err(ArityError {
