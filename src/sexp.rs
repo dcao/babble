@@ -163,7 +163,7 @@ mod parse {
                     Sexp::List("foo", vec![Sexp::List("bar", vec![]), Sexp::Atom("baz")])
                 ))
             );
-            assert_eq!(sexp("foo)"), Ok((")", Sexp::Atom("foo"))))
+            assert_eq!(sexp("foo)"), Ok((")", Sexp::Atom("foo"))));
         }
 
         #[test]

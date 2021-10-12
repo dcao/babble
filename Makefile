@@ -1,10 +1,14 @@
 all: fmt build clippy doc test
+check: check-fmt build clippy doc test
 
 fmt:
 	cargo fmt --all
 
+check-fmt:
+	cargo fmt --all -- --check
+
 clippy:
-	cargo clippy --workspace
+	cargo clippy --workspace --all-targets
 
 doc:
 	cargo doc --workspace --document-private-items
@@ -18,4 +22,4 @@ test:
 bench:
 	cargo bench --workspace --all-targets
 
-.PHONY: all fmt clippy doc build test bench
+.PHONY: all check fmt check-fmt clippy doc build test bench
