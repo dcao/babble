@@ -9,9 +9,8 @@ use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Symbol, Var};
 use itertools::Itertools;
 use log::debug;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     fmt::{Debug, Display},
-    hash::Hash,
 };
 
 /// A `LearnedLibrary<Op>` is a collection of functions learned from an
@@ -22,26 +21,30 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct LearnedLibrary<Op, T> {
     /// A map from DFTA states (i.e. pairs of enodes) to their antiunifications.
-    aus_by_state: HashMap<T, HashSet<PartialExpr<Op, T>>>,
+    aus_by_state: BTreeMap<T, BTreeSet<PartialExpr<Op, T>>>,
     /// A set of all the nontrivial antiunifications discovered.
-    nontrivial_aus: HashSet<PartialExpr<Op, Var>>,
+    nontrivial_aus: BTreeSet<PartialExpr<Op, Var>>,
 }
 
-impl<Op, T> Default for LearnedLibrary<Op, T> {
+impl<Op, T> Default for LearnedLibrary<Op, T>
+where
+    Op: Ord,
+    T: Ord,
+{
     /// Create an empty learned library.
     fn default() -> Self {
         Self {
-            aus_by_state: HashMap::new(),
-            nontrivial_aus: HashSet::new(),
+            aus_by_state: BTreeMap::new(),
+            nontrivial_aus: BTreeSet::new(),
         }
     }
 }
 
 impl<'a, Op, A> From<&'a EGraph<AstNode<Op>, A>> for LearnedLibrary<Op, (Id, Id)>
 where
-    Op: Debug + Arity + Clone + Hash + Ord,
-    AstNode<Op>: Language,
+    Op: Arity + Clone + Debug + Ord,
     A: Analysis<AstNode<Op>>,
+    AstNode<Op>: Language,
 {
     /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
     /// enodes to find their common structure.
@@ -57,8 +60,8 @@ where
 
 impl<Op, T> From<Dfta<Op, T>> for LearnedLibrary<Op, T>
 where
-    Op: Debug + Arity + Eq + Clone + Hash,
-    T: Ord + Hash + Clone,
+    Op: Arity + Clone + Debug + Ord,
+    T: Clone + Ord,
 {
     /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
     /// enodes to find their common structure.
@@ -73,7 +76,8 @@ where
 
 impl<Op, T> LearnedLibrary<Op, T>
 where
-    Op: Teachable + Arity,
+    Op: Arity + Clone + Display + Ord + Send + Sync + Teachable + 'static,
+    AstNode<Op>: Language,
 {
     /// Returns an iterator over rewrite rules that replace expressions with
     /// equivalent calls to a learned library function.
@@ -98,11 +102,7 @@ where
     /// ```
     pub fn rewrites<A: Analysis<AstNode<Op>>>(
         &self,
-    ) -> impl Iterator<Item = Rewrite<AstNode<Op>, A>> + '_
-    where
-        Op: Display + Send + Sync + Clone + 'static,
-        AstNode<Op>: Language,
-    {
+    ) -> impl Iterator<Item = Rewrite<AstNode<Op>, A>> + '_ {
         self.nontrivial_aus.iter().enumerate().map(|(i, au)| {
             let searcher: Pattern<_> = au.clone().into();
             let applier: Pattern<_> = reify(au.clone(), fresh::gen("f")).into();
@@ -117,8 +117,8 @@ where
 
 impl<Op, T> LearnedLibrary<Op, T>
 where
-    Op: Debug + Eq + Hash + Clone + Arity,
-    T: Eq + Hash + Clone,
+    Op: Arity + Clone + Debug + Ord,
+    T: Clone + Ord,
 {
     /// Computes the antiunifications of `state` in the DFTA `dfta`.
     fn enumerate(&mut self, dfta: &Dfta<Op, T>, state: &T) {
@@ -135,8 +135,8 @@ where
         // By initially setting the antiunifications of this state to empty, we
         // exclude any antiunifications that would come from looping sequences
         // of rules.
-        self.aus_by_state.insert(state.clone(), HashSet::new());
-        let mut aus: HashSet<PartialExpr<Op, T>> = HashSet::new();
+        self.aus_by_state.insert(state.clone(), BTreeSet::new());
+        let mut aus: BTreeSet<PartialExpr<Op, T>> = BTreeSet::new();
 
         if let Some(rules) = dfta.get_by_output(state) {
             for (operation, inputs) in rules {
@@ -233,7 +233,7 @@ fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> PartialExpr<Op, Var> {
 #[must_use]
 fn reify<Op, T>(au: PartialExpr<Op, T>, name: Symbol) -> PartialExpr<Op, T>
 where
-    Op: Teachable + Arity,
+    Op: Arity + Teachable,
     T: Eq,
 {
     let mut metavars = Vec::new();

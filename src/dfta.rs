@@ -3,8 +3,7 @@
 use crate::ast_node::AstNode;
 use egg::{Analysis, EGraph, Id, Language};
 use std::{
-    collections::{BTreeSet, HashMap},
-    hash::Hash,
+    collections::{BTreeMap, BTreeSet},
     iter::FromIterator,
 };
 
@@ -13,25 +12,29 @@ use std::{
 /// `s0, ..., sn` are states of type `S`.
 #[derive(Debug)]
 pub(crate) struct Dfta<Op, S> {
-    by_operation: HashMap<Op, BTreeSet<(Vec<S>, S)>>,
-    by_output: HashMap<S, BTreeSet<(Op, Vec<S>)>>,
+    by_operation: BTreeMap<Op, BTreeSet<(Vec<S>, S)>>,
+    by_output: BTreeMap<S, BTreeSet<(Op, Vec<S>)>>,
 }
 
-impl<Op, S> Dfta<Op, S> {
+impl<Op, S> Dfta<Op, S>
+where
+    Op: Ord,
+    S: Ord,
+{
     /// Create an empty DFTA.
     #[must_use]
     pub(crate) fn new() -> Self {
         Self {
-            by_operation: HashMap::new(),
-            by_output: HashMap::new(),
+            by_operation: BTreeMap::new(),
+            by_output: BTreeMap::new(),
         }
     }
 }
 
 impl<Op, S> Dfta<Op, S>
 where
-    Op: Ord + Hash + Clone,
-    S: Ord + Hash + Clone,
+    Op: Clone + Ord,
+    S: Clone + Ord,
 {
     /// Adds a new transition rule to the DFTA.
     pub(crate) fn add_rule<I>(&mut self, operation: Op, inputs: I, output: S)
@@ -72,7 +75,7 @@ where
 
 impl<Op, S> Dfta<Op, S>
 where
-    S: Eq + Hash,
+    S: Ord,
 {
     /// Returns an iterator over the states in the DFTA which are the output of
     /// some transition rule.
@@ -89,7 +92,11 @@ where
     }
 }
 
-impl<Op, S> Default for Dfta<Op, S> {
+impl<Op, S> Default for Dfta<Op, S>
+where
+    Op: Ord,
+    S: Ord,
+{
     fn default() -> Self {
         Self::new()
     }
@@ -97,7 +104,7 @@ impl<Op, S> Default for Dfta<Op, S> {
 
 impl<Op, A> From<&EGraph<AstNode<Op>, A>> for Dfta<Op, Id>
 where
-    Op: Ord + Hash + Clone,
+    Op: Clone + Ord,
     A: Analysis<AstNode<Op>>,
     AstNode<Op>: Language,
 {
