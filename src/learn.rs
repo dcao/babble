@@ -247,13 +247,20 @@ where
     let mut fun = au.fill_with_binders(|metavar, binders| {
         let index = metavars
             .iter()
-            .position(|other| other == &metavar)
+            .position(|other: &(T, usize)| &other.0 == &metavar)
             .unwrap_or_else(|| {
-                metavars.push(metavar);
+                metavars.push((metavar, binders));
                 metavars.len() - 1
             })
             + binders;
-        PartialExpr::Hole(index)
+
+        let mut res = PartialExpr::Hole(index);
+
+        for i in 0..binders {
+            res = Op::apply(res, Op::index(i).into()).into();
+        }
+
+        res
     });
 
     let offset = metavars.len();
@@ -273,8 +280,12 @@ where
     // Now apply the new function to the metavariables in reverse order so they
     // match the correct de Bruijn indexed variable.
     let mut body = Op::ident(name).into();
-    while let Some(metavar) = metavars.pop() {
-        body = Op::apply(body, PartialExpr::Hole(metavar)).into();
+    while let Some((metavar, binders)) = metavars.pop() {
+        let mut fn_arg = PartialExpr::Hole(metavar);
+        for _i in 0..binders {
+            fn_arg = Op::lambda(fn_arg).into();
+        }
+        body = Op::apply(body, fn_arg).into();
     }
 
     let ident = Op::ident(name).into();
