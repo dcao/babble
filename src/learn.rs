@@ -247,7 +247,7 @@ where
     let mut fun = au.fill_with_binders(|metavar, binders| {
         let index = metavars
             .iter()
-            .position(|other: &(T, usize)| &other.0 == &metavar)
+            .position(|other: &(T, usize)| other.0 == metavar)
             .unwrap_or_else(|| {
                 metavars.push((metavar, binders));
                 metavars.len() - 1
@@ -266,7 +266,7 @@ where
     let offset = metavars.len();
 
     fun = fun.map_leaves_with_binders(|node, binders| match node.as_binding_expr() {
-        Some(BindingExpr::Index(index)) if index > binders => Op::index(index + offset).into(),
+        Some(BindingExpr::Index(index)) if index >= binders => Op::index(index + offset).into(),
         _ => node.into(),
     });
 

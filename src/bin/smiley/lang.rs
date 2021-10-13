@@ -177,7 +177,7 @@ lazy_static! {
     /// [`Smiley::Lib`] expressions.
     static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<Smiley>, FreeVarAnalysis<Smiley>>] = rewrite_rules! {
         // TODO: Check for captures of de Bruijn variables and re-index if necessary.
-        lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
+        // lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
 
         // (Effectively) unary operators
         lift_scale: "(scale ?a (lib ?x ?v ?e))" => "(lib ?x ?v (scale ?a ?e))";
