@@ -5,7 +5,9 @@ fmt:
 	cargo fmt --all
 
 check-fmt:
+	$(if ${CI}, @echo "::group::check-fmt")
 	cargo fmt --all -- --check
+	$(if ${CI}, @echo "::endgroup::")
 
 clippy:
 	cargo clippy --workspace --all-targets
