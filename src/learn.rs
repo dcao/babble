@@ -256,8 +256,8 @@ where
 
         let mut res = PartialExpr::Hole(index);
 
-        for i in 0..binders {
-            res = Op::apply(res, Op::index(i).into()).into();
+        for i in 1..=binders {
+            res = Op::apply(res, Op::index(binders - i).into()).into();
         }
 
         res
