@@ -3,14 +3,12 @@
 use babble::{
     ast_node::{Arity, AstNode},
     free_vars::{and, not_free_in, FreeVarAnalysis, FreeVars},
-    learn::LearnedLibrary,
     lift_lib::LiftLib,
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
 use babble_macros::rewrite_rules;
-use egg::{AstSize, Extractor, Rewrite, Runner, Symbol};
+use egg::{Rewrite, Symbol};
 use lazy_static::lazy_static;
-use log::info;
 use std::{
     collections::HashSet,
     convert::Infallible,
@@ -165,7 +163,7 @@ impl FreeVars for ListOp {
 }
 
 lazy_static! {
-    static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<ListOp>, FreeVarAnalysis<ListOp>>] = {
+    pub(crate) static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<ListOp>, FreeVarAnalysis<ListOp>>] = {
         let mut rules = rewrite_rules! {
             // TODO: Check for captures of de Bruijn variables and re-index if necessary.
             // lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
@@ -189,28 +187,4 @@ lazy_static! {
 
         rules.leak()
     };
-}
-
-/// Execute `EGraph` building and program extraction on a single expression
-/// containing all of the programs to extract common fragments out of.
-pub fn run_single(runner: Runner<AstNode<ListOp>, FreeVarAnalysis<ListOp>>) {
-    let learned_lib = LearnedLibrary::from(&runner.egraph);
-    let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
-
-    let mut runner = runner.with_iter_limit(1).run(lib_rewrites.iter());
-    runner.stop_reason = None;
-
-    let runner = runner.with_iter_limit(30).run(*LIFT_LIB_REWRITES);
-    // After running, `runner.stop_reason` is guaranteed to not be `None`.
-    let stop_reason = runner.stop_reason.unwrap_or_else(|| unreachable!());
-    info!("Stop reason: {:?}", stop_reason);
-
-    let num_iterations = runner.iterations.len() - 1;
-    info!("Number of iterations: {}", num_iterations);
-    info!("Number of nodes: {}", runner.egraph.total_size());
-
-    let extractor = Extractor::new(&runner.egraph, AstSize);
-    let (cost, expr) = extractor.find_best(runner.roots[0]);
-    eprintln!("Cost: {}\n", cost);
-    eprintln!("{}", expr.pretty(100));
 }
