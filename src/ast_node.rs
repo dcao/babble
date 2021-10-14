@@ -68,7 +68,7 @@ impl<Op: Debug, T> Display for ArityError<Op, T> {
             (min, Some(max)) => write!(f, "between {} and {}", min, max)?,
             (min, None) => write!(f, "at least {}", min)?,
         };
-        write!(f, " argument(s), but was given {}", self.args.len(),)
+        write!(f, " argument(s), but was given {}", self.args.len())
     }
 }
 

@@ -244,20 +244,20 @@ where
     // the de Brujin index that we return is equal to the index of the
     // metavar, added to however many lambdas wrap the metavar at that
     // point.
-    let mut fun = au.fill_with_binders(|metavar, binders| {
+    let mut fun = au.fill_with_binders(|metavar, num_binders| {
         let index = metavars
-            .iter()
-            .position(|other: &(T, usize)| other.0 == metavar)
-            .unwrap_or_else(|| {
-                metavars.push((metavar, binders));
-                metavars.len() - 1
-            })
-            + binders;
+                .iter()
+                .position(|other: &(T, usize)| other.0 == metavar)
+                .unwrap_or_else(|| {
+                    metavars.push((metavar, num_binders));
+                    metavars.len() - 1
+                });
+        let index = index + num_binders;
 
         let mut res = PartialExpr::Hole(index);
 
-        for i in 1..=binders {
-            res = Op::apply(res, Op::index(binders - i).into()).into();
+        for i in (0..num_binders).rev() {
+            res = Op::apply(res, Op::index(i).into()).into();
         }
 
         res
