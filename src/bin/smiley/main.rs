@@ -14,7 +14,7 @@
 
 use babble::ast_node::AstNode;
 use clap::Clap;
-use egg::{RecExpr, Runner};
+use egg::{AstSize, CostFunction, RecExpr, Runner};
 use lang::Smiley;
 use std::{
     fs,
@@ -62,6 +62,11 @@ fn main() {
             .expect("Result of evaluation is not a picture");
         picture.write_svg(io::stdout()).expect("Error writing SVG");
     } else {
+        let initial_cost = AstSize.cost_rec(&expr);
+        println!("Initial expression (cost {}):", initial_cost);
+        println!("{}", expr.pretty(100));
+        println!();
+
         let runner = Runner::default().with_expr(&expr);
         lang::run_single(runner);
     }

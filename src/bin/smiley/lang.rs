@@ -231,6 +231,6 @@ pub(crate) fn run_single(runner: Runner<AstNode<Smiley>, FreeVarAnalysis<Smiley>
     let extractor = Extractor::new(&runner.egraph, AstSize);
     let (cost, expr) = extractor.find_best(runner.roots[0]);
 
-    eprintln!("Cost: {}\n", cost);
+    eprintln!("Final expression (cost {}):", cost);
     eprintln!("{}", expr.pretty(100));
 }
