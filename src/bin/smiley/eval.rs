@@ -28,6 +28,11 @@ impl<'a> Context<'a> {
         self
     }
 
+    fn shift(mut self) -> Self {
+        self.arg_env.pop();
+        self
+    }
+
     fn get_index(&self, index: usize) -> &Value<'a> {
         &self.arg_env[self.arg_env.len() - (index + 1)]
     }
@@ -44,8 +49,7 @@ impl<'a> Context<'a> {
                 start: (-0.5, 0.0),
                 end: (0.5, 0.0),
             }]),
-            (Smiley::Ident(ident), []) => self.ident_env[ident].clone(),
-            (&Smiley::Index(index), []) => self.get_index(index.0).clone(),
+            (&Smiley::Var(index), []) => self.get_index(index.0).clone(),
             (Smiley::Lambda, [body]) => Value::Lambda(body),
             (Smiley::Move, [x_offset, y_offset, expr]) => {
                 let x_offset: f64 = self.eval(x_offset)?.get_num().ok_or(EvalError::TypeError)?;
@@ -63,13 +67,9 @@ impl<'a> Context<'a> {
                 let val = self.eval(expr)?;
                 val.map_shapes(|shape| shape.rotate(angle))
             }
-            (Smiley::Let | Smiley::Lib, [ident, val, body]) => {
-                let ident = match *ident.0.operation() {
-                    Smiley::Ident(ident) => ident,
-                    _ => return Err(EvalError::SyntaxError),
-                };
-                let val = self.eval(val)?;
-                let context = self.clone().with_ident(ident, val);
+            (Smiley::Lib, [bound_value, body]) => {
+                let bound_value = self.eval(bound_value)?;
+                let context = self.clone().with_arg(bound_value);
                 context.eval(body)?
             }
             (Smiley::Apply, [fun, arg]) => {
@@ -90,6 +90,10 @@ impl<'a> Context<'a> {
                 shapes1.extend(shapes2);
                 Value::Shapes(shapes1)
             }
+            (Smiley::Shift, [body]) => {
+                let context = self.clone().shift();
+                context.eval(body)?
+            },
             _ => unreachable!(),
         };
         Ok(result)
