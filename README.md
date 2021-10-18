@@ -53,13 +53,15 @@ First it adds the initial expression to an e-graph.
 
 **Step 1: Anti-unification**
 
-Now for each pair of e-classes it tries to anti-unify them, and if successful, generate *abstraction rewrites*.
-AU works by picking two e-nodes with same constructor as long as possible, and returning an AU variable otherwise.
-We say that AU succeeds if it returns a term that is not just an AU variable.
+Now we anti-unify each pair of e-nodes in the e-graph in a bottom-up fasion to avoid recomputing AU for subterms
+(this is actually based on DFTA instersection).
 For example:
 
 ```
-AU (cons 0 (cons 0 (cons 0 empty))) (cons 1 (cons 1 (cons 1 empty))) = (cons ?x (cons ?x (cons ?x empty))) -- suceess
-AU (cons 0 empty)                   empty                            =  ?x                                 -- fail
+AU empty                            empty                            = empty
+AU 0                                1                                = ?x01            -- indexed by the e-classes of 0 and 1
+AU (cons 0 empty)                   (cons 1 empty)                   = cons ?x01 empty -- reuses AU results for subterms
+...
+AU (cons 0 (cons 0 (cons 0 empty))) (cons 1 (cons 1 (cons 1 empty))) = (cons ?x01 (cons ?x01 (cons ?x01 empty)))
 ```
 
