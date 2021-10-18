@@ -2,10 +2,9 @@
 use crate::{
     ast_node::{Arity, AstNode, PartialExpr},
     dfta::Dfta,
-    fresh,
     teachable::{BindingExpr, Teachable},
 };
-use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Symbol, Var};
+use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Var};
 use itertools::Itertools;
 use log::debug;
 use std::{
@@ -105,7 +104,7 @@ where
     ) -> impl Iterator<Item = Rewrite<AstNode<Op>, A>> + '_ {
         self.nontrivial_aus.iter().enumerate().map(|(i, au)| {
             let searcher: Pattern<_> = au.clone().into();
-            let applier: Pattern<_> = reify(au.clone(), fresh::gen("f")).into();
+            let applier: Pattern<_> = reify(au.clone()).into();
             let name = format!("anti-unify {}", i);
             debug!("Found rewrite \"{}\":\n{} => {}", name, searcher, applier);
 
@@ -231,7 +230,7 @@ fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> PartialExpr<Op, Var> {
 ///
 /// assuming `name` is "foo".
 #[must_use]
-fn reify<Op, T>(au: PartialExpr<Op, T>, name: Symbol) -> PartialExpr<Op, T>
+fn reify<Op, T>(au: PartialExpr<Op, T>) -> PartialExpr<Op, T>
 where
     Op: Arity + Teachable,
     T: Eq,
@@ -246,18 +245,18 @@ where
     // point.
     let mut fun = au.fill_with_binders(|metavar, num_binders| {
         let index = metavars
-                .iter()
-                .position(|other: &(T, usize)| other.0 == metavar)
-                .unwrap_or_else(|| {
-                    metavars.push((metavar, num_binders));
-                    metavars.len() - 1
-                });
+            .iter()
+            .position(|other: &(T, usize)| other.0 == metavar)
+            .unwrap_or_else(|| {
+                metavars.push((metavar, num_binders));
+                metavars.len() - 1
+            });
         let index = index + num_binders;
 
         let mut res = PartialExpr::Hole(index);
 
         for i in (0..num_binders).rev() {
-            res = Op::apply(res, Op::index(i).into()).into();
+            res = Op::apply(res, Op::var(i).into()).into();
         }
 
         res
@@ -266,11 +265,11 @@ where
     let offset = metavars.len();
 
     fun = fun.map_leaves_with_binders(|node, binders| match node.as_binding_expr() {
-        Some(BindingExpr::Index(index)) if index >= binders => Op::index(index + offset).into(),
+        Some(BindingExpr::Var(index)) if index >= binders => Op::var(index + offset).into(),
         _ => node.into(),
     });
 
-    let mut fun = fun.fill(|index| Op::index(index).into());
+    let mut fun = fun.fill(|index| Op::var(index).into());
 
     // Wrap that in a lambda-abstraction, one for each variable we introduced.
     for _ in 0..metavars.len() {
@@ -279,7 +278,7 @@ where
 
     // Now apply the new function to the metavariables in reverse order so they
     // match the correct de Bruijn indexed variable.
-    let mut body = Op::ident(name).into();
+    let mut body = Op::var(0).into();
     while let Some((metavar, binders)) = metavars.pop() {
         let mut fn_arg = PartialExpr::Hole(metavar);
         for _i in 0..binders {
@@ -288,13 +287,5 @@ where
         body = Op::apply(body, fn_arg).into();
     }
 
-    let ident = Op::ident(name).into();
-    PartialExpr::Node(
-        BindingExpr::Lib {
-            ident,
-            value: fun,
-            body,
-        }
-        .into(),
-    )
+    PartialExpr::Node(BindingExpr::Let(fun, body).into())
 }

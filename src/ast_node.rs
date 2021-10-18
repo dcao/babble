@@ -253,7 +253,7 @@ where
     Op: Ord + Debug + Clone + Hash,
 {
     fn matches(&self, other: &Self) -> bool {
-        self.operation == other.operation
+        self.operation == other.operation && self.len() == other.len()
     }
 
     fn children(&self) -> &[Id] {
