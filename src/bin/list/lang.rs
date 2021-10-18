@@ -115,10 +115,8 @@ impl Teachable for ListOp {
             BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
             BindingExpr::Var(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
-            BindingExpr::Let(bound_value, body) => {
-                AstNode::new(Self::Lib, [bound_value, body])
-            }
-            BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body])
+            BindingExpr::Let(bound_value, body) => AstNode::new(Self::Lib, [bound_value, body]),
+            BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
         }
     }
 

@@ -9,10 +9,7 @@ use egg::{
     Symbol, Var,
 };
 use lazy_static::lazy_static;
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-};
+use std::{collections::HashMap, fmt::Debug};
 
 lazy_static! {
     static ref BOUND_VALUE: Var = "?bound_value".parse().unwrap();

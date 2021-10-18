@@ -1,43 +1,32 @@
 use crate::lang::Smiley;
 use babble::ast_node::Expr;
-use egg::Symbol;
-use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Clone, Debug)]
 struct Context<'a> {
-    ident_env: HashMap<Symbol, Value<'a>>,
-    arg_env: Vec<Value<'a>>,
+    args: Vec<Value<'a>>,
 }
 
 impl<'a> Context<'a> {
     fn new() -> Self {
-        Self {
-            ident_env: HashMap::new(),
-            arg_env: Vec::new(),
-        }
-    }
-
-    fn with_ident(mut self, ident: Symbol, value: Value<'a>) -> Self {
-        self.ident_env.insert(ident, value);
-        self
+        Self { args: Vec::new() }
     }
 
     fn with_arg(mut self, value: Value<'a>) -> Self {
-        self.arg_env.push(value);
+        self.args.push(value);
         self
     }
 
     fn shift(mut self) -> Self {
-        self.arg_env.pop();
+        self.args.pop();
         self
     }
 
     fn get_index(&self, index: usize) -> &Value<'a> {
-        &self.arg_env[self.arg_env.len() - (index + 1)]
+        &self.args[self.args.len() - (index + 1)]
     }
 
-    fn eval(&self, expr: &'a Expr<Smiley>) -> Result<Value<'a>, EvalError> {
+    fn eval(&self, expr: &'a Expr<Smiley>) -> Result<Value<'a>, TypeError> {
         let result = match (expr.0.operation(), expr.0.args()) {
             (&Smiley::Int(i), []) => Value::Num(i.into()),
             (&Smiley::Float(f), []) => Value::Num(f.into()),
@@ -52,18 +41,18 @@ impl<'a> Context<'a> {
             (&Smiley::Var(index), []) => self.get_index(index.0).clone(),
             (Smiley::Lambda, [body]) => Value::Lambda(body),
             (Smiley::Move, [x_offset, y_offset, expr]) => {
-                let x_offset: f64 = self.eval(x_offset)?.get_num().ok_or(EvalError::TypeError)?;
-                let y_offset: f64 = self.eval(y_offset)?.get_num().ok_or(EvalError::TypeError)?;
+                let x_offset: f64 = self.eval(x_offset)?.to_float()?;
+                let y_offset: f64 = self.eval(y_offset)?.to_float()?;
                 let val = self.eval(expr)?;
                 val.map_shapes(|shape| shape.translate(x_offset, y_offset))
             }
             (Smiley::Scale, [factor, expr]) => {
-                let factor = self.eval(factor)?.get_num().ok_or(EvalError::TypeError)?;
+                let factor = self.eval(factor)?.to_float()?;
                 let val = self.eval(expr)?;
                 val.map_shapes(|shape| shape.scale(factor))
             }
             (Smiley::Rotate, [angle, expr]) => {
-                let angle = self.eval(angle)?.get_num().ok_or(EvalError::TypeError)?;
+                let angle = self.eval(angle)?.to_float()?;
                 let val = self.eval(expr)?;
                 val.map_shapes(|shape| shape.rotate(angle))
             }
@@ -73,27 +62,21 @@ impl<'a> Context<'a> {
                 context.eval(body)?
             }
             (Smiley::Apply, [fun, arg]) => {
-                let body = self.eval(fun)?.get_body().ok_or(EvalError::TypeError)?;
+                let body = self.eval(fun)?.to_body()?;
                 let arg = self.eval(arg)?;
                 let context = self.clone().with_arg(arg);
                 context.eval(body)?
             }
             (Smiley::Compose, [expr1, expr2]) => {
-                let mut shapes1 = self
-                    .eval(expr1)?
-                    .into_shapes()
-                    .ok_or(EvalError::TypeError)?;
-                let shapes2 = self
-                    .eval(expr2)?
-                    .into_shapes()
-                    .ok_or(EvalError::TypeError)?;
+                let mut shapes1 = self.eval(expr1)?.into_shapes()?;
+                let shapes2 = self.eval(expr2)?.into_shapes()?;
                 shapes1.extend(shapes2);
                 Value::Shapes(shapes1)
             }
             (Smiley::Shift, [body]) => {
                 let context = self.clone().shift();
                 context.eval(body)?
-            },
+            }
             _ => unreachable!(),
         };
         Ok(result)
@@ -142,44 +125,46 @@ pub(crate) struct Picture {
     pub(crate) shapes: Vec<Shape>,
 }
 
-/// An error encountered while attempting to evaluate a Smiley expression.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
-pub(crate) enum EvalError {
-    /// A syntax error.
-    #[error("syntax error")]
-    SyntaxError,
-    /// A type error.
-    #[error("type error")]
-    TypeError,
+/// A type error.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[error("type mismatch")]
+pub(crate) struct TypeError {
+    expected: String,
 }
 
 impl<'a> Value<'a> {
-    fn get_num(&self) -> Option<f64> {
+    fn to_float(&self) -> Result<f64, TypeError> {
         match *self {
-            Self::Num(f) => Some(f),
-            _ => None,
+            Self::Num(f) => Ok(f),
+            _ => Err(TypeError {
+                expected: "number".to_string(),
+            }),
         }
     }
 
-    fn get_body(&self) -> Option<&'a Expr<Smiley>> {
+    fn to_body(&self) -> Result<&'a Expr<Smiley>, TypeError> {
         match self {
-            Self::Lambda(node) => Some(node),
-            _ => None,
+            Self::Lambda(node) => Ok(node),
+            _ => Err(TypeError {
+                expected: "function".to_string(),
+            }),
         }
     }
 
-    fn into_shapes(self) -> Option<Vec<Shape>> {
+    fn into_shapes(self) -> Result<Vec<Shape>, TypeError> {
         match self {
-            Self::Shapes(shapes) => Some(shapes),
-            _ => None,
+            Self::Shapes(shapes) => Ok(shapes),
+            _ => Err(TypeError {
+                expected: "shapes".to_string(),
+            }),
         }
     }
 
     /// Try to convert this value into a picture. If the value isn't a
     /// collection of shapes, returns `None`.
-    pub(crate) fn into_picture(self) -> Option<Picture> {
+    pub(crate) fn into_picture(self) -> Result<Picture, TypeError> {
         let shapes = self.into_shapes()?;
-        Some(Picture { shapes })
+        Ok(Picture { shapes })
     }
 
     fn map_shapes<F>(self, f: F) -> Self
@@ -240,6 +225,6 @@ impl Shape {
 /// # Errors
 ///
 /// Returns `Err` if the expression is malformed or contains a type error.
-pub(crate) fn eval(expr: &Expr<Smiley>) -> Result<Value<'_>, EvalError> {
+pub(crate) fn eval(expr: &Expr<Smiley>) -> Result<Value<'_>, TypeError> {
     Context::new().eval(expr)
 }

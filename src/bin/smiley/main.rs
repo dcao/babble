@@ -12,11 +12,20 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
-use babble::{ast_node::{AstNode, Expr}, learn::LearnedLibrary, sexp::Sexp};
+use babble::{
+    ast_node::{AstNode, Expr},
+    learn::LearnedLibrary,
+    sexp::Sexp,
+};
 use clap::Clap;
 use egg::{AstSize, CostFunction, EGraph, Extractor, RecExpr, Rewrite, Runner};
 use log::info;
-use std::{convert::TryInto, fs, io::{self, Read}, path::PathBuf};
+use std::{
+    convert::TryInto,
+    fs,
+    io::{self, Read},
+    path::PathBuf,
+};
 
 use crate::lang::Smiley;
 

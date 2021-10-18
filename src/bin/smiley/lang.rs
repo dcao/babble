@@ -40,11 +40,7 @@ pub(crate) enum Smiley {
     Apply,
     /// Create an anonymous, de Bruijn-indexed function.
     Lambda,
-    /// Bind a learned library function to a name within an expression. This is
-    /// functionally identical to [`Smiley::Let`], but indicates that the
-    /// function was learned through anti-unification. This creates a helpful
-    /// visual distinction and allows rewrite rules to selectively target
-    /// learned functions.
+    /// Bind a value to `$0` within an expression.
     Lib,
     /// Shift indices.
     Shift,
