@@ -24,6 +24,7 @@ use std::{
 };
 
 pub mod lang;
+pub mod pretty;
 
 #[derive(Clap)]
 #[clap(version, author, about)]
@@ -52,11 +53,13 @@ fn main() {
         .expect("Failed to parse sexp")
         .try_into()
         .expect("Input is not a valid expression");
+    let pretty_expr = pretty::pretty(&initial_expr);    
     let initial_expr: RecExpr<_> = initial_expr.into();
     let initial_cost = AstSize.cost_rec(&initial_expr);
 
     println!("Initial expression (cost {}):", initial_cost);
-    println!("{}", initial_expr.pretty(100));
+    // println!("{}", initial_expr.pretty(100));
+    println!("{}", pretty_expr);    
     println!();
 
     let mut egraph = EGraph::default();
@@ -82,7 +85,8 @@ fn main() {
     let (final_cost, final_expr) = Extractor::new(&egraph, AstSize).find_best(root);
 
     println!("Final expression (cost {}):", final_cost);
-    println!("{}", final_expr.pretty(100));
+    // println!("{}", final_rexpr.pretty(100));
+    println!("{}", pretty::pretty(&Expr::from(final_expr)));
     println!();
 
     #[allow(clippy::cast_precision_loss)]
