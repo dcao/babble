@@ -74,7 +74,7 @@ For example, the AU result `(cons ?x01 (cons ?x01 (cons ?x01 empty)))`
 gives rise to the rewrite rule:
 
 ```
-(cons ?x01 (cons ?x01 (cons ?x01 empty)))  ->  (fun f (lambda (cons $0 (cons $0 (cons $0 empty)))) (f ?x01))
+(cons ?x01 (cons ?x01 (cons ?x01 empty)))  =>  (fun f (lambda (cons $0 (cons $0 (cons $0 empty)))) (f ?x01))
 ```
 
 (the name `f` will be fresh for each rule).
@@ -85,5 +85,17 @@ into a definition of a new library function followed by its application to the a
 
 In the next step, we give egg all the generated abstraction rewrites
 together with some fixed rules that propagate `fun` definitions up the term
-and merge different `fun`s with the same body
+and merge different `fun`s with the same definition
 when they are propagated from two sides of a `cons`, `list`, or some other constructor.
+
+For example, this rule propagates `fun` on top of `cons`:
+
+```
+(cons (fun ?name ?def ?body) ?expr)   =>   (fun ?name ?def (cons ?body ?expr))      if ?name not free in ?expr
+```
+
+And this one merges two `fun`s with the same definition from two sides of `cons`:
+
+```
+(cons (fun ?name ?def ?body1) (fun ?name ?def ?body2)) => (fun ?name ?def (cons ?body1 ?body2))
+```
