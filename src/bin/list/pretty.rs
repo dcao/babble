@@ -2,29 +2,40 @@ use crate::lang::ListOp;
 use babble::teachable::DeBruijnIndex;
 use babble::ast_node::Expr;
 
+/// Pretty-print `expr` into a string
 pub fn pretty(expr: &Expr<ListOp>) -> String {  
   let mut printer = Printer::top();
   printer.print(expr);
   printer.buf
 }
 
+/// Operator precedence
 type Precedence = u8;
 
+/// Internal state of the pretty-printer
 struct Printer {
+  /// Buffer where result is accumulated
   buf: String,
+  /// Number of bound variables in current scope
   n_bindings: usize,
+  /// Precedence level of the context 
+  /// (determines whether the next printed expression should be parenthesized)
   ctx_precedence: Precedence
 }
 
 impl Printer {
+  /// Create a fresh printer for the top-level expression
   fn top() -> Self {
     Printer {buf : String::new(), n_bindings : 0, ctx_precedence : 0}
   }
 
+  /// Named variable that corresponds to DeBruijn index `idx`
   fn binding_at_index(&self, idx: DeBruijnIndex) -> String {
     format!("x{}", self.n_bindings - idx.0 - 1)    
   }
 
+  /// Operator precedence:
+  /// determines whether the expression with head `op` will be parenthesized
   fn op_precedence(op: &ListOp) -> Precedence {
       match op {
         ListOp::Bool(_) | ListOp::Int(_) | ListOp::Index(_) | ListOp::Ident(_) => 60,
@@ -36,18 +47,30 @@ impl Printer {
     }
   }
 
+  /// Print `expr` into the buffer at the current precedence level
   fn print(&mut self, expr: &Expr<ListOp>) {
     let op = expr.0.operation();
     let old_prec = self.ctx_precedence;
     let new_prec = Self::op_precedence(op);
-    self.ctx_precedence = new_prec; // Self::inner_precedence(op);
+    self.ctx_precedence = new_prec;
     if new_prec <= old_prec { self.buf.push('('); }      
-    self.print_inner(expr);
+    self.print_naked(expr);
     if new_prec <= old_prec { self.buf.push(')'); }
     self.ctx_precedence = old_prec;      
+  }
+  
+  /// Print `expr` into the buffer at precedence level `prec`:
+  /// this function is used to implement associativity and bracket-like expressions,
+  /// where the children should be printed at a lower precedence level than the expression itself
+  fn print_in_context(&mut self, expr: &Expr<ListOp>, prec: Precedence) {
+    let old_prec = self.ctx_precedence;
+    self.ctx_precedence = prec;
+    self.print(expr);
+    self.ctx_precedence = old_prec;
   }  
 
-  fn print_inner(&mut self, expr: &Expr<ListOp>) {
+  /// Print `expr` into the buffer (without parentheses)
+  fn print_naked(&mut self, expr: &Expr<ListOp>) {
     match (expr.0.operation(), expr.0.args()) {
       (&ListOp::Int(i), []) => self.buf.push_str(&format!("{}", i)),
       (&ListOp::Bool(b), []) => self.buf.push_str(&format!("{}", b)),
@@ -83,7 +106,7 @@ impl Printer {
       },
       (&ListOp::Lambda, [body]) => {
         self.buf.push('λ');
-        self.print_in_lambda(body);
+        self.print_abstraction(body);
       },
       (&ListOp::Lib, [name, def, body]) => {
         self.buf.push_str("lib ");
@@ -105,23 +128,18 @@ impl Printer {
     }
   }
 
-  fn print_in_lambda(&mut self, expr: &Expr<ListOp>) {
-    self.n_bindings += 1;
-    let fresh_var = self.binding_at_index(DeBruijnIndex(0));        
-    self.buf.push_str(&format!("{} ", fresh_var));
-    if let (&ListOp::Lambda, [body]) = (expr.0.operation(), expr.0.args()) {
-        self.print_in_lambda(body);
+  /// Print abstraction with body `body` without the "λ" symbol
+  /// (this implements the syntactic sugar with nested abstractions)
+  fn print_abstraction(&mut self, body: &Expr<ListOp>) {
+    self.n_bindings += 1;                                     // one more binding in scope
+    let fresh_var = self.binding_at_index(DeBruijnIndex(0));  // the name of the latest binding
+    self.buf.push_str(&format!("{} ", fresh_var));            // print binding
+    if let (&ListOp::Lambda, [inner_body]) = (body.0.operation(), body.0.args()) {
+        self.print_abstraction(inner_body);                    // syntactic sugar: no λ needed here
     } else {
-        self.buf.push_str("-> ");
-        self.print_in_context(expr, 0); // body doesn't need parens
+        self.buf.push_str("-> ");                              // done with the sequence of bindings: print ->
+        self.print_in_context(body, 0);                        // body doesn't need parens
     }
-    self.n_bindings -= 1;    
-  }
-
-  fn print_in_context(&mut self, expr: &Expr<ListOp>, prec: Precedence) {
-    let old_prec = self.ctx_precedence;
-    self.ctx_precedence = prec;
-    self.print(expr);
-    self.ctx_precedence = old_prec;
+    self.n_bindings -= 1;                                      // one fewer binding in scope
   }
 }
