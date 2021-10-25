@@ -4,7 +4,7 @@ use babble::ast_node::Expr;
 
 /// Pretty-print `expr` into a string
 pub fn pretty(expr: &Expr<ListOp>) -> String {  
-  let mut printer = Printer::top();
+  let mut printer = Printer::default();
   printer.print(expr);
   printer.buf
 }
@@ -25,12 +25,15 @@ struct Printer {
   indentation: usize
 }
 
-impl Printer {
-  /// Create a fresh printer for the top-level expression
-  fn top() -> Self {
-    Printer {buf : String::new(), n_bindings : 0, ctx_precedence : 0, indentation : 0}
-  }
+impl Default for Printer
+{
+    /// Create a fresh printer for the top-level expression
+    fn default() -> Self {
+        Self {buf : String::new(), n_bindings : 0, ctx_precedence : 0, indentation : 0 }
+    }
+}
 
+impl Printer {
   /// Named variable that corresponds to DeBruijn index `idx`
   fn binding_at_index(&self, idx: DeBruijnIndex) -> String {
     format!("x{}", self.n_bindings - idx.0 - 1)    
