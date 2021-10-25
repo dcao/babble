@@ -20,13 +20,15 @@ struct Printer {
   n_bindings: usize,
   /// Precedence level of the context 
   /// (determines whether the next printed expression should be parenthesized)
-  ctx_precedence: Precedence
+  ctx_precedence: Precedence,
+  // Current indentation level
+  indentation: usize
 }
 
 impl Printer {
   /// Create a fresh printer for the top-level expression
   fn top() -> Self {
-    Printer {buf : String::new(), n_bindings : 0, ctx_precedence : 0}
+    Printer {buf : String::new(), n_bindings : 0, ctx_precedence : 0, indentation : 0}
   }
 
   /// Named variable that corresponds to DeBruijn index `idx`
@@ -53,9 +55,11 @@ impl Printer {
     let old_prec = self.ctx_precedence;
     let new_prec = Self::op_precedence(op);
     self.ctx_precedence = new_prec;
-    if new_prec <= old_prec { self.buf.push('('); }      
-    self.print_naked(expr);
-    if new_prec <= old_prec { self.buf.push(')'); }
+    if new_prec <= old_prec { 
+      self.in_parens(|p| p.print_naked(expr));      
+    } else {    
+      self.print_naked(expr);
+    }
     self.ctx_precedence = old_prec;      
   }
   
@@ -108,23 +112,47 @@ impl Printer {
         self.buf.push('λ');
         self.print_abstraction(body);
       },
+      (&ListOp::Let, [name, def, body]) => {
+        self.buf.push_str("let ");
+        self.print(name);
+        self.buf.push_str(" =");
+        self.indented(|p| {
+          p.new_line();
+          p.print_in_context(def, 0);
+        });        
+        self.new_line();
+        self.buf.push_str("in");
+        self.indented(|p| {
+          p.new_line();
+          p.print_in_context(body, 0);
+        });        
+      }      
       (&ListOp::Lib, [name, def, body]) => {
         self.buf.push_str("lib ");
         self.print(name);
-        self.buf.push_str(" = ");
-        self.print_in_context(def, 0);
-        self.buf.push_str(" in\n");
-        self.print(body);
+        self.buf.push_str(" =");
+        self.indented(|p| {
+          p.new_line();
+          p.print_in_context(def, 0);
+        });        
+        self.new_line();
+        self.buf.push_str("in");
+        self.indented(|p| {
+          p.new_line();
+          p.print_in_context(body, 0);
+        });        
       }
       (&ListOp::List, ts) => {
-        self.buf.push_str("[\n");
-        for t in ts {
-          self.print_in_context(t, 0); // children do not need parens
-          self.buf.push_str(",\n");
-        }
-        self.buf.push(']');
+        let elem = |p: &mut Self, i: usize| {          
+            p.print_in_context(&ts[i], 0); // children do not need parens            
+        };        
+        self.in_brackets(|p1|
+          p1.indented(|p2|
+            p2.vsep(elem, ts.len(), ",")
+          )
+        );
       },
-      _ => self.buf.push_str("expression!")
+      _ => self.buf.push_str("???")
     }
   }
 
@@ -142,4 +170,42 @@ impl Printer {
     }
     self.n_bindings -= 1;                                      // one fewer binding in scope
   }
+
+  /// Add new line with current indentation
+  fn new_line(&mut self) {
+    self.buf.push_str(&format!("\n{}", " ".repeat(self.indentation * 2)));    
+  }
+
+  // Print f(i) for i in 0..n on separate lines
+  fn vsep<T : Fn(&mut Self, usize)>(&mut self, f: T, n: usize, sep: &str) {    
+    for i in 0 .. n {
+      f(self, i);
+      if i < n - 1 {
+        self.buf.push_str(sep);
+        self.new_line();
+      };
+    };
+  }
+
+  /// print f() in parentheses
+  fn in_parens<T : Fn(&mut Self)>(&mut self, f: T) {
+    self.buf.push('(');
+    f(self);
+    self.buf.push(')') ;
+  }
+
+  /// print f() in brackets
+  fn in_brackets<T : Fn(&mut Self)>(&mut self, f: T) {
+    self.buf.push('[');
+    f(self);
+    self.buf.push(']') ;
+  }
+
+  /// print f() indented one more level
+  fn indented<T : Fn(&mut Self)>(&mut self, f: T) {
+    self.indentation += 1;
+    f(self);
+    self.indentation -= 1;
+  }
+
 }
