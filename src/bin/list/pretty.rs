@@ -43,12 +43,12 @@ impl Printer {
   /// determines whether the expression with head `op` will be parenthesized
   fn op_precedence(op: &ListOp) -> Precedence {
       match op {
-        ListOp::Bool(_) | ListOp::Int(_) | ListOp::Index(_) | ListOp::Ident(_) => 60,
+        ListOp::Bool(_) | ListOp::Int(_) | ListOp::Var(_) | ListOp::Ident(_) => 60,
         ListOp::List => 50,
-        ListOp::Apply => 40,
+        ListOp::Apply | ListOp::Shift => 40,
         ListOp::Cons => 30,
         ListOp::If => 20,
-        ListOp::Lambda | ListOp::Let | ListOp::Lib => 10,
+        ListOp::Lambda | ListOp::Lib => 10,
     }
   }
 
@@ -81,7 +81,7 @@ impl Printer {
     match (expr.0.operation(), expr.0.args()) {
       (&ListOp::Int(i), []) => self.buf.push_str(&format!("{}", i)),
       (&ListOp::Bool(b), []) => self.buf.push_str(&format!("{}", b)),
-      (&ListOp::Index(i), []) => {
+      (&ListOp::Var(i), []) => {
         let name = self.binding_at_index(i);
         self.buf.push_str(&name);
       },
@@ -115,10 +115,10 @@ impl Printer {
         self.buf.push('λ');
         self.print_abstraction(body);
       },
-      (&ListOp::Let, [name, def, body]) => {
-        self.buf.push_str("let ");
-        self.print(name);
-        self.buf.push_str(" =");
+      (&ListOp::Lib, [def, body]) => {
+        self.n_bindings += 1;                                     // one more binding in scope
+        let fresh_var = self.binding_at_index(DeBruijnIndex(0));  // the name of the latest binding
+        self.buf.push_str(&format!("lib {} =", fresh_var));       // print binding        
         self.indented(|p| {
           p.new_line();
           p.print_in_context(def, 0);
@@ -128,23 +128,9 @@ impl Printer {
         self.indented(|p| {
           p.new_line();
           p.print_in_context(body, 0);
-        });        
-      }      
-      (&ListOp::Lib, [name, def, body]) => {
-        self.buf.push_str("lib ");
-        self.print(name);
-        self.buf.push_str(" =");
-        self.indented(|p| {
-          p.new_line();
-          p.print_in_context(def, 0);
-        });        
-        self.new_line();
-        self.buf.push_str("in");
-        self.indented(|p| {
-          p.new_line();
-          p.print_in_context(body, 0);
-        });        
-      }
+        });
+        self.n_bindings -= 1;                                      // one fewer binding in scope        
+      },
       (&ListOp::List, ts) => {
         let elem = |p: &mut Self, i: usize| {          
             p.print_in_context(&ts[i], 0); // children do not need parens            

@@ -1,7 +1,6 @@
 //! Defines the [`Teachable`] trait for languages that support library learning.
 
 use crate::ast_node::AstNode;
-use egg::Symbol;
 use std::{
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
@@ -41,20 +40,14 @@ where
 
     /// Creates a de Bruijn-indexed variable.
     #[must_use]
-    fn index<T>(index: usize) -> AstNode<Self, T> {
-        Self::from_binding_expr(BindingExpr::Index(index))
-    }
-
-    /// Creates a named variable.
-    #[must_use]
-    fn ident<T>(ident: Symbol) -> AstNode<Self, T> {
-        Self::from_binding_expr(BindingExpr::Ident(ident))
+    fn var<T>(index: usize) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::Var(index))
     }
 
     /// Creates a let-expression binding `ident` to `value` in `body`.
     #[must_use]
-    fn lib<T>(ident: T, value: T, body: T) -> AstNode<Self, T> {
-        Self::from_binding_expr(BindingExpr::Lib { ident, value, body })
+    fn lib<T>(value: T, body: T) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::Let(value, body))
     }
 }
 
@@ -64,22 +57,16 @@ where
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BindingExpr<T> {
     /// A de Bruijn index
-    Index(usize),
-    /// An identifier
-    Ident(Symbol),
+    Var(usize),
     /// A lambda
     Lambda(T),
     /// An application of a function to an argument
     Apply(T, T),
-    /// A let-expression
-    Lib {
-        /// The bound variable's name
-        ident: T,
-        /// The value of the named variable within the body of the let-expression
-        value: T,
-        /// The body of the let-expression
-        body: T,
-    },
+    /// A let-expression:
+    /// `(let expr body)` is equivalent to `(apply (lambda body) expr)`
+    Let(T, T),
+    /// Shift free de Bruijn vars in body by one, so that `(shift $0)` is equivalent to `$1`
+    Shift(T),
 }
 
 impl<Op, T> From<BindingExpr<T>> for AstNode<Op, T>

@@ -2,7 +2,6 @@
 
 use babble::{
     ast_node::{Arity, AstNode},
-    free_vars::{and, not_free_in, FreeVarAnalysis, FreeVars},
     lift_lib::LiftLib,
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
@@ -10,7 +9,6 @@ use babble_macros::rewrite_rules;
 use egg::{Rewrite, Symbol};
 use lazy_static::lazy_static;
 use std::{
-    collections::HashSet,
     convert::Infallible,
     fmt::{self, Display, Formatter},
     str::FromStr,
@@ -30,26 +28,26 @@ pub enum ListOp {
     /// A function application
     Apply,
     /// A de Bruijn-indexed variable
-    Index(DeBruijnIndex),
+    Var(DeBruijnIndex),
     /// An identifier
     Ident(Symbol),
     /// An anonymous function
     Lambda,
-    /// A let-expression
-    Let,
     /// A library function binding
     Lib,
     /// A list
     List,
+    /// A shift
+    Shift,
 }
 
 impl Arity for ListOp {
     fn min_arity(&self) -> usize {
         match self {
-            Self::Bool(_) | Self::Int(_) | Self::Index(_) | Self::Ident(_) | Self::List => 0,
-            Self::Lambda => 1,
-            Self::Cons | Self::Apply => 2,
-            Self::If | Self::Let | Self::Lib => 3,
+            Self::Bool(_) | Self::Int(_) | Self::Var(_) | Self::Ident(_) | Self::List => 0,
+            Self::Lambda | Self::Shift => 1,
+            Self::Cons | Self::Apply | Self::Lib => 2,
+            Self::If => 3,
         }
     }
 
@@ -68,7 +66,7 @@ impl Display for ListOp {
             Self::If => "if",
             Self::Apply => "@",
             Self::Lambda => "λ",
-            Self::Let => "let",
+            Self::Shift => "shift",
             Self::Lib => "lib",
             Self::List => "list",
             Self::Bool(b) => {
@@ -77,7 +75,7 @@ impl Display for ListOp {
             Self::Int(i) => {
                 return write!(f, "{}", i);
             }
-            Self::Index(index) => {
+            Self::Var(index) => {
                 return write!(f, "{}", index);
             }
             Self::Ident(ident) => {
@@ -95,15 +93,15 @@ impl FromStr for ListOp {
         let op = match input {
             "cons" => Self::Cons,
             "if" => Self::If,
+            "shift" => Self::Shift,
             "apply" | "@" => Self::Apply,
             "lambda" | "λ" => Self::Lambda,
-            "let" => Self::Let,
             "lib" => Self::Lib,
             "list" => Self::List,
             input => input
                 .parse()
                 .map(Self::Bool)
-                .or_else(|_| input.parse().map(Self::Index))
+                .or_else(|_| input.parse().map(Self::Var))
                 .or_else(|_| input.parse().map(Self::Int))
                 .unwrap_or_else(|_| Self::Ident(input.into())),
         };
@@ -116,11 +114,9 @@ impl Teachable for ListOp {
         match binding_expr {
             BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
-            BindingExpr::Index(index) => AstNode::leaf(Self::Index(DeBruijnIndex(index))),
-            BindingExpr::Ident(ident) => AstNode::leaf(Self::Ident(ident)),
-            BindingExpr::Lib { ident, value, body } => {
-                AstNode::new(Self::Lib, [ident, value, body])
-            }
+            BindingExpr::Var(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
+            BindingExpr::Let(bound_value, body) => AstNode::new(Self::Lib, [bound_value, body]),
+            BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
         }
     }
 
@@ -128,54 +124,30 @@ impl Teachable for ListOp {
         let binding_expr = match node.as_parts() {
             (Self::Lambda, [body]) => BindingExpr::Lambda(body),
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
-            (&Self::Index(index), []) => BindingExpr::Index(*index),
-            (&Self::Ident(ident), []) => BindingExpr::Ident(ident),
-            (Self::Lib, [ident, value, body]) => BindingExpr::Lib { ident, value, body },
+            (&Self::Var(index), []) => BindingExpr::Var(index.0),
+            (Self::Lib, [bound_value, body]) => BindingExpr::Let(bound_value, body),
+            (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };
         Some(binding_expr)
     }
 }
 
-impl FreeVars for ListOp {
-    fn get_ident(&self) -> Option<Symbol> {
-        match *self {
-            Self::Ident(ident) => Some(ident),
-            _ => None,
-        }
-    }
-
-    fn free_vars(&self, children: &[&HashSet<Symbol>]) -> HashSet<Symbol> {
-        match (self, children) {
-            (&Self::Ident(ident), []) => {
-                let mut result = HashSet::new();
-                result.insert(ident);
-                result
-            }
-            (Self::Let | Self::Lib, &[ident, val, body]) => &(body - ident) | val,
-            (_, children) => children
-                .iter()
-                .flat_map(|child| child.iter())
-                .copied()
-                .collect(),
-        }
-    }
-}
-
 lazy_static! {
-    pub(crate) static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<ListOp>, FreeVarAnalysis<ListOp>>] = {
+    pub(crate) static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<ListOp>, ()>] = {
         let mut rules = rewrite_rules! {
             // TODO: Check for captures of de Bruijn variables and re-index if necessary.
             // lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
 
             // Binding expressions
-            lift_let_both: "(let ?x1 (lib ?x2 ?v2 ?v1) (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if not_free_in("?v2", "?x1");
-            lift_let_body: "(let ?x1 ?v1 (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if and(not_free_in("?v1", "?x2"), not_free_in("?v2", "?x1"));
-            lift_let_binding: "(let ?x1 (lib ?x2 ?v2 ?v1) ?e)" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if not_free_in("?e", "?x2");
+        //     lift_let_both: "(let ?x1 (lib ?x2 ?v2 ?v1) (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if not_free_in("?v2", "?x1");
+        //     lift_let_body: "(let ?x1 ?v1 (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if and(not_free_in("?v1", "?x2"), not_free_in("?v2", "?x1"));
+        //     lift_let_binding: "(let ?x1 (lib ?x2 ?v2 ?v1) ?e)" => "(lib ?x2 ?v2 (let ?x1 ?v1 ?e))" if not_free_in("?e", "?x2");
 
-            lift_lib_both: "(lib ?x1 (lib ?x2 ?v2 ?v1) (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if not_free_in("?v2", "?x1");
-            lift_lib_body: "(lib ?x1 ?v1 (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if and(not_free_in("?v1", "?x2"), not_free_in("?v2", "?x1"));
-            lift_lib_binding: "(lib ?x1 (lib ?x2 ?v2 ?v1) ?e)" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if not_free_in("?e", "?x2");
+        //     lift_lib_both: "(lib ?x1 (lib ?x2 ?v2 ?v1) (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if not_free_in("?v2", "?x1");
+        //     lift_lib_body: "(lib ?x1 ?v1 (lib ?x2 ?v2 ?e))" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if and(not_free_in("?v1", "?x2"), not_free_in("?v2", "?x1"));
+        //     lift_lib_binding: "(lib ?x1 (lib ?x2 ?v2 ?v1) ?e)" => "(lib ?x2 ?v2 (lib ?x1 ?v1 ?e))" if not_free_in("?e", "?x2");
+        //
         };
 
         rules.extend([

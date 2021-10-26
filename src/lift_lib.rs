@@ -2,43 +2,17 @@
 
 use crate::{
     ast_node::{Arity, AstNode},
-    free_vars::{FreeVarAnalysis, FreeVars},
     teachable::{BindingExpr, Teachable},
 };
 use egg::{
-    Applier, EGraph, Id, Language, PatternAst, Rewrite, SearchMatches, Searcher, Subst, Symbol, Var,
+    Analysis, Applier, EGraph, Id, Language, PatternAst, Rewrite, SearchMatches, Searcher, Subst,
+    Symbol, Var,
 };
 use lazy_static::lazy_static;
-use std::{collections::HashMap, fmt::Debug, sync::Mutex};
+use std::{collections::HashMap, fmt::Debug};
 
 lazy_static! {
-    static ref IDENT_VAR: Var = "?ident".parse().unwrap();
-    static ref VALUE_VAR: Var = "?value".parse().unwrap();
-    static ref ARG_VARS: ArgVars = ArgVars::with_capacity(10);
-}
-
-#[derive(Debug)]
-struct ArgVars(Mutex<Vec<Var>>);
-
-impl ArgVars {
-    fn with_capacity(capacity: usize) -> Self {
-        let arg_vars = Self(Mutex::new(Vec::with_capacity(capacity)));
-        let _ = arg_vars.get(capacity - 1);
-        arg_vars
-    }
-
-    fn make_var(arg: usize) -> Var {
-        format!("?arg{}", arg).parse().unwrap()
-    }
-
-    fn get(&self, arg: usize) -> Var {
-        let mut arg_vars = self.0.lock().unwrap();
-        arg_vars.get(arg).copied().unwrap_or_else(|| {
-            let len = arg_vars.len();
-            arg_vars.extend((len..=arg).into_iter().map(Self::make_var));
-            arg_vars[arg]
-        })
-    }
+    static ref BOUND_VALUE: Var = "?bound_value".parse().unwrap();
 }
 
 /// A `LiftLib` implements a rewrite which takes a let-expression within an
@@ -67,89 +41,88 @@ impl<Op> LiftLib<Op> {
     pub fn new(operation: Op) -> Self {
         Self { operation }
     }
+
+    fn lift(index: usize) -> Var {
+        format!("?lift{}", index)
+            .parse()
+            .unwrap_or_else(|_| unreachable!())
+    }
+
+    fn shift(index: usize) -> Var {
+        format!("?shift{}", index)
+            .parse()
+            .unwrap_or_else(|_| unreachable!())
+    }
 }
 
+// (+ (lib 2 $0) (lib 2 $0)) => (lib 2 (+ $0 $0))
+// (+ (lib 2 $0) $0) => (lib 2 (+ $0 $1))
+// (+ (lib $0 $0) $1) => (lib $0 (+ $0 $2))
+// (+ (lib 1 $0) (lib 2 $0)) => (lib 1 (+ $0 (lib 2 $0)))
+// "                       " => (lib 2 (+ (lib 1 $0) $0))
+// (+ (lib $1 $1) $0) => (lib $1 (+ $1 $1))
+
+// 1 => 0
+// 2 => 1
+// (shift)
 impl<Op> LiftLib<Op>
 where
-    Op: FreeVars + Teachable + Arity + Eq + Clone + Send + Sync + Debug + 'static,
+    Op: Teachable + Arity + Eq + Clone + Send + Sync + Debug + 'static,
     AstNode<Op>: Language,
 {
     /// Creates a new [`Rewrite`] named `name` which lifts over the given
     /// operation. `LiftLib` is used as both the [`Searcher`] and [`Applier`] of
     /// the rewrite.
     #[must_use]
-    pub fn rewrite(name: &str, operation: Op) -> Rewrite<AstNode<Op>, FreeVarAnalysis<Op>> {
+    pub fn rewrite<A>(name: &str, operation: Op) -> Rewrite<AstNode<Op>, A>
+    where
+        A: Analysis<AstNode<Op>>,
+    {
         let lift_lib = Self::new(operation);
         Rewrite::new(name, lift_lib.clone(), lift_lib).unwrap_or_else(|_| unreachable!())
     }
-
-    fn search_operation(
-        egraph: &EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
-        args: &[Id],
-    ) -> Vec<Subst> {
-        let mut idents = HashMap::new();
-        let mut arg_maps = Vec::new();
-        for &arg in args.iter() {
-            let mut arg_map = HashMap::new();
-            for node in egraph[arg].iter() {
-                if let Some(BindingExpr::Lib { ident, value, body }) = node.as_binding_expr() {
-                    idents.insert(*ident, *value);
-                    arg_map.insert(*ident, *body);
-                }
-            }
-            arg_maps.push(arg_map);
-        }
-
-        let mut substs = Vec::new();
-
-        for (&ident_id, &fun) in &idents {
-            let mut subst = Subst::with_capacity(args.len() + 2);
-            subst.insert(*IDENT_VAR, ident_id);
-            subst.insert(*VALUE_VAR, fun);
-
-            let ident = egraph[ident_id].nodes[0].operation().get_ident().unwrap();
-            let mut can_rewrite = true;
-            for (i, &arg) in args.iter().enumerate() {
-                if egraph[arg].data.contains(&ident) {
-                    can_rewrite = false;
-                    break;
-                }
-
-                let arg_map = &arg_maps[i];
-                let var = ARG_VARS.get(i);
-                let id = *arg_map.get(&ident_id).unwrap_or(&ident_id);
-                subst.insert(var, id);
-                if let Some(&value) = arg_map.get(&ident_id) {
-                    subst.insert(var, value);
-                } else {
-                    subst.insert(var, arg);
-                }
-            }
-
-            if can_rewrite {
-                substs.push(subst);
-            }
-        }
-
-        substs
-    }
 }
 
-impl<Op> Searcher<AstNode<Op>, FreeVarAnalysis<Op>> for LiftLib<Op>
+impl<Op, A> Searcher<AstNode<Op>, A> for LiftLib<Op>
 where
-    Op: Debug + Teachable + FreeVars + Arity + Eq + Clone + Send + Sync + 'static,
+    Op: Debug + Teachable + Arity + Eq + Clone + Send + Sync + 'static,
+    A: Analysis<AstNode<Op>>,
     AstNode<Op>: Language,
 {
     fn search_eclass(
         &self,
-        egraph: &EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
+        egraph: &EGraph<AstNode<Op>, A>,
         eclass: Id,
     ) -> Option<SearchMatches<'_, AstNode<Op>>> {
         let mut substs = Vec::new();
-        for enode in egraph[eclass].iter() {
-            if enode.operation() == &self.operation {
-                let list_substs = Self::search_operation(egraph, enode.args());
-                substs.extend(list_substs);
+        for node in egraph[eclass].iter() {
+            if node.operation() == &self.operation {
+                let mut bound_values: HashMap<Id, HashMap<usize, Id>> = HashMap::new();
+                for (arg_index, &arg_id) in node.iter().enumerate() {
+                    for arg_node in egraph[arg_id].iter() {
+                        if let Some(BindingExpr::Let(&bound_value, &body)) =
+                            arg_node.as_binding_expr()
+                        {
+                            bound_values
+                                .entry(bound_value)
+                                .or_default()
+                                .insert(arg_index, body);
+                        }
+                    }
+                }
+
+                for (bound_value, lifted_args) in bound_values {
+                    let mut subst = Subst::with_capacity(node.len() + 1);
+                    for (arg_index, &arg_id) in node.iter().enumerate() {
+                        if let Some(&body) = lifted_args.get(&arg_index) {
+                            subst.insert(Self::lift(arg_index), body);
+                        } else {
+                            subst.insert(Self::shift(arg_index), arg_id);
+                        }
+                    }
+                    subst.insert(*BOUND_VALUE, bound_value);
+                    substs.push(subst);
+                }
             }
         }
 
@@ -165,47 +138,56 @@ where
     }
 
     fn vars(&self) -> Vec<Var> {
-        vec![*IDENT_VAR, *VALUE_VAR]
+        vec![*BOUND_VALUE]
     }
 }
 
-impl<Op> Applier<AstNode<Op>, FreeVarAnalysis<Op>> for LiftLib<Op>
+impl<Op, A> Applier<AstNode<Op>, A> for LiftLib<Op>
 where
-    Op: Teachable + FreeVars + Arity + Clone + Debug,
+    Op: Teachable + Arity + Clone + Debug,
+    A: Analysis<AstNode<Op>>,
     AstNode<Op>: Language,
 {
     fn apply_one(
         &self,
-        egraph: &mut EGraph<AstNode<Op>, FreeVarAnalysis<Op>>,
+        egraph: &mut EGraph<AstNode<Op>, A>,
         eclass: Id,
         subst: &Subst,
         _searcher_ast: Option<&PatternAst<AstNode<Op>>>,
         _rule_name: Symbol,
     ) -> Vec<Id> {
-        let ident = *subst.get(*IDENT_VAR).unwrap();
-        let value = *subst.get(*VALUE_VAR).unwrap();
-        let mut items = Vec::new();
-
+        let bound_value = *subst.get(*BOUND_VALUE).unwrap();
+        let mut args = Vec::new();
+        let mut shifts = Vec::new();
         for i in 0.. {
-            if let Some(&id) = subst.get(ARG_VARS.get(i)) {
-                items.push(id);
+            let (lift, shift) = (
+                format!("?lift{}", i).parse().unwrap(),
+                format!("?shift{}", i).parse().unwrap(),
+            );
+            if let Some(&arg) = subst.get(lift) {
+                args.push(arg);
+            } else if let Some(&arg) = subst.get(shift) {
+                let shift = egraph.add(BindingExpr::Shift(arg).into());
+                shifts.push(shift);
+                args.push(shift);
             } else {
                 break;
             }
         }
 
-        let body = egraph.add(AstNode::new(self.operation.clone(), items));
-        let lib = egraph.add(BindingExpr::Lib { ident, value, body }.into());
+        let body = egraph.add(AstNode::new(self.operation.clone(), args));
+        let lib = egraph.add(BindingExpr::Let(bound_value, body).into());
         let were_unioned = egraph.union(eclass, lib);
 
         if were_unioned {
-            vec![body, lib, eclass]
+            shifts.extend([body, lib, eclass]);
+            shifts
         } else {
-            Vec::new()
+            vec![]
         }
     }
 
     fn vars(&self) -> Vec<Var> {
-        vec![*IDENT_VAR, *VALUE_VAR]
+        vec![*BOUND_VALUE]
     }
 }

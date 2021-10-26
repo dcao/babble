@@ -12,15 +12,22 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
-use babble::ast_node::AstNode;
+use babble::{
+    ast_node::{AstNode, Expr},
+    learn::LearnedLibrary,
+    sexp::Sexp,
+};
 use clap::Clap;
-use egg::{AstSize, CostFunction, RecExpr, Runner};
-use lang::Smiley;
+use egg::{AstSize, CostFunction, EGraph, Extractor, RecExpr, Rewrite, Runner};
+use log::info;
 use std::{
+    convert::TryInto,
     fs,
     io::{self, Read},
     path::PathBuf,
 };
+
+use crate::lang::Smiley;
 
 mod eval;
 mod lang;
@@ -53,21 +60,53 @@ fn main() {
         )
         .expect("Error reading input");
 
-    let expr: RecExpr<AstNode<Smiley>> = input.parse().expect("Input is not a valid expression");
+    let expr: Expr<_> = Sexp::parse(&input)
+        .expect("Failed to parse sexp")
+        .try_into()
+        .expect("Input is not a valid expression");
+
     if opts.svg {
-        let expr = expr.into();
         let value = eval::eval(&expr).expect("Failed to evaluate expression");
         let picture = value
             .into_picture()
             .expect("Result of evaluation is not a picture");
         picture.write_svg(io::stdout()).expect("Error writing SVG");
     } else {
-        let initial_cost = AstSize.cost_rec(&expr);
+        let initial_expr: RecExpr<_> = expr.into();
+        let initial_cost = AstSize.cost_rec(&initial_expr);
+
         println!("Initial expression (cost {}):", initial_cost);
-        println!("{}", expr.pretty(100));
+        println!("{}", initial_expr.pretty(100));
         println!();
 
-        let runner = Runner::default().with_expr(&expr);
-        lang::run_single(runner);
+        let mut egraph: EGraph<AstNode<Smiley>, ()> = EGraph::default();
+        let root = egraph.add_expr(&initial_expr);
+        egraph.rebuild();
+
+        let learned_lib = LearnedLibrary::from(&egraph);
+        let lib_rewrites: Vec<Rewrite<_, ()>> = learned_lib.rewrites().collect();
+        let egraph = Runner::default()
+            .with_egraph(egraph)
+            .with_iter_limit(1)
+            .run(&lib_rewrites)
+            .egraph;
+        let runner = Runner::default()
+            .with_egraph(egraph)
+            .run(*lang::LIFT_LIB_REWRITES);
+        let stop_reason = runner.stop_reason.unwrap_or_else(|| unreachable!());
+        info!("Stop reason: {:?}", stop_reason);
+        info!("Number of iterations: {}", runner.iterations.len());
+
+        let egraph = runner.egraph;
+        info!("Number of nodes: {}", egraph.total_size());
+        let (final_cost, final_expr) = Extractor::new(&egraph, AstSize).find_best(root);
+
+        println!("Final expression (cost {}):", final_cost);
+        println!("{}", final_expr.pretty(100));
+        println!();
+
+        #[allow(clippy::cast_precision_loss)]
+        let compression_ratio = (initial_cost as f64) / (final_cost as f64);
+        println!("Compression ratio: {:.2}", compression_ratio);
     }
 }
