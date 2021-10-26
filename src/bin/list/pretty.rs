@@ -16,8 +16,8 @@ type Precedence = u8;
 struct Printer {
   /// Buffer where result is accumulated
   buf: String,
-  /// Number of bound variables in current scope
-  n_bindings: usize,
+  /// Bound variables in current scope
+  bindings: Vec<String>,
   /// Precedence level of the context 
   /// (determines whether the next printed expression should be parenthesized)
   ctx_precedence: Precedence,
@@ -29,16 +29,11 @@ impl Default for Printer
 {
     /// Create a fresh printer for the top-level expression
     fn default() -> Self {
-        Self {buf : String::new(), n_bindings : 0, ctx_precedence : 0, indentation : 0 }
+        Self {buf : String::new(), bindings : vec![], ctx_precedence : 0, indentation : 0 }
     }
 }
 
 impl Printer {
-  /// Named variable that corresponds to DeBruijn index `idx`
-  fn binding_at_index(&self, idx: DeBruijnIndex) -> String {
-    format!("x{}", self.n_bindings - idx.0 - 1)    
-  }
-
   /// Operator precedence:
   /// determines whether the expression with head `op` will be parenthesized
   fn op_precedence(op: &ListOp) -> Precedence {
@@ -116,28 +111,28 @@ impl Printer {
         self.print_abstraction(body);
       },
       (&ListOp::Lib, [def, body]) => {
-        self.n_bindings += 1;                                     // one more binding in scope
-        let fresh_var = self.binding_at_index(DeBruijnIndex(0));  // the name of the latest binding
-        self.buf.push_str(&format!("lib {} =", fresh_var));       // print binding        
-        self.indented(|p| {
+        self.with_binding("f", |p| {
+          let fresh_var = p.binding_at_index(DeBruijnIndex(0));  // the name of the latest binding
+          p.buf.push_str(&format!("lib {} =", fresh_var));       // print binding        
+          p.indented(|p| {
+            p.new_line();
+            p.print_in_context(def, 0);
+          });        
           p.new_line();
-          p.print_in_context(def, 0);
-        });        
-        self.new_line();
-        self.buf.push_str("in");
-        self.indented(|p| {
-          p.new_line();
-          p.print_in_context(body, 0);
-        });
-        self.n_bindings -= 1;                                      // one fewer binding in scope        
+          p.buf.push_str("in");
+          p.indented(|p| {
+            p.new_line();
+            p.print_in_context(body, 0);
+          });
+        })
       },
       (&ListOp::List, ts) => {
         let elem = |p: &mut Self, i: usize| {          
             p.print_in_context(&ts[i], 0); // children do not need parens            
         };        
-        self.in_brackets(|p1|
-          p1.indented(|p2|
-            p2.vsep(elem, ts.len(), ",")
+        self.in_brackets(|p|
+          p.indented(|p|
+            p.vsep(elem, ts.len(), ",")
           )
         );
       },
@@ -148,16 +143,16 @@ impl Printer {
   /// Print abstraction with body `body` without the "λ" symbol
   /// (this implements the syntactic sugar with nested abstractions)
   fn print_abstraction(&mut self, body: &Expr<ListOp>) {
-    self.n_bindings += 1;                                     // one more binding in scope
-    let fresh_var = self.binding_at_index(DeBruijnIndex(0));  // the name of the latest binding
-    self.buf.push_str(&format!("{} ", fresh_var));            // print binding
-    if let (&ListOp::Lambda, [inner_body]) = (body.0.operation(), body.0.args()) {
-        self.print_abstraction(inner_body);                    // syntactic sugar: no λ needed here
-    } else {
-        self.buf.push_str("-> ");                              // done with the sequence of bindings: print ->
-        self.print_in_context(body, 0);                        // body doesn't need parens
-    }
-    self.n_bindings -= 1;                                      // one fewer binding in scope
+    self.with_binding("x", |p| {
+      let fresh_var = p.binding_at_index(DeBruijnIndex(0));  // the name of the latest binding
+      p.buf.push_str(&format!("{} ", fresh_var));            // print binding
+      if let (&ListOp::Lambda, [inner_body]) = (body.0.operation(), body.0.args()) {
+          p.print_abstraction(inner_body);                    // syntactic sugar: no λ needed here
+      } else {
+          p.buf.push_str("-> ");                              // done with the sequence of bindings: print ->
+          p.print_in_context(body, 0);                        // body doesn't need parens
+      }
+    })
   }
 
   /// Add new line with current indentation
@@ -197,4 +192,15 @@ impl Printer {
     self.indentation -= 1;
   }
 
+  /// Named variable that corresponds to DeBruijn index `idx`
+  fn binding_at_index(&self, idx: DeBruijnIndex) -> String {
+    self.bindings[self.bindings.len() - idx.0 - 1].clone()
+  }  
+
+  /// print f() inside the scope of a binder
+  fn with_binding<T : Fn(&mut Self)>(&mut self, prefix: &str, f: T) {
+    self.bindings.push(format!("{}{}", prefix, self.bindings.len()));
+    f(self);
+    self.bindings.pop();
+  }
 }
