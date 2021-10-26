@@ -194,6 +194,8 @@ impl Printer {
 
   /// Named variable that corresponds to DeBruijn index `idx`
   fn binding_at_index(&self, idx: DeBruijnIndex) -> String {
+    // It's annoying that I have to clone the result here,
+    // but the borrow checker is unhappy with reference
     self.bindings[self.bindings.len() - idx.0 - 1].clone()
   }  
 
