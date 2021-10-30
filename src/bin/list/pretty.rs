@@ -110,6 +110,15 @@ impl Printer {
         self.buf.push('λ');
         self.print_abstraction(body);
       },
+      (&ListOp::Shift, [body]) => {
+        match self.bindings.pop() {
+          None       => { panic!("Pretty printer encountered shift outside of abstraction"); }
+          Some(name) => {
+            self.print(body);
+            self.bindings.push(name);
+          }
+        };
+      },
       (&ListOp::Lib, [def, body]) => {
         self.with_binding("f", |p| {
           let fresh_var = p.binding_at_index(DeBruijnIndex(0));  // the name of the latest binding
@@ -124,7 +133,7 @@ impl Printer {
             p.new_line();
             p.print_in_context(body, 0);
           });
-        })
+        });
       },
       (&ListOp::List, ts) => {
         let elem = |p: &mut Self, i: usize| {          
@@ -151,8 +160,8 @@ impl Printer {
       } else {
           p.buf.push_str("-> ");                              // done with the sequence of bindings: print ->
           p.print_in_context(body, 0);                        // body doesn't need parens
-      }
-    })
+      };
+    });
   }
 
   /// Add new line with current indentation
@@ -196,7 +205,10 @@ impl Printer {
   fn binding_at_index(&self, idx: DeBruijnIndex) -> String {
     // It's annoying that I have to clone the result here,
     // but the borrow checker is unhappy with reference
-    self.bindings[self.bindings.len() - idx.0 - 1].clone()
+    match self.bindings.get(self.bindings.len() - idx.0 - 1) {
+      None       => { panic!("Pretty printer encountered unbound variable {}", idx); }
+      Some(name) => { name.clone() }
+    }
   }  
 
   /// print f() inside the scope of a binder
