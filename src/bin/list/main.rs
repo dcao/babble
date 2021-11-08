@@ -14,7 +14,7 @@
 
 use babble::{ast_node::Expr, learn::LearnedLibrary, sexp::Sexp};
 use clap::Clap;
-use egg::{AstSize, CostFunction, EGraph, Extractor, RecExpr, Runner};
+use egg::{AstSize, CostFunction, EGraph, LpExtractor, RecExpr, Runner};
 use log::info;
 use std::{
     convert::TryInto,
@@ -24,6 +24,23 @@ use std::{
 };
 
 pub mod lang;
+
+// TODO: make this more general for all langs
+struct NoLibAstSize;
+
+impl egg::LpCostFunction<babble::ast_node::AstNode<lang::ListOp>, ()> for NoLibAstSize {
+    fn node_cost(
+        &mut self,
+        _egraph: &EGraph<babble::ast_node::AstNode<lang::ListOp>, ()>,
+        _eclass: egg::Id,
+        enode: &babble::ast_node::AstNode<lang::ListOp>,
+    ) -> f64 {
+        match enode.operation() {
+            lang::ListOp::Lib => 0.0,
+            _ => 1.0,
+        }
+    }
+}
 
 #[derive(Clap)]
 #[clap(version, author, about)]
@@ -79,7 +96,8 @@ fn main() {
 
     let egraph = runner.egraph;
     info!("Number of nodes: {}", egraph.total_size());
-    let (final_cost, final_expr) = Extractor::new(&egraph, AstSize).find_best(root);
+    let final_expr = LpExtractor::new(&egraph, NoLibAstSize).solve(root);
+    let final_cost = final_expr.as_ref().len();
 
     println!("Final expression (cost {}):", final_cost);
     println!("{}", final_expr.pretty(100));

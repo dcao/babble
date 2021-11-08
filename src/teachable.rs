@@ -1,6 +1,7 @@
 //! Defines the [`Teachable`] trait for languages that support library learning.
 
 use crate::ast_node::AstNode;
+use egg::{EGraph, Language, Analysis, LpCostFunction};
 use std::{
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
