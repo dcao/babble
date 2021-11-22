@@ -53,13 +53,13 @@ fn main() {
         .expect("Failed to parse sexp")
         .try_into()
         .expect("Input is not a valid expression");
-    let pretty_expr = pretty::pretty(&initial_expr);    
+    let pretty_expr = pretty::pretty(&initial_expr);
     let initial_expr: RecExpr<_> = initial_expr.into();
     let initial_cost = AstSize.cost_rec(&initial_expr);
 
     println!("Initial expression (cost {}):", initial_cost);
     // println!("{}", initial_expr.pretty(100));
-    println!("{}", pretty_expr);    
+    println!("{}", pretty_expr);
     println!();
 
     let mut egraph = EGraph::default();
