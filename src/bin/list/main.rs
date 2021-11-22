@@ -23,6 +23,8 @@ use std::{
     path::PathBuf,
 };
 
+use crate::pretty::Pretty;
+
 pub mod lang;
 pub mod pretty;
 
@@ -53,8 +55,8 @@ fn main() {
         .expect("Failed to parse sexp")
         .try_into()
         .expect("Input is not a valid expression");
-    let pretty_expr = pretty::pretty(&initial_expr);
-    let initial_expr: RecExpr<_> = initial_expr.into();
+    let pretty_expr = Pretty(&initial_expr);
+    let initial_expr: RecExpr<_> = initial_expr.clone().into();
     let initial_cost = AstSize.cost_rec(&initial_expr);
 
     println!("Initial expression (cost {}):", initial_cost);
@@ -86,7 +88,7 @@ fn main() {
 
     println!("Final expression (cost {}):", final_cost);
     // println!("{}", final_rexpr.pretty(100));
-    println!("{}", pretty::pretty(&Expr::from(final_expr)));
+    println!("{}", Pretty(&Expr::from(final_expr)));
     println!();
 
     #[allow(clippy::cast_precision_loss)]
