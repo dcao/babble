@@ -12,9 +12,9 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
-use babble::{ast_node::Expr, learn::LearnedLibrary, sexp::Sexp};
+use babble::{ast_node::Expr, learn::LearnedLibrary, extract::LpExtractor, sexp::Sexp};
 use clap::Clap;
-use egg::{AstSize, CostFunction, EGraph, LpExtractor, RecExpr, Runner};
+use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner};
 use log::info;
 use std::{
     convert::TryInto,
@@ -28,7 +28,7 @@ pub mod lang;
 // TODO: make this more general for all langs
 struct NoLibAstSize;
 
-impl egg::LpCostFunction<babble::ast_node::AstNode<lang::ListOp>, ()> for NoLibAstSize {
+impl babble::extract::LpCostFunction<babble::ast_node::AstNode<lang::ListOp>, ()> for NoLibAstSize {
     fn node_cost(
         &mut self,
         _egraph: &EGraph<babble::ast_node::AstNode<lang::ListOp>, ()>,
@@ -96,7 +96,7 @@ fn main() {
 
     let egraph = runner.egraph;
     info!("Number of nodes: {}", egraph.total_size());
-    let final_expr = LpExtractor::new(&egraph, NoLibAstSize).solve(root);
+    let final_expr = LpExtractor::new(&egraph, AstSize).solve(root);
     let final_cost = final_expr.as_ref().len();
 
     println!("Final expression (cost {}):", final_cost);
