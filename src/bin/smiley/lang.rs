@@ -99,11 +99,11 @@ impl FromStr for Smiley {
             "+" => Self::Compose,
             "shift" => Self::Shift,
             _ => {
-                if let Ok(index) = s.parse() {
+                if let Ok(index) = s.parse::<DeBruijnIndex>() {
                     Self::Var(index)
-                } else if let Ok(n) = s.parse() {
+                } else if let Ok(n) = s.parse::<i32>() {
                     Self::Int(n)
-                } else if let Ok(f) = s.parse() {
+                } else if let Ok(f) = s.parse::<NotNan<f64>>() {
                     Self::Float(f)
                 } else {
                     panic!("how to parse")

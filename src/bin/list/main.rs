@@ -23,7 +23,10 @@ use std::{
     path::PathBuf,
 };
 
+use crate::pretty::Pretty;
+
 pub mod lang;
+pub mod pretty;
 
 // TODO: make this more general for all langs
 struct NoLibAstSize;
@@ -69,11 +72,13 @@ fn main() {
         .expect("Failed to parse sexp")
         .try_into()
         .expect("Input is not a valid expression");
-    let initial_expr: RecExpr<_> = initial_expr.into();
+    let pretty_expr = Pretty(&initial_expr);
+    let initial_expr: RecExpr<_> = initial_expr.clone().into();
     let initial_cost = AstSize.cost_rec(&initial_expr);
 
     println!("Initial expression (cost {}):", initial_cost);
-    println!("{}", initial_expr.pretty(100));
+    // println!("{}", initial_expr.pretty(100));
+    println!("{}", pretty_expr);
     println!();
 
     let mut egraph = EGraph::default();
@@ -100,7 +105,8 @@ fn main() {
     let final_cost = final_expr.as_ref().len();
 
     println!("Final expression (cost {}):", final_cost);
-    println!("{}", final_expr.pretty(100));
+    // println!("{}", final_rexpr.pretty(100));
+    println!("{}", Pretty(&Expr::from(final_expr)));
     println!();
 
     #[allow(clippy::cast_precision_loss)]
