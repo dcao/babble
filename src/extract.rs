@@ -26,6 +26,7 @@ pub struct LpExtractor<'a, L: Language, N: Analysis<L>> {
     vars: HashMap<Id, ClassVars>,
 }
 
+#[derive(Debug)]
 struct ClassVars {
     active: grb::Var,
     order: grb::Var,
@@ -34,7 +35,7 @@ struct ClassVars {
 
 impl<'a, L, N> LpExtractor<'a, L, N>
 where
-    L: Language,
+    L: Language + std::fmt::Display,
     N: Analysis<L>,
 {
     /// Create an [`LpExtractor`] using costs from the given [`LpCostFunction`].
@@ -47,6 +48,7 @@ where
 
         let env = grb::Env::new("").unwrap();
         let mut model = Model::with_env("model1", &env).unwrap();
+        // model.set_param(param::OutputFlag, 0).unwrap();
 
         let vars: HashMap<Id, ClassVars> = egraph
             .classes()
@@ -143,12 +145,10 @@ where
         }
 
         self.model.optimize().unwrap();
-        // model.write("test.lp").unwrap();
-        // log::info!(
-        //     "CBC status {:?}, {:?}",
-        //     solution.raw().status(),
-        //     solution.raw().secondary_status()
-        // );
+        log::info!(
+            "Gurobi status {:?}",
+            self.model.status()
+        );
 
         let mut todo: Vec<Id> = roots.iter().copied().collect();
         let mut expr = RecExpr::default();
@@ -160,6 +160,7 @@ where
                 todo.pop();
                 continue;
             }
+            let id = egraph.find(id);
             let v = &self.vars[&id];
             assert!(self.model.get_obj_attr(attr::X, &v.active).unwrap() > 0.0);
             let node_idx = v.nodes.iter().position(|n| self.model.get_obj_attr(attr::X, n).unwrap() > 0.0).unwrap();
