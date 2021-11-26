@@ -93,7 +93,9 @@ where
                     // node active implies child active, encoded as:
                     //   node_active <= child_active
                     //   node_active - child_active <= 0
-                    model.add_constr("", c!(node_active <= child_active)).unwrap();
+                    model
+                        .add_constr("", c!(node_active <= child_active))
+                        .unwrap();
                 }
             }
         }
@@ -145,10 +147,7 @@ where
         }
 
         self.model.optimize().unwrap();
-        log::info!(
-            "Gurobi status {:?}",
-            self.model.status()
-        );
+        log::info!("Gurobi status {:?}", self.model.status());
 
         let mut todo: Vec<Id> = roots.iter().copied().collect();
         let mut expr = RecExpr::default();
@@ -163,7 +162,11 @@ where
             let id = egraph.find(id);
             let v = &self.vars[&id];
             assert!(self.model.get_obj_attr(attr::X, &v.active).unwrap() > 0.0);
-            let node_idx = v.nodes.iter().position(|n| self.model.get_obj_attr(attr::X, n).unwrap() > 0.0).unwrap();
+            let node_idx = v
+                .nodes
+                .iter()
+                .position(|n| self.model.get_obj_attr(attr::X, n).unwrap() > 0.0)
+                .unwrap();
             let node = &self.egraph[id].nodes[node_idx];
             if node.all(|child| ids.contains_key(&child)) {
                 let new_id = expr.add(node.clone().map_children(|i| ids[&i]));

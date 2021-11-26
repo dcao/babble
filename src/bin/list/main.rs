@@ -12,7 +12,7 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
-use babble::{ast_node::Expr, learn::LearnedLibrary, extract::LpExtractor, sexp::Sexp};
+use babble::{ast_node::Expr, extract::LpExtractor, learn::LearnedLibrary, sexp::Sexp};
 use clap::Clap;
 use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner};
 use log::info;
@@ -40,6 +40,7 @@ impl babble::extract::LpCostFunction<babble::ast_node::AstNode<lang::ListOp>, ()
     ) -> f64 {
         match enode.operation() {
             lang::ListOp::Lib => 0.0,
+            lang::ListOp::Lambda => 0.0,
             _ => 1.0,
         }
     }
