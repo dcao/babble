@@ -2,7 +2,6 @@ use std::fmt::{self, Display, Write};
 
 use crate::lang::ListOp;
 use babble::ast_node::Expr;
-use babble::teachable::DeBruijnIndex;
 
 /// A wrapper around [`&'a Expr<ListOp>`] whose [`Display`] impl pretty-prints the
 /// expression.
@@ -89,9 +88,12 @@ impl<W: Write> Printer<W> {
             (&ListOp::Bool(b), []) => {
                 write!(self.writer, "{}", b)
             }
-            (&ListOp::Var(i), []) => {
-                let name = self.binding_at_index(i);
-                self.writer.write_str(&name)
+            (&ListOp::Var(index), []) => {
+                let name = self
+                    .bindings
+                    .get(self.bindings.len() - 1 - index.0)
+                    .expect("unbound variable");
+                self.writer.write_str(name)
             }
             (&ListOp::Ident(ident), []) => {
                 let name: &str = ident.into();
@@ -135,7 +137,7 @@ impl<W: Write> Printer<W> {
             },
             (&ListOp::Lib, [def, body]) => {
                 self.with_binding("f", |p| {
-                    let fresh_var = p.binding_at_index(DeBruijnIndex(0)); // the name of the latest binding
+                    let fresh_var = p.bindings.last().unwrap(); // the name of the latest binding
                     write!(p.writer, "lib {} =", fresh_var)?; // print binding
 
                     p.indented(|p| {
@@ -164,7 +166,7 @@ impl<W: Write> Printer<W> {
     /// (this implements the syntactic sugar with nested abstractions)
     fn print_abstraction(&mut self, body: &Expr<ListOp>) -> fmt::Result {
         self.with_binding("x", |p| {
-            let fresh_var = p.binding_at_index(DeBruijnIndex(0)); // the name of the latest binding
+            let fresh_var = p.bindings.last().unwrap(); // the name of the latest binding
             write!(p.writer, "{} ", fresh_var)?; // print binding
             if let (&ListOp::Lambda, [inner_body]) = (body.0.operation(), body.0.args()) {
                 p.print_abstraction(inner_body) // syntactic sugar: no λ needed here
@@ -217,18 +219,6 @@ impl<W: Write> Printer<W> {
         f(self)?;
         self.indentation -= 1;
         Ok(())
-    }
-
-    /// Named variable that corresponds to de Bruijn index `idx`
-    fn binding_at_index(&self, idx: DeBruijnIndex) -> String {
-        // It's annoying that I have to clone the result here,
-        // but the borrow checker is unhappy with reference
-        match self.bindings.get(self.bindings.len() - idx.0 - 1) {
-            None => {
-                panic!("Pretty printer encountered unbound variable {}", idx);
-            }
-            Some(name) => name.clone(),
-        }
     }
 
     /// print f() inside the scope of a binder
