@@ -150,12 +150,12 @@ lazy_static! {
         //
         };
 
-        rules.extend([
-            LiftLib::rewrite("lift_list", ListOp::List),
-            LiftLib::rewrite("lift_if", ListOp::If),
-            LiftLib::rewrite("lift_cons", ListOp::Cons),
-            LiftLib::rewrite("lift_apply", ListOp::Apply),
-        ]);
+        // rules.extend([
+        //     LiftLib::rewrite("lift_list", ListOp::List),
+        //     LiftLib::rewrite("lift_if", ListOp::If),
+        //     LiftLib::rewrite("lift_cons", ListOp::Cons),
+        //     LiftLib::rewrite("lift_apply", ListOp::Apply),
+        // ]);
 
         rules.leak()
     };

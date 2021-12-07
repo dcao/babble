@@ -262,7 +262,8 @@ where
         res
     });
 
-    let offset = metavars.len();
+    // All the function variables, plus one for the `lib` binding.
+    let offset = metavars.len() + 1;
 
     fun = fun.map_leaves_with_binders(|node, binders| match node.as_binding_expr() {
         Some(BindingExpr::Var(index)) if index >= binders => Op::var(index + offset).into(),

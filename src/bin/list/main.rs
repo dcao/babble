@@ -12,9 +12,9 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
-use babble::{ast_node::Expr, learn::LearnedLibrary, sexp::Sexp};
+use babble::{ast_node::Expr, extract::LpExtractor, learn::LearnedLibrary, sexp::Sexp};
 use clap::Clap;
-use egg::{AstSize, CostFunction, EGraph, Extractor, RecExpr, Runner};
+use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner};
 use log::info;
 use std::{
     convert::TryInto,
@@ -27,6 +27,24 @@ use crate::pretty::Pretty;
 
 pub mod lang;
 pub mod pretty;
+
+// TODO: make this more general for all langs
+struct NoLibAstSize;
+
+impl babble::extract::LpCostFunction<babble::ast_node::AstNode<lang::ListOp>, ()> for NoLibAstSize {
+    fn node_cost(
+        &mut self,
+        _egraph: &EGraph<babble::ast_node::AstNode<lang::ListOp>, ()>,
+        _eclass: egg::Id,
+        enode: &babble::ast_node::AstNode<lang::ListOp>,
+    ) -> f64 {
+        match enode.operation() {
+            lang::ListOp::Lib => 0.0,
+            lang::ListOp::Lambda => 0.0,
+            _ => 1.0,
+        }
+    }
+}
 
 #[derive(Clap)]
 #[clap(version, author, about)]
@@ -84,7 +102,8 @@ fn main() {
 
     let egraph = runner.egraph;
     info!("Number of nodes: {}", egraph.total_size());
-    let (final_cost, final_expr) = Extractor::new(&egraph, AstSize).find_best(root);
+    let final_expr = LpExtractor::new(&egraph, AstSize).solve(root);
+    let final_cost = final_expr.as_ref().len();
 
     println!("Final expression (cost {}):", final_cost);
     // println!("{}", final_rexpr.pretty(100));
