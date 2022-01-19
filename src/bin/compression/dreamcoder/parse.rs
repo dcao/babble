@@ -1,6 +1,8 @@
+use super::expr::{DcExpr, DreamCoderOp};
+use babble::ast_node::{AstNode, Expr};
+use egg::Symbol;
+use internment::ArcIntern;
 use std::str::FromStr;
-
-use super::expr::Expr;
 
 use nom::{
     branch::alt,
@@ -36,53 +38,61 @@ where
     )
 }
 
-fn var(s: &str) -> ParseResult<'_, Expr> {
+fn var(s: &str) -> ParseResult<'_, Expr<DreamCoderOp>> {
     context(
         "variable",
-        map(preceded(char('$'), cut(from_str(digit1))), Expr::var),
+        map(preceded(char('$'), cut(from_str(digit1))), |index| {
+            AstNode::leaf(DreamCoderOp::Var(index)).into()
+        }),
     )(s)
 }
 
-fn symbol(s: &str) -> ParseResult<'_, Expr> {
+fn symbol(s: &str) -> ParseResult<'_, Expr<DreamCoderOp>> {
     context(
         "symbol",
         map(
             take_till1(|c: char| c.is_whitespace() || "()$#".find(c).is_some()),
-            Expr::symbol,
+            |symbol| AstNode::leaf(DreamCoderOp::Symbol(Symbol::from(symbol))).into(),
         ),
     )(s)
 }
 
-fn inlined(s: &str) -> ParseResult<'_, Expr> {
+fn inlined(s: &str) -> ParseResult<'_, Expr<DreamCoderOp>> {
     context(
         "inlined",
-        map(preceded(char('#'), cut(expr)), Expr::inlined),
+        map(preceded(char('#'), cut(expr)), |expr| {
+            AstNode::leaf(DreamCoderOp::Inlined(ArcIntern::new(expr.into()))).into()
+        }),
     )(s)
 }
 
-fn lambda(s: &str) -> ParseResult<'_, Expr> {
+fn lambda(s: &str) -> ParseResult<'_, Expr<DreamCoderOp>> {
     context(
         "lambda",
         map(
             parenthesized(preceded(tag("lambda"), preceded(multispace1, cut(expr)))),
-            Expr::lambda,
+            |body| AstNode::new(DreamCoderOp::Lambda, [body]).into(),
         ),
     )(s)
 }
 
-fn app(s: &str) -> ParseResult<'_, Expr> {
+fn app(s: &str) -> ParseResult<'_, Expr<DreamCoderOp>> {
     context(
         "app",
         parenthesized(flat_map(expr, |fun| {
-            fold_many1(preceded(multispace1, expr), move || fun.clone(), Expr::app)
+            fold_many1(
+                preceded(multispace1, expr),
+                move || fun.clone(),
+                |fun, arg| AstNode::new(DreamCoderOp::App, [fun, arg]).into(),
+            )
         })),
     )(s)
 }
 
-fn expr(s: &str) -> ParseResult<'_, Expr> {
+fn expr(s: &str) -> ParseResult<'_, Expr<DreamCoderOp>> {
     alt((var, inlined, symbol, lambda, app))(s)
 }
 
-pub(crate) fn parse(s: &str) -> Result<Expr, VerboseError<&str>> {
-    all_consuming(expr)(s).finish().map(|(_, e)| e)
+pub(crate) fn parse(s: &str) -> Result<DcExpr, VerboseError<&str>> {
+    all_consuming(expr)(s).finish().map(|(_, e)| e.into())
 }

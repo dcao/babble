@@ -1,8 +1,8 @@
 //! The JSON interface to Dream&shy;Coder.
 
 use serde::{Deserialize, Serialize};
-
-use super::{expr::Expr, types::Type};
+use babble::ast_node::Expr;
+use super::{expr::{DreamCoderOp, DcExpr}, types::Type};
 
 /// The input format of the `compression` tool.
 #[allow(missing_docs)]
@@ -50,7 +50,7 @@ pub struct Dsl {
 #[serde(rename_all = "camelCase")]
 pub struct Production {
     pub log_probability: f64,
-    pub expression: Expr,
+    pub expression: DcExpr,
 }
 
 /// A particular task for `compression` to examine.
@@ -68,5 +68,5 @@ pub struct Frontier {
 #[serde(rename_all = "camelCase")]
 pub struct Program {
     pub log_likelihood: f64,
-    pub program: Expr,
+    pub program: DcExpr,
 }

@@ -14,8 +14,8 @@
 
 use babble::{extract::LpExtractor, learn::LearnedLibrary};
 use clap::Clap;
-use dreamcoder::{expr::Expr, json::CompressionInput};
-use egg::{AstSize, EGraph, Runner};
+use dreamcoder::{expr::DcExpr, json::CompressionInput};
+use egg::{AstSize, EGraph, Runner, RecExpr};
 use std::{
     fs,
     io::{self, Read},
@@ -63,22 +63,18 @@ fn main() {
     let limit = opts.limit.unwrap_or(usize::MAX);
 
     let mut egraph = EGraph::new(());
-    let mut roots = vec![];
+    let programs: Vec<RecExpr<_>> = input
+        .frontiers
+        .into_iter()
+        .flat_map(|frontier| frontier.programs)
+        .map(|program| program.program.into())
+        .take(limit)
+        .collect();
+    let mut roots = Vec::with_capacity(programs.len());
 
-    for frontier in &input.frontiers {
-        if roots.len() > limit {
-            break;
-        }
-
-        for program in &frontier.programs {
-            if roots.len() > limit {
-                break;
-            }
-
-            let expr = &program.program;
-            let root = egraph.add_expr(&expr.into());
-            roots.push(root);
-        }
+    for expr in &programs {
+        let root = egraph.add_expr(expr);
+        roots.push(root);
     }
 
     egraph.rebuild();
@@ -110,7 +106,7 @@ fn main() {
         .solve_multiple(&roots);
     println!("Solutions:");
     for id in ids {
-        let expr = Expr {
+        let expr = DcExpr {
             context: exprs.clone(),
             index: id,
         };
