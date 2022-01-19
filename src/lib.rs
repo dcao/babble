@@ -22,4 +22,5 @@ pub mod extract;
 pub mod learn;
 pub mod lift_lib;
 pub mod sexp;
+pub mod simple_lang;
 pub mod teachable;

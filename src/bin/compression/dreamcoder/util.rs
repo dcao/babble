@@ -22,7 +22,7 @@ where
 
 /// A de Bruijn index.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct DeBruijnIndex(usize);
+pub struct DeBruijnIndex(pub usize);
 
 impl DeBruijnIndex {
     pub fn new(index: usize) -> Self {
