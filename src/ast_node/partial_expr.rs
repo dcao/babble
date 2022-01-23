@@ -88,6 +88,24 @@ impl<Op, T> PartialExpr<Op, T> {
         matches!(self, Self::Node(_))
     }
 
+    /// Returns the number of nodes in the partial expression, not including holes.
+    #[must_use]
+    pub fn num_nodes(&self) -> usize {
+        match self {
+            PartialExpr::Node(node) => 1 + node.iter().map(Self::num_nodes).sum::<usize>(),
+            PartialExpr::Hole(_) => 0,
+        }
+    }
+
+    /// Returns the number of holes in the partial expression.
+    #[must_use]
+    pub fn num_holes(&self) -> usize {
+        match self {
+            PartialExpr::Node(node) => node.iter().map(Self::num_holes).sum::<usize>(),
+            PartialExpr::Hole(_) => 1,
+        }
+    }
+
     /// Returns `true` if the partial expression is a hole.
     #[must_use]
     pub fn is_hole(&self) -> bool {

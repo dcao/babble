@@ -1,4 +1,18 @@
 //! The primary interface for library learning through antiunification.
+//!
+//! The antiunification algorithm is as follows: For each pair of eclasses (a, b),
+//! we store a set of partial expressions AU(a, b). Partial expressions are
+//! expressions where some of the sub-expressions may be replaced by another
+//! data type. For example, a pattern is (equivalent to) a partial expression
+//! over variables. In this algorithm, we use partial expressions over pairs of
+//! enodes.
+//!
+//! To compute the set AU(a, b): For each pair of enodes with matching operators
+//! and arities op(x1, ..., xn) \in a and op(y1, ..., yn) \in b, we recursively
+//! compute AU(x1, y1), ..., AU(xn, yn). Then, for every n-tuple of partial
+//! expressions (z1, ..., zn) with z1 \in AU(x1, y1), ..., zn \in AU(xn, yn), we
+//! add the partial expression op(z1, ..., zn) to the set AU(a, b).
+//! If the set AU(a, b) is empty, we add to it the partial expression (a, b).
 use crate::{
     ast_node::{Arity, AstNode, PartialExpr},
     dfta::Dfta,
@@ -172,7 +186,38 @@ where
                 .iter()
                 .filter(|au| au.has_holes())
                 .cloned()
-                .map(normalize);
+                .map(normalize)
+                .filter_map(|(au, num_vars)| {
+                    // Here we filter out rewrites that don't actually simplify
+                    // anything. We say that an AU rewrite simplifies an
+                    // expression if it replaces that expression with a function
+                    // call that is strictly smaller than the original
+                    // expression.
+                    //
+                    // The size of a function call `f e_1 ... e_n` is size(e1) +
+                    // ... + size(e_n) + n + 1, as there are n applications and
+                    // the function's identifier `f`.
+                    //
+                    // The size of an expression e containing n subexpressions
+                    // e_1, ..., e_n is k_1 * size(e_1) + ... + k_n * size(e_n)
+                    // + size(e[x_1/e_1, ..., x_n/e_n]) - (k_1 + ... + k_n),
+                    // where k_i is the number of times e_i appears in e and
+                    // x_1, ..., x_n are variables.
+                    //
+                    // Because size(e_i) can be arbitrarily large, if any
+                    // variable k_i is greater than 1, the difference in size
+                    // between the function call and the original expression can
+                    // also be arbitrarily large. Otherwise, if k_1 = ... = k_n
+                    // = 1, the rewrite can simplify an expression if and only
+                    // if size(e[x_1/e_1, ..., x_n/e_n]) > 2n + 1. This
+                    // corresponds to an anti-unification containing at least n
+                    // + 1 nodes.
+                    if num_vars < au.num_holes() || au.num_nodes() > num_vars + 1 {
+                        Some(au)
+                    } else {
+                        None
+                    }
+                });
 
             self.nontrivial_aus.extend(nontrivial_aus);
         } else {
@@ -189,9 +234,10 @@ where
 
 /// Replaces the metavariables in an anti-unification with pattern variables.
 /// Normalizing alpha-equivalent anti-unifications produces identical
-/// anti-unifications.
+/// anti-unifications. Returns a pair of the anti-unification and the number of
+/// unique variables it contains.
 #[must_use]
-fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> PartialExpr<Op, Var> {
+fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> (PartialExpr<Op, Var>, usize) {
     let mut metavars = Vec::new();
     let to_var = |metavar| {
         let index = metavars
@@ -207,7 +253,8 @@ fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> PartialExpr<Op, Var> {
             .unwrap_or_else(|_| unreachable!());
         PartialExpr::Hole(var)
     };
-    au.fill(to_var)
+    let normalized = au.fill(to_var);
+    (normalized, metavars.len())
 }
 
 /// Converts an anti-unification into a partial expression which defines a new
