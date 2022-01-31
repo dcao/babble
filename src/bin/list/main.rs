@@ -12,7 +12,7 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
-use babble::{ast_node::Expr, extract::LpExtractor, learn::LearnedLibrary, sexp::Sexp};
+use babble::{ast_node::Expr, extract::{partial::*, LpExtractor}, learn::LearnedLibrary, sexp::Sexp};
 use clap::Clap;
 use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner};
 use log::info;
@@ -82,35 +82,42 @@ fn main() {
     println!("{}", pretty_expr);
     println!();
 
-    let mut egraph = EGraph::default();
+    println!("stage one");
+    let mut egraph = EGraph::new(PartialLibCost::new(20));
     let root = egraph.add_expr(&initial_expr);
     egraph.rebuild();
 
+    println!("stage two");
     let learned_lib = LearnedLibrary::from(&egraph);
     let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
-    let egraph = Runner::default()
+    let egraph = Runner::<_, _, ()>::new(PartialLibCost::new(20))
         .with_egraph(egraph)
         .with_iter_limit(1)
         .run(lib_rewrites.iter())
         .egraph;
-    let runner = Runner::default()
-        .with_egraph(egraph)
-        .run(*lang::LIFT_LIB_REWRITES);
-    let stop_reason = runner.stop_reason.unwrap_or_else(|| unreachable!());
-    info!("Stop reason: {:?}", stop_reason);
-    info!("Number of iterations: {}", runner.iterations.len());
+    
+    // For debug purposes: print the analysis for the root node
+    println!("root analysis data:");
+    println!("{:#?}", &egraph[egraph.find(root)].data);
 
-    let egraph = runner.egraph;
-    info!("Number of nodes: {}", egraph.total_size());
-    let final_expr = LpExtractor::new(&egraph, AstSize).solve(root);
-    let final_cost = final_expr.as_ref().len();
+    // let runner = Runner::default()
+    //     .with_egraph(egraph)
+    //     .run(*lang::LIFT_LIB_REWRITES);
+    // let stop_reason = runner.stop_reason.unwrap_or_else(|| unreachable!());
+    // info!("Stop reason: {:?}", stop_reason);
+    // info!("Number of iterations: {}", runner.iterations.len());
 
-    println!("Final expression (cost {}):", final_cost);
-    // println!("{}", final_rexpr.pretty(100));
-    println!("{}", Pretty(&Expr::from(final_expr)));
-    println!();
+    // let egraph = runner.egraph;
+    // info!("Number of nodes: {}", egraph.total_size());
+    // let final_expr = LpExtractor::new(&egraph, AstSize).solve(root);
+    // let final_cost = final_expr.as_ref().len();
 
-    #[allow(clippy::cast_precision_loss)]
-    let compression_ratio = (initial_cost as f64) / (final_cost as f64);
-    println!("Compression ratio: {:.2}", compression_ratio);
+    // println!("Final expression (cost {}):", final_cost);
+    // // println!("{}", final_rexpr.pretty(100));
+    // println!("{}", Pretty(&Expr::from(final_expr)));
+    // println!();
+
+    // #[allow(clippy::cast_precision_loss)]
+    // let compression_ratio = (initial_cost as f64) / (final_cost as f64);
+    // println!("Compression ratio: {:.2}", compression_ratio);
 }
