@@ -14,12 +14,12 @@
 
 use babble::{
     ast_node::{AstNode, Expr},
-    extract::LpExtractor,
+    extract::{LpExtractor, partial::PartialLibCost},
     learn::LearnedLibrary,
 };
 use clap::Clap;
 use dreamcoder::{expr::DcExpr, json::CompressionInput};
-use egg::{AstSize, EGraph, RecExpr, Runner};
+use egg::{AstSize, EGraph, RecExpr, Runner, Language};
 use std::{
     fs,
     io::{self, Read},
@@ -68,7 +68,7 @@ fn main() {
     let input: CompressionInput = serde_json::from_str(&input).expect("Error parsing JSON input");
     let limit = opts.limit.unwrap_or(usize::MAX);
 
-    let mut egraph = EGraph::new(());
+    let mut egraph = EGraph::new(PartialLibCost::new(20));
     let programs: Vec<Expr<DreamCoderOp>> = input
         .frontiers
         .into_iter()
@@ -94,7 +94,7 @@ fn main() {
     println!("Found {} antiunifications", lib_rewrites.len());
 
     println!("Anti-unifying");
-    let runner = Runner::default()
+    let runner = Runner::<_, _, ()>::new(PartialLibCost::new(20))
         .with_egraph(egraph)
         .with_iter_limit(1)
         .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
@@ -106,20 +106,42 @@ fn main() {
     let egraph = runner.egraph;
     println!("Number of nodes: {}", egraph.total_size());
 
-    println!("Extracting");
+    // For debug purposes: print the analysis for the root node
+    for root in &roots {
+        let root = *root;
+        println!("root {}", root);
+        let cs = &egraph[egraph.find(root)].data;
+        for (i, ls) in cs.set.iter().enumerate() {
+            println!("lib selection {}", i);
+            if i == 0 { println!("MOST OPTIMAL"); }
+            println!("libs:");
+            for (l, _c) in &ls.libs {
+                println!("new lib");
+                for n in &egraph[*l].nodes {
+                    println!("{}", n.build_recexpr(|id| egraph[id].nodes[0].clone()).pretty(100));
+                }
+            }
+            println!("costs: {} {}", ls.expr_cost, ls.full_cost);
+            println!();
+        }
 
-    let (exprs, ids) = LpExtractor::new(&egraph, AstSize)
-        .timeout(timeout.saturating_sub(start_time.elapsed()).as_secs_f64())
-        .solve_multiple(&roots);
-    let final_exprs: Vec<Expr<_>> = ids
-        .into_iter()
-        .map(|id| RecExpr::from(exprs.as_ref()[..=usize::from(id)].to_vec()).into())
-        .collect();
-    let final_cost: usize = final_exprs.iter().map(Expr::len).sum();
-    println!("Final cost: {}", final_cost);
-    println!("Solutions:");
-    for expr in final_exprs {
-        println!("{}", DcExpr::from(expr));
         println!();
     }
+
+    // println!("Extracting");
+
+    // let (exprs, ids) = LpExtractor::new(&egraph, AstSize)
+    //     .timeout(timeout.saturating_sub(start_time.elapsed()).as_secs_f64())
+    //     .solve_multiple(&roots);
+    // let final_exprs: Vec<Expr<_>> = ids
+    //     .into_iter()
+    //     .map(|id| RecExpr::from(exprs.as_ref()[..=usize::from(id)].to_vec()).into())
+    //     .collect();
+    // let final_cost: usize = final_exprs.iter().map(Expr::len).sum();
+    // println!("Final cost: {}", final_cost);
+    // println!("Solutions:");
+    // for expr in final_exprs {
+    //     println!("{}", DcExpr::from(expr));
+    //     println!();
+    // }
 }
