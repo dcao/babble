@@ -235,8 +235,8 @@ where
                         e = e.cross(x(cs));
                         // Intermediate prune.
                         // TODO: don't hardcode this
-                        e.prune(100);
                         e.unify();
+                        e.prune(100);
                     }
 
                     // TODO: intermediate unify/beam size reduction for each crossing step?
