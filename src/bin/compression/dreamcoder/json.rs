@@ -1,8 +1,7 @@
 //! The JSON interface to Dream&shy;Coder.
 
+use super::{expr::DcExpr, types::Type};
 use serde::{Deserialize, Serialize};
-use babble::ast_node::Expr;
-use super::{expr::{DreamCoderOp, DcExpr}, types::Type};
 
 /// The input format of the `compression` tool.
 #[allow(missing_docs)]
@@ -13,14 +12,12 @@ pub struct CompressionInput {
     pub cpus: u32,
     pub arity: u32,
     pub verbose: bool,
-
     #[serde(rename = "collect_data")]
     pub collect_data: bool,
     pub bs: u32, // what is this
     pub aic: u32,
     pub structure_penalty: u32,
     pub top_k: u32,
-
     #[serde(rename = "DSL")]
     pub dsl: Dsl,
     pub frontiers: Vec<Frontier>,

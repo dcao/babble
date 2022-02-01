@@ -1,41 +1,48 @@
 //! The language of Dream&shy;Coder expressions.
 
-use std::{
-    borrow::Cow,
-    convert::{TryFrom, TryInto},
-    fmt::{self, Display, Formatter},
-    slice,
-    str::FromStr,
-};
-
+use super::{parse, util::parens};
 use babble::{
     ast_node::{Arity, AstNode, Expr},
     teachable::{BindingExpr, Teachable},
 };
-use egg::{FromOp, FromOpError, Id, Language, RecExpr, Symbol};
+use egg::{RecExpr, Symbol};
 use internment::ArcIntern;
 use nom::error::convert_error;
+use ref_cast::RefCast;
 use serde::{Deserialize, Serialize};
-
-use super::{
-    parse,
-    util::{parens, DeBruijnIndex},
+use std::{
+    borrow::Cow,
+    convert::TryFrom,
+    fmt::{self, Display, Formatter},
+    ops::{Deref, DerefMut},
+    str::FromStr,
 };
 
+/// A wrapper around a string, used as an intermediary for serializing other
+/// types as strings.
 #[allow(single_use_lifetimes)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-struct RawExpr<'a>(Cow<'a, str>);
+struct RawStr<'a>(Cow<'a, str>);
 
 /// An expression in Dream&shy;Coder's generic programming language.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "RawExpr<'_>")]
-#[serde(into = "RawExpr<'_>")]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, RefCast)]
+#[serde(try_from = "RawStr<'_>")]
+#[serde(into = "RawStr<'_>")]
+#[repr(transparent)]
 pub struct DcExpr(Expr<DreamCoderOp>);
 
-impl From<Expr<DreamCoderOp>> for DcExpr {
-    fn from(expr: Expr<DreamCoderOp>) -> Self {
-        Self(expr)
+impl Deref for DcExpr {
+    type Target = Expr<DreamCoderOp>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for DcExpr {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -51,16 +58,22 @@ impl From<DcExpr> for RecExpr<AstNode<DreamCoderOp>> {
     }
 }
 
-impl From<DcExpr> for RawExpr<'_> {
+impl From<Expr<DreamCoderOp>> for DcExpr {
+    fn from(expr: Expr<DreamCoderOp>) -> Self {
+        Self(expr)
+    }
+}
+
+impl From<DcExpr> for RawStr<'static> {
     fn from(expr: DcExpr) -> Self {
         Self(expr.to_string().into())
     }
 }
 
-impl<'a> TryFrom<RawExpr<'a>> for DcExpr {
+impl<'a> TryFrom<RawStr<'a>> for DcExpr {
     type Error = ParseExprError;
 
-    fn try_from(raw_expr: RawExpr<'a>) -> Result<Self, Self::Error> {
+    fn try_from(raw_expr: RawStr<'a>) -> Result<Self, Self::Error> {
         raw_expr.0.parse()
     }
 }
@@ -76,7 +89,7 @@ pub enum DreamCoderOp {
 
     /// An "inlined" expression. This is how Dream&shy;Coder represents learned
     /// functions.
-    Inlined(ArcIntern<DcExpr>),
+    Inlined(ArcIntern<Expr<Self>>),
 
     /// An anonymous function.
     Lambda,
@@ -133,55 +146,34 @@ impl Display for DreamCoderOp {
             DreamCoderOp::Lib => "lib",
             DreamCoderOp::Shift => "shift",
             DreamCoderOp::Var(index) => return write!(f, "${}", index),
-            DreamCoderOp::Inlined(expr) => return write!(f, "#{}", expr),
+            DreamCoderOp::Inlined(expr) => return write!(f, "#{}", DcExpr::ref_cast(expr)),
             DreamCoderOp::Symbol(symbol) => return write!(f, "{}", symbol),
         };
         f.write_str(s)
     }
 }
 
-impl FromStr for DreamCoderOp {
-    type Err = ParseExprError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "lambda" => Ok(DreamCoderOp::Lambda),
-            "@" => Ok(DreamCoderOp::App),
-            "lib" => Ok(DreamCoderOp::Lib),
-            "shift" => Ok(DreamCoderOp::Shift),
-            _ => {
-                return s
-                    .parse()
-                    .map(|DeBruijnIndex(index)| DreamCoderOp::Var(index))
-                    .or_else(|_| match s.strip_prefix('#') {
-                        Some(s) => RawExpr(s.into())
-                            .try_into()
-                            .map(|expr| DreamCoderOp::Inlined(ArcIntern::new(expr))),
-                        None => Ok(DreamCoderOp::Symbol(s.into())),
-                    })
-            }
-        }
-    }
-}
-
 impl Display for DcExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let expr = &self.0.into_inner();
-        match expr.as_parts() {
-            (
-                op @ (DreamCoderOp::Var(_) | DreamCoderOp::Inlined(_) | DreamCoderOp::Symbol(_)),
-                [],
-            ) => write!(f, "{}", op),
+        let node: &AstNode<_, _> = self.as_ref();
+        match node.as_parts() {
+            (DreamCoderOp::Symbol(name), []) => write!(f, "{}", name),
+            (DreamCoderOp::Var(index), []) => {
+                write!(f, "${}", index)
+            }
+            (DreamCoderOp::Inlined(expr), []) => {
+                write!(f, "#{}", Self::ref_cast(expr))
+            }
             (DreamCoderOp::Lambda, [body]) => {
-                write!(f, "(lambda {:.1})", &Self(*body))
+                write!(f, "(lambda {:.1})", Self::ref_cast(body))
             }
-            (DreamCoderOp::App, [fun, arg]) => {
-                parens(0, f, |f| write!(f, "{:.0} {:.1}", &Self(*fun), &Self(*arg)))
-            }
+            (DreamCoderOp::App, [fun, arg]) => parens(0, f, |f| {
+                write!(f, "{:.0} {:.1}", Self::ref_cast(fun), Self::ref_cast(arg))
+            }),
             (op, args) => {
                 write!(f, "({}", op)?;
                 for arg in args {
-                    write!(f, " {}", &Self(*arg))?;
+                    write!(f, " {}", Self::ref_cast(arg))?;
                 }
                 f.write_str(")")
             }
@@ -189,7 +181,7 @@ impl Display for DcExpr {
     }
 }
 
-/// An error produced when a string can't be parsed as a valid [`Expr`].
+/// An error produced when a string can't be parsed as a valid [`DcExpr`].
 #[derive(Debug, Clone)]
 pub struct ParseExprError {
     message: String,
@@ -205,37 +197,40 @@ impl FromStr for DcExpr {
     type Err = ParseExprError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse::parse(s).map_err(|e| ParseExprError {
+        parse::parse(s).map(DcExpr).map_err(|e| ParseExprError {
             message: convert_error(s, e),
         })
     }
 }
 
-impl DcExpr {
-    fn lambda(body: Self) -> Self {
-        Self(AstNode::new(DreamCoderOp::Lambda, [body.0]).into())
-    }
-
-    fn app(fun: Self, arg: Self) -> Self {
-        Self(AstNode::new(DreamCoderOp::App, [fun.0, arg.0]).into())
-    }
-
-    fn symbol(name: &str) -> Self {
-        Self(AstNode::leaf(DreamCoderOp::Symbol(name.into())).into())
-    }
-
-    fn var(index: usize) -> Self {
-        Self(AstNode::leaf(DreamCoderOp::Var(index)).into())
-    }
-
-    fn inlined(expr: Self) -> Self {
-        Self(AstNode::leaf(DreamCoderOp::Inlined(ArcIntern::new(expr))).into())
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::DcExpr;
+    use babble::ast_node::AstNode;
+    use internment::ArcIntern;
+
+    use super::{DcExpr, DreamCoderOp};
+
+    impl DcExpr {
+        fn lambda(body: Self) -> Self {
+            Self(AstNode::new(DreamCoderOp::Lambda, [body.0]).into())
+        }
+
+        fn app(fun: Self, arg: Self) -> Self {
+            Self(AstNode::new(DreamCoderOp::App, [fun.0, arg.0]).into())
+        }
+
+        fn symbol(name: &str) -> Self {
+            Self(AstNode::leaf(DreamCoderOp::Symbol(name.into())).into())
+        }
+
+        fn var(index: usize) -> Self {
+            Self(AstNode::leaf(DreamCoderOp::Var(index)).into())
+        }
+
+        fn inlined(expr: Self) -> Self {
+            Self(AstNode::leaf(DreamCoderOp::Inlined(ArcIntern::new(expr.0))).into())
+        }
+    }
 
     #[test]
     fn parser_test() {

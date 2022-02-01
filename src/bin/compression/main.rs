@@ -12,16 +12,22 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
-use babble::{extract::LpExtractor, learn::LearnedLibrary};
+use babble::{
+    ast_node::{AstNode, Expr},
+    extract::LpExtractor,
+    learn::LearnedLibrary,
+};
 use clap::Clap;
 use dreamcoder::{expr::DcExpr, json::CompressionInput};
-use egg::{AstSize, EGraph, Runner, RecExpr};
+use egg::{AstSize, EGraph, RecExpr, Runner};
 use std::{
     fs,
     io::{self, Read},
     path::PathBuf,
     time::{Duration, Instant},
 };
+
+use crate::dreamcoder::expr::DreamCoderOp;
 
 pub mod dreamcoder;
 
@@ -63,7 +69,7 @@ fn main() {
     let limit = opts.limit.unwrap_or(usize::MAX);
 
     let mut egraph = EGraph::new(());
-    let programs: Vec<RecExpr<_>> = input
+    let programs: Vec<Expr<DreamCoderOp>> = input
         .frontiers
         .into_iter()
         .flat_map(|frontier| frontier.programs)
@@ -71,15 +77,16 @@ fn main() {
         .take(limit)
         .collect();
     let mut roots = Vec::with_capacity(programs.len());
-
-    for expr in &programs {
-        let root = egraph.add_expr(expr);
+    let initial_cost: usize = programs.iter().map(Expr::len).sum();
+    for expr in programs.iter().cloned().map(RecExpr::from) {
+        let root = egraph.add_expr(&expr);
         roots.push(root);
     }
 
     egraph.rebuild();
 
     println!("Compressing {} programs", roots.len());
+    println!("Starting cost: {}", initial_cost);
 
     let learned_lib = LearnedLibrary::from(&egraph);
     let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
@@ -104,13 +111,15 @@ fn main() {
     let (exprs, ids) = LpExtractor::new(&egraph, AstSize)
         .timeout(timeout.saturating_sub(start_time.elapsed()).as_secs_f64())
         .solve_multiple(&roots);
+    let final_exprs: Vec<Expr<_>> = ids
+        .into_iter()
+        .map(|id| RecExpr::from(exprs.as_ref()[..=usize::from(id)].to_vec()).into())
+        .collect();
+    let final_cost: usize = final_exprs.iter().map(Expr::len).sum();
+    println!("Final cost: {}", final_cost);
     println!("Solutions:");
-    for id in ids {
-        let expr = DcExpr {
-            context: exprs.clone(),
-            index: id,
-        };
-        println!("{}", expr);
+    for expr in final_exprs {
+        println!("{}", DcExpr::from(expr));
         println!();
     }
 }
