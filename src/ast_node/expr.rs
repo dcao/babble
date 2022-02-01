@@ -13,6 +13,12 @@ impl<Op> Expr<Op> {
     pub fn into_inner(self) -> AstNode<Op, Self> {
         self.0
     }
+
+    /// Returns the number of AST nodes in the expression.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.0.iter().map(|expr| expr.len()).sum::<usize>() + 1
+    }
 }
 
 impl<'a, Op: FromStr + Arity> TryFrom<Sexp<'a>> for Expr<Op> {
@@ -78,5 +84,11 @@ impl<Op> From<AstNode<Op, Self>> for Expr<Op> {
 impl<Op> From<Expr<Op>> for AstNode<Op, Expr<Op>> {
     fn from(expr: Expr<Op>) -> Self {
         expr.0
+    }
+}
+
+impl<Op> AsRef<AstNode<Op, Self>> for Expr<Op> {
+    fn as_ref(&self) -> &AstNode<Op, Self> {
+        &self.0
     }
 }

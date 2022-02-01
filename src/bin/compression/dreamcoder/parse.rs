@@ -1,4 +1,4 @@
-use super::expr::{DcExpr, DreamCoderOp};
+use super::expr::DreamCoderOp;
 use babble::ast_node::{AstNode, Expr};
 use egg::Symbol;
 use internment::ArcIntern;
@@ -93,6 +93,6 @@ fn expr(s: &str) -> ParseResult<'_, Expr<DreamCoderOp>> {
     alt((var, inlined, symbol, lambda, app))(s)
 }
 
-pub(crate) fn parse(s: &str) -> Result<DcExpr, VerboseError<&str>> {
-    all_consuming(expr)(s).finish().map(|(_, e)| e.into())
+pub(crate) fn parse(s: &str) -> Result<Expr<DreamCoderOp>, VerboseError<&str>> {
+    all_consuming(expr)(s).finish().map(|(_, e)| e)
 }
