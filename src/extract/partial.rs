@@ -32,7 +32,7 @@ impl CostSet {
             for ls2 in &other.set {
                 let ls = ls1.combine(ls2);
 
-                match set.binary_search_by_key(&ls.expr_cost, |ls: &LibSel| ls.expr_cost) {
+                match set.binary_search_by_key(&ls.full_cost, |ls: &LibSel| ls.full_cost) {
                     Ok(pos) => set.insert(pos, ls),
                     Err(pos) => set.insert(pos, ls),
                 }
@@ -47,7 +47,7 @@ impl CostSet {
         for elem in other.set {
             match self
                 .set
-                .binary_search_by_key(&elem.expr_cost, |ls| ls.expr_cost)
+                .binary_search_by_key(&elem.full_cost, |ls| ls.full_cost)
             {
                 Ok(pos) => self.set.insert(pos, elem),
                 Err(pos) => self.set.insert(pos, elem),
@@ -95,7 +95,7 @@ impl CostSet {
             for ls2 in &self.set {
                 let ls = ls2.add_lib(lib, ls1);
 
-                match set.binary_search_by_key(&ls.expr_cost, |ls: &LibSel| ls.expr_cost) {
+                match set.binary_search_by_key(&ls.full_cost, |ls: &LibSel| ls.full_cost) {
                     Ok(pos) => set.insert(pos, ls),
                     Err(pos) => set.insert(pos, ls),
                 }
@@ -196,7 +196,8 @@ where
         // pruning.
         to.combine(from);
         to.unify();
-        to.prune(self.beam_size);
+        // TODO: don't hardcode size
+        to.prune(10);
 
         DidMerge(true, true)
     }
@@ -211,7 +212,7 @@ where
                 let mut e = x(b).add_lib(*f, x(f));
                 e.unify();
                 // TODO: don't hardcore this
-                e.prune(20); 
+                e.prune(10); 
                 e
             }
             Some(_) | None => {
@@ -234,7 +235,7 @@ where
                         e = e.cross(x(cs));
                         // Intermediate prune.
                         // TODO: don't hardcode this
-                        e.prune(1000);
+                        e.prune(100);
                         e.unify();
                     }
 
@@ -242,7 +243,7 @@ where
                     // do perf testing on this
                     e.unify();
                     // TODO: dont hardcode this
-                    e.prune(20);
+                    e.prune(10);
                     e
                 }
             }

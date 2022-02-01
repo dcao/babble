@@ -101,6 +101,7 @@ fn main() {
     let cs = &egraph[egraph.find(root)].data;
     for (i, ls) in cs.set.iter().enumerate() {
         println!("lib selection {}", i);
+        if i == 0 { println!("MOST OPTIMAL"); }
         println!("libs:");
         for (l, _c) in &ls.libs {
             println!("new lib");
