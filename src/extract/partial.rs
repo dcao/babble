@@ -15,7 +15,7 @@ use crate::{
 pub struct CostSet {
     // Invariant: always sorted in ascending order of
     // expr_cost + libs_cost
-    set: Vec<LibSel>,
+    pub set: Vec<LibSel>,
 }
 
 impl CostSet {
@@ -32,7 +32,7 @@ impl CostSet {
             for ls2 in &other.set {
                 let ls = ls1.combine(ls2);
 
-                match set.binary_search_by_key(&ls.full_cost, |ls: &LibSel| ls.full_cost) {
+                match set.binary_search_by_key(&ls.expr_cost, |ls: &LibSel| ls.expr_cost) {
                     Ok(pos) => set.insert(pos, ls),
                     Err(pos) => set.insert(pos, ls),
                 }
@@ -47,7 +47,7 @@ impl CostSet {
         for elem in other.set {
             match self
                 .set
-                .binary_search_by_key(&elem.full_cost, |ls| ls.full_cost)
+                .binary_search_by_key(&elem.expr_cost, |ls| ls.expr_cost)
             {
                 Ok(pos) => self.set.insert(pos, elem),
                 Err(pos) => self.set.insert(pos, elem),
@@ -95,7 +95,7 @@ impl CostSet {
             for ls2 in &self.set {
                 let ls = ls2.add_lib(lib, ls1);
 
-                match set.binary_search_by_key(&ls.full_cost, |ls: &LibSel| ls.full_cost) {
+                match set.binary_search_by_key(&ls.expr_cost, |ls: &LibSel| ls.expr_cost) {
                     Ok(pos) => set.insert(pos, ls),
                     Err(pos) => set.insert(pos, ls),
                 }
@@ -118,10 +118,10 @@ impl CostSet {
 /// functions, and the cost of the library functions themselves
 #[derive(Debug, Default, Clone)]
 pub struct LibSel {
-    libs: HashSet<(Id, usize)>,
-    expr_cost: usize,
+    pub libs: HashSet<(Id, usize)>,
+    pub expr_cost: usize,
     // Memoized expr_cost + sum({ l.1 for l in libs })
-    full_cost: usize,
+    pub full_cost: usize,
 }
 
 impl LibSel {
@@ -191,7 +191,7 @@ where
 {
     type Data = CostSet;
 
-    fn merge(&self, to: &mut Self::Data, from: Self::Data) -> DidMerge {
+    fn merge(&mut self, to: &mut Self::Data, from: Self::Data) -> DidMerge {
         // Merging consists of combination, followed by unification and beam
         // pruning.
         to.combine(from);
@@ -234,8 +234,8 @@ where
                         e = e.cross(x(cs));
                         // Intermediate prune.
                         // TODO: don't hardcode this
-                        // e.prune(1000);
-                        // e.unify();
+                        e.prune(1000);
+                        e.unify();
                     }
 
                     // TODO: intermediate unify/beam size reduction for each crossing step?
