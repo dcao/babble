@@ -200,8 +200,8 @@ where
 
     fn merge(&mut self, to: &mut Self::Data, from: Self::Data) -> DidMerge {
         // println!("merge");
-        // println!("{:#?}", to);
-        // println!("{:#?}", &from);
+        // println!("{:?}", to);
+        // println!("{:?}", &from);
         let a0 = to.clone();
 
         // Merging consists of combination, followed by unification and beam
@@ -212,7 +212,9 @@ where
         to.prune(10);
 
         // TODO: be more efficient with how we do this
-        DidMerge(&a0 == to, to == &from)
+        // println!("{:?} {}", &a0 != to, to != &from);
+        DidMerge(&a0 != to, to != &from)
+        // DidMerge(false, false)
     }
 
     fn make(egraph: &EGraph<AstNode<Op>, Self>, enode: &AstNode<Op>) -> Self::Data {
@@ -267,6 +269,7 @@ where
     // For debugging
     // fn modify(egraph: &mut EGraph<AstNode<Op>, Self>, id: Id) {
     //     println!("merge {}", id);
+    //     println!("{:?}", &egraph[id].data)
     // }
 }
 
