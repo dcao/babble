@@ -72,7 +72,7 @@ impl CostSet {
                 let ls2 = &self.set[j];
                 let mut rem = false;
 
-                if ls1.libs.keys().all(|k| ls2.libs.contains_key(k)) {
+                if ls1.libs.iter().all(|(k, _)| ls2.libs.binary_search_by_key(k, |(elem, _)| *elem).is_ok()) {
                     rem = true;
                 } else {
                     j += 1;
@@ -128,7 +128,7 @@ impl CostSet {
 /// functions, and the cost of the library functions themselves
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibSel {
-    pub libs: BTreeMap<Id, usize>,
+    pub libs: Vec<(Id, usize)>,
     pub expr_cost: usize,
     // Memoized expr_cost + sum({ l.1 for l in libs })
     pub full_cost: usize,
@@ -137,7 +137,7 @@ pub struct LibSel {
 impl LibSel {
     pub fn intro_op() -> LibSel {
         LibSel {
-            libs: BTreeMap::new(),
+            libs: Vec::new(),
             expr_cost: 1,
             full_cost: 1,
         }
@@ -149,38 +149,29 @@ impl LibSel {
         let mut res = self.clone();
 
         for (k, v) in &other.libs {
-            res.libs.entry(*k)
-                .and_modify(|c| if v < c { *c = *v; })
-                .or_insert(*v);
+            match res.libs.binary_search_by_key(k, |(id, _)| *id) {
+                Ok(ix) => if v < &res.libs[ix].1 { res.full_cost -= res.libs[ix].1 - *v; res.libs[ix].1 = *v },
+                Err(ix) => { res.full_cost += *v; res.libs.insert(ix, (*k, *v)) },
+            }
         }
 
         res.expr_cost = self.expr_cost + other.expr_cost;
-        let libs_cost: usize = res.libs.values().sum();
-        res.full_cost = res.expr_cost + libs_cost;
-
+        res.full_cost += other.expr_cost;
 
         res
     }
 
     pub fn add_lib(&self, lib: Id, cost: &LibSel) -> LibSel {
         let mut res = self.clone();
+        let v = cost.expr_cost;
         let mut full_cost = res.full_cost;
-        let mut expr_cost = res.expr_cost;
 
-        res.libs.entry(lib)
-            .and_modify(|v| {
-                if cost.expr_cost < *v {
-                    full_cost -= *v - cost.expr_cost;
-                    *v = cost.expr_cost;
-                }
-            })
-            .or_insert_with(|| {
-                full_cost += cost.expr_cost;
-                cost.expr_cost
-            });
+        match res.libs.binary_search_by_key(&lib, |(id, _)| *id) {
+            Ok(ix) => if v < res.libs[ix].1 { full_cost -= res.libs[ix].1 - v; res.libs[ix].1 = v },
+            Err(ix) => { full_cost += v; res.libs.insert(ix, (lib, v)) },
+        }
 
         res.full_cost = full_cost;
-        res.expr_cost = expr_cost;
         res
     }
 
@@ -241,8 +232,9 @@ where
                 // cross e1, e2 and introduce a lib!
                 let mut e = x(b).add_lib(*f, x(f));
                 e.unify();
-                // TODO: don't hardcore this
-                e.prune(10); 
+                // TODO: don't hardcode this
+                e.prune(10);
+                e.inc_cost();
                 e
             }
             Some(_) | None => {
