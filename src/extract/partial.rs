@@ -1,7 +1,7 @@
 //! extract::partial implements a non-ILP-based extractor based on partial
 //! orderings of learned library sets.
 use egg::{Analysis, DidMerge, EGraph, Id};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::fmt::Debug;
 
 use crate::{
     ast_node::{Arity, AstNode},
@@ -14,7 +14,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CostSet {
     // Invariant: always sorted in ascending order of
-    // expr_cost + libs_cost
+    // expr_cost
     pub set: Vec<LibSel>,
 }
 
@@ -23,9 +23,7 @@ impl CostSet {
         // println!("intro_op");
         let mut set = Vec::with_capacity(10);
         set.push(LibSel::intro_op());
-        CostSet {
-            set,
-        }
+        CostSet { set }
     }
 
     pub fn cross(&self, other: &CostSet) -> CostSet {
@@ -72,7 +70,11 @@ impl CostSet {
                 let ls2 = &self.set[j];
                 let mut rem = false;
 
-                if ls1.libs.iter().all(|(k, _)| ls2.libs.binary_search_by_key(k, |(elem, _)| *elem).is_ok()) {
+                if ls1
+                    .libs
+                    .iter()
+                    .all(|(k, _)| ls2.libs.binary_search_by_key(k, |(elem, _)| *elem).is_ok())
+                {
                     rem = true;
                 } else {
                     j += 1;
@@ -116,9 +118,9 @@ impl CostSet {
         // println!("prune");
         // Only preserve the n best `LibSel`s in the set.
         if self.set.len() > n {
-            self.set.sort_by_key(|elem| elem.full_cost);
+            self.set.sort_unstable_by_key(|elem| elem.full_cost);
             self.set.drain(n..);
-            self.set.sort_by_key(|elem| elem.expr_cost);
+            self.set.sort_unstable_by_key(|elem| elem.expr_cost);
         }
     }
 }
@@ -150,8 +152,16 @@ impl LibSel {
 
         for (k, v) in &other.libs {
             match res.libs.binary_search_by_key(k, |(id, _)| *id) {
-                Ok(ix) => if v < &res.libs[ix].1 { res.full_cost -= res.libs[ix].1 - *v; res.libs[ix].1 = *v },
-                Err(ix) => { res.full_cost += *v; res.libs.insert(ix, (*k, *v)) },
+                Ok(ix) => {
+                    if v < &res.libs[ix].1 {
+                        res.full_cost -= res.libs[ix].1 - *v;
+                        res.libs[ix].1 = *v
+                    }
+                }
+                Err(ix) => {
+                    res.full_cost += *v;
+                    res.libs.insert(ix, (*k, *v))
+                }
             }
         }
 
@@ -167,8 +177,16 @@ impl LibSel {
         let mut full_cost = res.full_cost;
 
         match res.libs.binary_search_by_key(&lib, |(id, _)| *id) {
-            Ok(ix) => if v < res.libs[ix].1 { full_cost -= res.libs[ix].1 - v; res.libs[ix].1 = v },
-            Err(ix) => { full_cost += v; res.libs.insert(ix, (lib, v)) },
+            Ok(ix) => {
+                if v < res.libs[ix].1 {
+                    full_cost -= res.libs[ix].1 - v;
+                    res.libs[ix].1 = v
+                }
+            }
+            Err(ix) => {
+                full_cost += v;
+                res.libs.insert(ix, (lib, v))
+            }
         }
 
         res.full_cost = full_cost;

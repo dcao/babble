@@ -12,9 +12,14 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
-use babble::{ast_node::Expr, extract::{partial::*, LpExtractor}, learn::LearnedLibrary, sexp::Sexp};
+use babble::{
+    ast_node::Expr,
+    extract::{partial::*, LpExtractor},
+    learn::LearnedLibrary,
+    sexp::Sexp,
+};
 use clap::Clap;
-use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner, Language};
+use egg::{AstSize, CostFunction, EGraph, Language, RecExpr, Runner};
 use log::info;
 use std::{
     convert::TryInto,
@@ -95,18 +100,24 @@ fn main() {
         .with_iter_limit(1)
         .run(lib_rewrites.iter())
         .egraph;
-    
+
     // For debug purposes: print the analysis for the root node
     println!("root analysis data:");
     let cs = &egraph[egraph.find(root)].data;
     for (i, ls) in cs.set.iter().enumerate() {
         println!("lib selection {}", i);
-        if i == 0 { println!("MOST OPTIMAL"); }
+        if i == 0 {
+            println!("MOST OPTIMAL");
+        }
         println!("libs:");
         for (l, _c) in &ls.libs {
             println!("new lib");
             for n in &egraph[*l].nodes {
-                println!("{}", n.build_recexpr(|id| egraph[id].nodes[0].clone()).pretty(100));
+                println!(
+                    "{}",
+                    n.build_recexpr(|id| egraph[id].nodes[0].clone())
+                        .pretty(100)
+                );
             }
         }
         println!("costs: {} {}", ls.expr_cost, ls.full_cost);

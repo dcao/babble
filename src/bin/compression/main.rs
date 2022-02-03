@@ -14,12 +14,12 @@
 
 use babble::{
     ast_node::{AstNode, Expr},
-    extract::{LpExtractor, partial::PartialLibCost},
+    extract::{partial::PartialLibCost, LpExtractor},
     learn::LearnedLibrary,
 };
 use clap::Clap;
 use dreamcoder::{expr::DcExpr, json::CompressionInput};
-use egg::{AstSize, EGraph, RecExpr, Runner, Language};
+use egg::{AstSize, EGraph, Language, RecExpr, Runner};
 use std::{
     fs,
     io::{self, Read},
@@ -93,8 +93,6 @@ fn main() {
 
     println!("Found {} antiunifications", lib_rewrites.len());
 
-    egraph.dot().to_svg("target/foo.svg").unwrap();
-
     println!("Anti-unifying");
     let runner = Runner::<_, _, ()>::new(PartialLibCost::new(20))
         .with_egraph(egraph)
@@ -115,12 +113,18 @@ fn main() {
         let cs = &egraph[egraph.find(root)].data;
         for (i, ls) in cs.set.iter().enumerate() {
             println!("lib selection {}", i);
-            if i == 0 { println!("MOST OPTIMAL"); }
+            if i == 0 {
+                println!("MOST OPTIMAL");
+            }
             println!("libs:");
             for (l, _c) in &ls.libs {
                 println!("new lib");
                 for n in &egraph[*l].nodes {
-                    println!("{}", n.build_recexpr(|id| egraph[id].nodes[0].clone()).pretty(100));
+                    println!(
+                        "{}",
+                        n.build_recexpr(|id| egraph[id].nodes[0].clone())
+                            .pretty(100)
+                    );
                 }
             }
             println!("costs: {} {}", ls.expr_cost, ls.full_cost);
