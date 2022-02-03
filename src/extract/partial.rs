@@ -11,7 +11,7 @@ use crate::{
 /// A `CostSet` is a set of pairs; each pair contains a set of library
 /// functions paired with the cost of the current expression/eclass
 /// without the lib fns, and the cost of the lib fns themselves.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CostSet {
     // Invariant: always sorted in ascending order of
     // expr_cost + libs_cost
@@ -20,12 +20,14 @@ pub struct CostSet {
 
 impl CostSet {
     pub fn intro_op() -> CostSet {
+        // println!("intro_op");
         CostSet {
             set: vec![LibSel::intro_op()],
         }
     }
 
     pub fn cross(&self, other: &CostSet) -> CostSet {
+        // println!("cross");
         let mut set = Vec::new();
 
         for ls1 in &self.set {
@@ -44,6 +46,7 @@ impl CostSet {
 
     // Combination without unification
     pub fn combine(&mut self, other: CostSet) {
+        // println!("combine");
         for elem in other.set {
             match self
                 .set
@@ -55,7 +58,27 @@ impl CostSet {
         }
     }
 
+    // Inserts a `LibSel` into this `CostSet` while maintaining unification invariant
+    pub fn insert_and_unify(&mut self, ls: LibSel) -> bool {
+        let mut index = 0;
+
+        for (i, ls1) in self.set.iter().enumerate() {
+            if ls1.is_subset(&ls) {
+                return false;
+            }
+
+            if ls.full_cost <= ls1.full_cost && index == 0 {
+                index = i;
+            }
+        }
+
+        // It's good.
+        self.set.insert(index, ls);
+        true
+    }
+
     pub fn unify(&mut self) {
+        // println!("unify");
         // We already know s is in ascending order of cost.
         let mut i = 0;
 
@@ -82,12 +105,14 @@ impl CostSet {
     }
 
     pub fn inc_cost(&mut self) {
+        // println!("inc_cost");
         for ls in &mut self.set {
             ls.inc_cost();
         }
     }
 
     pub fn add_lib(&self, lib: Id, cost: &CostSet) -> CostSet {
+        // println!("add_lib");
         // To add a lib, we do a modified cross.
         let mut set = Vec::new();
 
@@ -106,6 +131,7 @@ impl CostSet {
     }
 
     pub fn prune(&mut self, n: usize) {
+        // println!("prune");
         // Only preserve the n best `LibSel`s in the set.
         if self.set.len() > n {
             self.set.drain(n..);
@@ -116,7 +142,7 @@ impl CostSet {
 /// A `LibSel` is a selection of library functions, paired with two
 /// corresponding cost values: the cost of the expression without the library
 /// functions, and the cost of the library functions themselves
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct LibSel {
     pub libs: HashSet<(Id, usize)>,
     pub expr_cost: usize,
@@ -192,17 +218,24 @@ where
     type Data = CostSet;
 
     fn merge(&mut self, to: &mut Self::Data, from: Self::Data) -> DidMerge {
+        // println!("merge");
+        // println!("{:#?}", to);
+        // println!("{:#?}", &from);
+        let a0 = to.clone();
+
         // Merging consists of combination, followed by unification and beam
         // pruning.
-        to.combine(from);
+        to.combine(from.clone());
         to.unify();
         // TODO: don't hardcode size
         to.prune(10);
 
-        DidMerge(true, true)
+        // TODO: be more efficient with how we do this
+        DidMerge(&a0 == to, to == &from)
     }
 
     fn make(egraph: &EGraph<AstNode<Op>, Self>, enode: &AstNode<Op>) -> Self::Data {
+        // println!("make");
         let x = |i: &Id| &egraph[*i].data;
 
         match Teachable::as_binding_expr(enode) {
@@ -249,6 +282,11 @@ where
             }
         }
     }
+
+    // For debugging
+    // fn modify(egraph: &mut EGraph<AstNode<Op>, Self>, id: Id) {
+    //     println!("merge {}", id);
+    // }
 }
 
 #[cfg(test)]

@@ -93,6 +93,8 @@ fn main() {
 
     println!("Found {} antiunifications", lib_rewrites.len());
 
+    egraph.dot().to_svg("target/foo.svg").unwrap();
+
     println!("Anti-unifying");
     let runner = Runner::<_, _, ()>::new(PartialLibCost::new(20))
         .with_egraph(egraph)
