@@ -36,7 +36,7 @@ impl CostSet {
             for ls2 in &other.set {
                 let ls = ls1.combine(ls2);
 
-                match set.binary_search_by_key(&ls.full_cost, |ls: &LibSel| ls.full_cost) {
+                match set.binary_search_by_key(&ls.expr_cost, |ls: &LibSel| ls.expr_cost) {
                     Ok(pos) => set.insert(pos, ls),
                     Err(pos) => set.insert(pos, ls),
                 }
@@ -52,7 +52,7 @@ impl CostSet {
         for elem in other.set {
             match self
                 .set
-                .binary_search_by_key(&elem.full_cost, |ls| ls.full_cost)
+                .binary_search_by_key(&elem.expr_cost, |ls| ls.expr_cost)
             {
                 Ok(pos) => self.set.insert(pos, elem),
                 Err(pos) => self.set.insert(pos, elem),
@@ -62,7 +62,6 @@ impl CostSet {
 
     pub fn unify(&mut self) {
         // println!("unify");
-        // We already know s is in ascending order of cost.
         let mut i = 0;
 
         while i < self.set.len() {
@@ -73,7 +72,7 @@ impl CostSet {
                 let ls2 = &self.set[j];
                 let mut rem = false;
 
-                if ls1.is_subset(&ls2) {
+                if ls1.libs.is_subset(&ls2.libs) {
                     rem = true;
                 } else {
                     j += 1;
@@ -103,7 +102,7 @@ impl CostSet {
             for ls2 in &self.set {
                 let ls = ls2.add_lib(lib, ls1);
 
-                match set.binary_search_by_key(&ls.full_cost, |ls: &LibSel| ls.full_cost) {
+                match set.binary_search_by_key(&ls.expr_cost, |ls: &LibSel| ls.expr_cost) {
                     Ok(pos) => set.insert(pos, ls),
                     Err(pos) => set.insert(pos, ls),
                 }
@@ -117,7 +116,9 @@ impl CostSet {
         // println!("prune");
         // Only preserve the n best `LibSel`s in the set.
         if self.set.len() > n {
+            self.set.sort_by_key(|elem| elem.full_cost);
             self.set.drain(n..);
+            self.set.sort_by_key(|elem| elem.expr_cost);
         }
     }
 }
