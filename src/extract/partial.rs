@@ -58,25 +58,6 @@ impl CostSet {
         }
     }
 
-    // Inserts a `LibSel` into this `CostSet` while maintaining unification invariant
-    pub fn insert_and_unify(&mut self, ls: LibSel) -> bool {
-        let mut index = 0;
-
-        for (i, ls1) in self.set.iter().enumerate() {
-            if ls1.is_subset(&ls) {
-                return false;
-            }
-
-            if ls.full_cost <= ls1.full_cost && index == 0 {
-                index = i;
-            }
-        }
-
-        // It's good.
-        self.set.insert(index, ls);
-        true
-    }
-
     pub fn unify(&mut self) {
         // println!("unify");
         // We already know s is in ascending order of cost.
