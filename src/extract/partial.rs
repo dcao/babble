@@ -1,7 +1,7 @@
 //! extract::partial implements a non-ILP-based extractor based on partial
 //! orderings of learned library sets.
 use egg::{Analysis, DidMerge, EGraph, Id};
-use std::{collections::HashSet, fmt::Debug};
+use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
     ast_node::{Arity, AstNode},
@@ -72,7 +72,7 @@ impl CostSet {
                 let ls2 = &self.set[j];
                 let mut rem = false;
 
-                if ls1.libs.is_subset(&ls2.libs) {
+                if ls1.libs.keys().all(|k| ls2.libs.contains_key(k)) {
                     rem = true;
                 } else {
                     j += 1;
@@ -126,9 +126,9 @@ impl CostSet {
 /// A `LibSel` is a selection of library functions, paired with two
 /// corresponding cost values: the cost of the expression without the library
 /// functions, and the cost of the library functions themselves
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LibSel {
-    pub libs: HashSet<(Id, usize)>,
+    pub libs: BTreeMap<Id, usize>,
     pub expr_cost: usize,
     // Memoized expr_cost + sum({ l.1 for l in libs })
     pub full_cost: usize,
@@ -137,38 +137,50 @@ pub struct LibSel {
 impl LibSel {
     pub fn intro_op() -> LibSel {
         LibSel {
-            libs: HashSet::new(),
+            libs: BTreeMap::new(),
             expr_cost: 1,
             full_cost: 1,
         }
     }
 
-    pub fn is_subset(&self, other: &LibSel) -> bool {
-        self.libs.is_subset(&other.libs) && self.expr_cost <= other.expr_cost
-    }
-
     /// Combines two `LibSel`s. Unions the lib sets, adds
     /// the expr
     pub fn combine(&self, other: &LibSel) -> LibSel {
-        let libs: HashSet<_> = self.libs.union(&other.libs).cloned().collect();
-        let expr_cost = self.expr_cost + other.expr_cost;
-        let libs_cost: usize = libs.iter().map(|x| x.1).sum();
-        let full_cost = expr_cost + libs_cost;
+        let mut res = self.clone();
 
-        LibSel {
-            libs,
-            expr_cost,
-            full_cost,
+        for (k, v) in &other.libs {
+            res.libs.entry(*k)
+                .and_modify(|c| if v < c { *c = *v; })
+                .or_insert(*v);
         }
+
+        res.expr_cost = self.expr_cost + other.expr_cost;
+        let libs_cost: usize = res.libs.values().sum();
+        res.full_cost = res.expr_cost + libs_cost;
+
+
+        res
     }
 
     pub fn add_lib(&self, lib: Id, cost: &LibSel) -> LibSel {
         let mut res = self.clone();
+        let mut full_cost = res.full_cost;
+        let mut expr_cost = res.expr_cost;
 
-        if res.libs.insert((lib, cost.expr_cost)) {
-            res.full_cost += cost.expr_cost;
-        }
+        res.libs.entry(lib)
+            .and_modify(|v| {
+                if cost.expr_cost < *v {
+                    full_cost -= *v - cost.expr_cost;
+                    *v = cost.expr_cost;
+                }
+            })
+            .or_insert_with(|| {
+                full_cost += cost.expr_cost;
+                cost.expr_cost
+            });
 
+        res.full_cost = full_cost;
+        res.expr_cost = expr_cost;
         res
     }
 
