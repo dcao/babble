@@ -21,8 +21,10 @@ pub struct CostSet {
 impl CostSet {
     pub fn intro_op() -> CostSet {
         // println!("intro_op");
+        let mut set = Vec::with_capacity(10);
+        set.push(LibSel::intro_op());
         CostSet {
-            set: vec![LibSel::intro_op()],
+            set,
         }
     }
 
@@ -212,7 +214,6 @@ where
         to.prune(10);
 
         // TODO: be more efficient with how we do this
-        // println!("{:?} {}", &a0 != to, to != &from);
         DidMerge(&a0 != to, to != &from)
         // DidMerge(false, false)
     }
