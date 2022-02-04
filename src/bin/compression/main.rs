@@ -103,36 +103,22 @@ fn main() {
 
     println!("Stop reason: {:?}", runner.stop_reason.unwrap());
 
-    let egraph = runner.egraph;
+    let mut egraph = runner.egraph;
     println!("Number of nodes: {}", egraph.total_size());
 
-    // For debug purposes: print the analysis for the root node
-    for root in &roots {
-        let root = *root;
-        println!("root {}", root);
-        let cs = &egraph[egraph.find(root)].data;
-        for (i, ls) in cs.set.iter().enumerate() {
-            println!("lib selection {}", i);
-            if i == 0 {
-                println!("MOST OPTIMAL");
-            }
-            println!("libs:");
-            for (l, _c) in &ls.libs {
-                println!("new lib");
-                for n in &egraph[*l].nodes {
-                    println!(
-                        "{}",
-                        n.build_recexpr(|id| egraph[id].nodes[0].clone())
-                            .pretty(100)
-                    );
-                }
-            }
-            println!("costs: {} {}", ls.expr_cost, ls.full_cost);
-            println!();
-        }
+    // Add the root combine node.
+    let root = egraph.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
 
-        println!();
+    println!("root analysis data:");
+    let mut cs = egraph[egraph.find(root)].data.clone();
+    cs.set.sort_unstable_by_key(|elem| elem.full_cost);
+
+    println!("learned libs");
+    for lib in &cs.set[0].libs {
+        println!("{}", DcExpr::from(Expr::from(egraph[egraph.find(lib.0)].nodes[0].build_recexpr(|id| egraph[egraph.find(id)].nodes[0].clone()))));
     }
+
+    println!("cost {}", cs.set[0].full_cost);
 
     // println!("Extracting");
 

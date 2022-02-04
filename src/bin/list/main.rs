@@ -101,28 +101,16 @@ fn main() {
         .run(lib_rewrites.iter())
         .egraph;
 
-    // For debug purposes: print the analysis for the root node
     println!("root analysis data:");
-    let cs = &egraph[egraph.find(root)].data;
-    for (i, ls) in cs.set.iter().enumerate() {
-        println!("lib selection {}", i);
-        if i == 0 {
-            println!("MOST OPTIMAL");
-        }
-        println!("libs:");
-        for (l, _c) in &ls.libs {
-            println!("new lib");
-            for n in &egraph[*l].nodes {
-                println!(
-                    "{}",
-                    n.build_recexpr(|id| egraph[id].nodes[0].clone())
-                        .pretty(100)
-                );
-            }
-        }
-        println!("costs: {} {}", ls.expr_cost, ls.full_cost);
-        println!()
+    let mut cs = egraph[egraph.find(root)].data.clone();
+    cs.set.sort_unstable_by_key(|elem| elem.full_cost);
+
+    println!("learned libs");
+    for lib in &cs.set[0].libs {
+        println!("{}", egraph[egraph.find(lib.0)].nodes[0].build_recexpr(|id| egraph[egraph.find(id)].nodes[0].clone()).pretty(100));
     }
+
+    println!("cost {}", cs.set[0].full_cost);
 
     // let runner = Runner::default()
     //     .with_egraph(egraph)

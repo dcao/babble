@@ -102,14 +102,25 @@ pub enum DreamCoderOp {
 
     Lib,
     Shift,
+
+    /// A utility operation that allows us to do extraction taking into account
+    /// all programs.
+    Combine,
 }
 
 impl Arity for DreamCoderOp {
     fn min_arity(&self) -> usize {
         match self {
             DreamCoderOp::Var(_) | DreamCoderOp::Symbol(_) | DreamCoderOp::Inlined(_) => 0,
-            DreamCoderOp::Lambda | DreamCoderOp::Shift => 1,
+            DreamCoderOp::Lambda | DreamCoderOp::Shift | DreamCoderOp::Combine => 1,
             DreamCoderOp::App | DreamCoderOp::Lib => 2,
+        }
+    }
+
+    fn max_arity(&self) -> Option<usize> {
+        match self {
+            DreamCoderOp::Combine => None,
+            x => Some(x.min_arity()),
         }
     }
 }
@@ -148,6 +159,7 @@ impl Display for DreamCoderOp {
             DreamCoderOp::Var(index) => return write!(f, "${}", index),
             DreamCoderOp::Inlined(expr) => return write!(f, "#{}", DcExpr::ref_cast(expr)),
             DreamCoderOp::Symbol(symbol) => return write!(f, "{}", symbol),
+            DreamCoderOp::Combine => "combine"
         };
         f.write_str(s)
     }
