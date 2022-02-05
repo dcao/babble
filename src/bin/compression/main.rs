@@ -50,8 +50,6 @@ struct Opts {
 
 fn main() {
     env_logger::init();
-    let start_time = Instant::now();
-    let timeout = Duration::from_secs(60 * 10);
     let opts: Opts = Opts::parse();
 
     let input = opts
@@ -66,74 +64,147 @@ fn main() {
         .expect("Error reading input");
 
     let input: CompressionInput = serde_json::from_str(&input).expect("Error parsing JSON input");
-    let limit = opts.limit.unwrap_or(usize::MAX);
+    // res: Vec<(limit, final beam size, inter beam size, smallest full cost, time)>
+    let mut wtr = csv::Writer::from_path("target/res.csv").unwrap();
 
-    let mut egraph = EGraph::new(PartialLibCost::new(20));
-    let programs: Vec<Expr<DreamCoderOp>> = input
-        .frontiers
-        .into_iter()
-        .flat_map(|frontier| frontier.programs)
-        .map(|program| program.program.into())
-        .take(limit)
-        .collect();
-    let mut roots = Vec::with_capacity(programs.len());
-    let initial_cost: usize = programs.iter().map(Expr::len).sum();
-    for expr in programs.iter().cloned().map(RecExpr::from) {
-        let root = egraph.add_expr(&expr);
-        roots.push(root);
+    // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
+    for limit in [50] {
+        for final_beams in [1000] {
+            println!(
+                "limit: {}, final_beams: {}",
+                limit, final_beams
+            );
+
+            let start_time = Instant::now();
+            let timeout = Duration::from_secs(60 * 100000);
+
+            let mut egraph = EGraph::new(PartialLibCost::new(final_beams));
+            let programs: Vec<Expr<DreamCoderOp>> = input
+                .clone()
+                .frontiers
+                .into_iter()
+                .flat_map(|frontier| frontier.programs)
+                .map(|program| program.program.into())
+                .take(limit)
+                .collect();
+            let mut roots = Vec::with_capacity(programs.len());
+            let initial_cost: usize = programs.iter().map(Expr::len).sum();
+            for expr in programs.iter().cloned().map(RecExpr::from) {
+                let root = egraph.add_expr(&expr);
+                roots.push(root);
+            }
+
+            egraph.rebuild();
+
+            println!("Compressing {} programs", roots.len());
+            println!("Starting cost: {}", initial_cost);
+
+            let learned_lib = LearnedLibrary::from(&egraph);
+            let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
+
+            println!("Found {} antiunifications", lib_rewrites.len());
+
+            println!("Anti-unifying");
+            let runner = Runner::<_, _, ()>::new(PartialLibCost::new(final_beams))
+                .with_egraph(egraph)
+                .with_iter_limit(1)
+                .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
+                .with_node_limit(100_000)
+                .run(lib_rewrites.iter());
+
+            println!("Stop reason: {:?}", runner.stop_reason.unwrap());
+
+            let mut egraph = runner.egraph;
+            println!("Number of nodes: {}", egraph.total_size());
+
+            // Add the root combine node.
+            let root = egraph.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
+
+            let mut cs = egraph[egraph.find(root)].data.clone();
+            cs.set.sort_unstable_by_key(|elem| elem.full_cost);
+
+            wtr.serialize((
+                limit,
+                final_beams,
+                final_beams,
+                cs.set[0].full_cost,
+                start_time.elapsed().as_secs_f64(),
+            ))
+            .unwrap();
+            wtr.flush().unwrap();
+        }
     }
 
-    egraph.rebuild();
+    // --- old code below
 
-    println!("Compressing {} programs", roots.len());
-    println!("Starting cost: {}", initial_cost);
+    // let limit = opts.limit.unwrap_or(usize::MAX);
 
-    let learned_lib = LearnedLibrary::from(&egraph);
-    let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
-
-    println!("Found {} antiunifications", lib_rewrites.len());
-
-    println!("Anti-unifying");
-    let runner = Runner::<_, _, ()>::new(PartialLibCost::new(20))
-        .with_egraph(egraph)
-        .with_iter_limit(1)
-        .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
-        .with_node_limit(100_000)
-        .run(lib_rewrites.iter());
-
-    println!("Stop reason: {:?}", runner.stop_reason.unwrap());
-
-    let mut egraph = runner.egraph;
-    println!("Number of nodes: {}", egraph.total_size());
-
-    // Add the root combine node.
-    let root = egraph.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
-
-    println!("root analysis data:");
-    let mut cs = egraph[egraph.find(root)].data.clone();
-    cs.set.sort_unstable_by_key(|elem| elem.full_cost);
-
-    println!("learned libs");
-    for lib in &cs.set[0].libs {
-        println!("{}", DcExpr::from(Expr::from(egraph[egraph.find(lib.0)].nodes[0].build_recexpr(|id| egraph[egraph.find(id)].nodes[0].clone()))));
-    }
-
-    println!("cost {}", cs.set[0].full_cost);
-
-    // println!("Extracting");
-
-    // let (exprs, ids) = LpExtractor::new(&egraph, AstSize)
-    //     .timeout(timeout.saturating_sub(start_time.elapsed()).as_secs_f64())
-    //     .solve_multiple(&roots);
-    // let final_exprs: Vec<Expr<_>> = ids
+    // let mut egraph = EGraph::new(PartialLibCost::new(20));
+    // let programs: Vec<Expr<DreamCoderOp>> = input
+    //     .frontiers
     //     .into_iter()
-    //     .map(|id| RecExpr::from(exprs.as_ref()[..=usize::from(id)].to_vec()).into())
+    //     .flat_map(|frontier| frontier.programs)
+    //     .map(|program| program.program.into())
+    //     .take(limit)
     //     .collect();
-    // let final_cost: usize = final_exprs.iter().map(Expr::len).sum();
-    // println!("Final cost: {}", final_cost);
-    // println!("Solutions:");
-    // for expr in final_exprs {
-    //     println!("{}", DcExpr::from(expr));
-    //     println!();
+    // let mut roots = Vec::with_capacity(programs.len());
+    // let initial_cost: usize = programs.iter().map(Expr::len).sum();
+    // for expr in programs.iter().cloned().map(RecExpr::from) {
+    //     let root = egraph.add_expr(&expr);
+    //     roots.push(root);
     // }
+
+    // egraph.rebuild();
+
+    // println!("Compressing {} programs", roots.len());
+    // println!("Starting cost: {}", initial_cost);
+
+    // let learned_lib = LearnedLibrary::from(&egraph);
+    // let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
+
+    // println!("Found {} antiunifications", lib_rewrites.len());
+
+    // println!("Anti-unifying");
+    // let runner = Runner::<_, _, ()>::new(PartialLibCost::new(20))
+    //     .with_egraph(egraph)
+    //     .with_iter_limit(1)
+    //     .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
+    //     .with_node_limit(100_000)
+    //     .run(lib_rewrites.iter());
+
+    // println!("Stop reason: {:?}", runner.stop_reason.unwrap());
+
+    // let mut egraph = runner.egraph;
+    // println!("Number of nodes: {}", egraph.total_size());
+
+    // // Add the root combine node.
+    // let root = egraph.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
+
+    // println!("root analysis data:");
+    // let mut cs = egraph[egraph.find(root)].data.clone();
+    // cs.set.sort_unstable_by_key(|elem| elem.full_cost);
+
+    // println!("learned libs");
+    // for lib in &cs.set[0].libs {
+    //     println!("{}", DcExpr::from(Expr::from(egraph[egraph.find(lib.0)].nodes[0].build_recexpr(|id| egraph[egraph.find(id)].nodes[0].clone()))));
+    // }
+
+    // println!("cost {}", cs.set[0].full_cost);
+
+    // // println!("Extracting");
+
+    // // let (exprs, ids) = LpExtractor::new(&egraph, AstSize)
+    // //     .timeout(timeout.saturating_sub(start_time.elapsed()).as_secs_f64())
+    // //     .solve_multiple(&roots);
+    // // let final_exprs: Vec<Expr<_>> = ids
+    // //     .into_iter()
+    // //     .map(|id| RecExpr::from(exprs.as_ref()[..=usize::from(id)].to_vec()).into())
+    // //     .collect();
+    // // let final_cost: usize = final_exprs.iter().map(Expr::len).sum();
+    // // println!("Final cost: {}", final_cost);
+    // // println!("Solutions:");
+    // // for expr in final_exprs {
+    // //     println!("{}", DcExpr::from(expr));
+    // //     println!();
+    // // }
 }

@@ -207,7 +207,6 @@ impl LibSel {
 pub struct PartialLibCost {
     /// The number of `LibSel`s to keep per EClass.
     beam_size: usize,
-    // TODO: intermediate beam size for while we cross?
 }
 
 impl PartialLibCost {
@@ -233,14 +232,14 @@ where
         to.combine(from.clone());
         to.unify();
         // TODO: don't hardcode size
-        to.prune(10);
+        to.prune(self.beam_size);
 
         // TODO: be more efficient with how we do this
         DidMerge(&a0 != to, to != &from)
         // DidMerge(false, false)
     }
 
-    fn make(egraph: &EGraph<AstNode<Op>, Self>, enode: &AstNode<Op>) -> Self::Data {
+    fn make(&self, egraph: &EGraph<AstNode<Op>, Self>, enode: &AstNode<Op>) -> Self::Data {
         // println!("make");
         let x = |i: &Id| &egraph[*i].data;
 
@@ -251,7 +250,7 @@ where
                 let mut e = x(b).add_lib(*f, x(f));
                 e.unify();
                 // TODO: don't hardcode this
-                e.prune(10);
+                e.prune(self.beam_size);
                 e.inc_cost();
                 e
             }
@@ -276,14 +275,14 @@ where
                         // Intermediate prune.
                         // TODO: don't hardcode this
                         e.unify();
-                        e.prune(100);
+                        e.prune(self.beam_size);
                     }
 
                     // TODO: intermediate unify/beam size reduction for each crossing step?
                     // do perf testing on this
                     e.unify();
                     // TODO: dont hardcode this
-                    e.prune(10);
+                    e.prune(self.beam_size);
                     e
                 }
             }
