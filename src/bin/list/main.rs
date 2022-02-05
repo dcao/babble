@@ -88,14 +88,14 @@ fn main() {
     println!();
 
     println!("stage one");
-    let mut egraph = EGraph::new(PartialLibCost::new(20));
+    let mut egraph = EGraph::new(PartialLibCost::new(20, 100));
     let root = egraph.add_expr(&initial_expr);
     egraph.rebuild();
 
     println!("stage two");
     let learned_lib = LearnedLibrary::from(&egraph);
     let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
-    let egraph = Runner::<_, _, ()>::new(PartialLibCost::new(20))
+    let egraph = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
         .with_egraph(egraph)
         .with_iter_limit(1)
         .run(lib_rewrites.iter())

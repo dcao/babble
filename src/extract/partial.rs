@@ -207,11 +207,12 @@ impl LibSel {
 pub struct PartialLibCost {
     /// The number of `LibSel`s to keep per EClass.
     beam_size: usize,
+    inter_beam: usize,
 }
 
 impl PartialLibCost {
-    pub fn new(beam_size: usize) -> PartialLibCost {
-        PartialLibCost { beam_size }
+    pub fn new(beam_size: usize, inter_beam: usize) -> PartialLibCost {
+        PartialLibCost { beam_size, inter_beam }
     }
 }
 
@@ -275,7 +276,7 @@ where
                         // Intermediate prune.
                         // TODO: don't hardcode this
                         e.unify();
-                        e.prune(self.beam_size);
+                        e.prune(self.inter_beam);
                     }
 
                     // TODO: intermediate unify/beam size reduction for each crossing step?
@@ -294,12 +295,4 @@ where
     //     println!("merge {}", id);
     //     println!("{:?}", &egraph[id].data)
     // }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
 }
