@@ -14,7 +14,7 @@
 
 use babble::{
     ast_node::{AstNode, Expr},
-    extract::{partial::PartialLibCost, LpExtractor},
+    extract::{beam::PartialLibCost, LpExtractor},
     learn::LearnedLibrary,
 };
 use clap::Clap;

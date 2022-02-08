@@ -1,4 +1,4 @@
 pub mod ilp;
-pub mod partial;
+pub mod beam;
 
 pub use ilp::*;
