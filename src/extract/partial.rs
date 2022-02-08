@@ -232,7 +232,6 @@ where
         // pruning.
         to.combine(from.clone());
         to.unify();
-        // TODO: don't hardcode size
         to.prune(self.beam_size);
 
         // TODO: be more efficient with how we do this
@@ -274,16 +273,15 @@ where
                     for cs in &enode.args()[1..] {
                         e = e.cross(x(cs));
                         // Intermediate prune.
-                        // TODO: don't hardcode this
                         e.unify();
                         e.prune(self.inter_beam);
                     }
 
                     // TODO: intermediate unify/beam size reduction for each crossing step?
                     // do perf testing on this
-                    e.unify();
-                    // TODO: dont hardcode this
+                    // e.unify();
                     e.prune(self.beam_size);
+                    e.inc_cost();
                     e
                 }
             }

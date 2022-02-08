@@ -68,9 +68,10 @@ fn main() {
     let mut wtr = csv::Writer::from_path("target/res.csv").unwrap();
 
     // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
-    for limit in [50] {
-        for final_beams in (10..=100).step_by(10) {
-            for inter_beams in (100..=1000).step_by(100) {
+    for limit in [802] {
+        for final_beams in (10..=50).step_by(10) {
+            for inter_beams in (10..=50).step_by(10) {
+                // let inter_beams = final_beams;
                 // let final_beams = inter_beams;
                 println!("limit: {}, final_beams: {}, inter_beams: {}", limit, final_beams, inter_beams);
 
@@ -121,6 +122,14 @@ fn main() {
 
                 let mut cs = egraph[egraph.find(root)].data.clone();
                 cs.set.sort_unstable_by_key(|elem| elem.full_cost);
+
+                println!("learned libs");
+                for lib in &cs.set[0].libs {
+                    println!("{}", egraph[egraph.find(lib.0)].nodes[0].build_recexpr(|id| egraph[egraph.find(id)].nodes[0].clone()).pretty(100));
+                }
+
+                println!("full cost: {}", cs.set.iter().min_by_key(|ls| ls.full_cost).unwrap().full_cost);
+                println!();
 
                 wtr.serialize((limit, final_beams, inter_beams, cs.set[0].full_cost, start_time.elapsed().as_secs_f64())).unwrap();
                 wtr.flush().unwrap();
