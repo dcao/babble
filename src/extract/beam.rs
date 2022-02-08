@@ -68,20 +68,15 @@ impl CostSet {
             while j < self.set.len() {
                 let ls1 = &self.set[i];
                 let ls2 = &self.set[j];
-                let mut rem = false;
 
                 if ls1
                     .libs
                     .iter()
                     .all(|(k, _)| ls2.libs.binary_search_by_key(k, |(elem, _)| *elem).is_ok())
                 {
-                    rem = true;
+                    self.set.remove(j);
                 } else {
                     j += 1;
-                }
-
-                if rem {
-                    self.set.remove(j);
                 }
             }
             i += 1;
