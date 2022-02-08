@@ -14,7 +14,7 @@
 
 use babble::{
     ast_node::Expr,
-    extract::{partial::*, LpExtractor},
+    extract::{beam::*, LpExtractor},
     learn::LearnedLibrary,
     sexp::Sexp,
 };
