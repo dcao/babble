@@ -2,7 +2,7 @@
 
 use babble::{
     ast_node::{Arity, AstNode},
-    lift_lib::LiftLib,
+    learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
 use egg::Rewrite;
@@ -24,6 +24,8 @@ pub(crate) enum Smiley {
     /// A de Bruijn-indexed variable. These are represented with a dollar sign
     /// followed by the index, i.e. `$0`, `$123`.
     Var(DeBruijnIndex),
+    /// A reference to a lib fn
+    LibVar(LibId),
     /// A unit circle.
     Circle,
     /// A unit line.
@@ -40,17 +42,22 @@ pub(crate) enum Smiley {
     Apply,
     /// Create an anonymous, de Bruijn-indexed function.
     Lambda,
-    /// Bind a value to `$0` within an expression.
-    Lib,
+    /// Bind a lib fn within an expression.
+    Lib(LibId),
     /// Shift indices.
     Shift,
 }
 impl Arity for Smiley {
     fn min_arity(&self) -> usize {
         match self {
-            Self::Int(_) | Self::Float(_) | Self::Var(_) | Self::Circle | Self::Line => 0,
+            Self::Int(_)
+            | Self::Float(_)
+            | Self::Var(_)
+            | Self::Circle
+            | Self::Line
+            | Self::LibVar(_) => 0,
             Self::Lambda | Self::Shift | Self::Compose => 1,
-            Self::Scale | Self::Rotate | Self::Apply | Self::Lib => 2,
+            Self::Scale | Self::Rotate | Self::Apply | Self::Lib(_) => 2,
             Self::Move => 3,
         }
     }
@@ -77,7 +84,8 @@ impl Display for Smiley {
             Self::Compose => f.write_str("+"),
             Self::Apply => f.write_str("@"),
             Self::Lambda => f.write_str("λ"),
-            Self::Lib => f.write_str("lib"),
+            Self::Lib(ix) => write!(f, "lib {}", ix),
+            Self::LibVar(ix) => write!(f, "{}", ix),
             Self::Shift => f.write_str("shift"),
         }
     }
@@ -95,12 +103,19 @@ impl FromStr for Smiley {
             "move" => Self::Move,
             "rotate" => Self::Rotate,
             "apply" | "@" => Self::Apply,
-            "lib" => Self::Lib,
             "+" => Self::Compose,
             "shift" => Self::Shift,
             _ => {
                 if let Ok(index) = s.parse::<DeBruijnIndex>() {
                     Self::Var(index)
+                } else if let Ok(lv) = s.parse::<LibId>() {
+                    Self::LibVar(lv)
+                } else if let Ok(lv) = s
+                    .strip_prefix("lib ")
+                    .ok_or(ParseLibIdError::NoLeadingL)
+                    .and_then(|x| x.parse())
+                {
+                    Self::Lib(lv)
                 } else if let Ok(n) = s.parse::<i32>() {
                     Self::Int(n)
                 } else if let Ok(f) = s.parse::<NotNan<f64>>() {
@@ -120,7 +135,10 @@ impl Teachable for Smiley {
             BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
             BindingExpr::Var(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
-            BindingExpr::Let(bound_value, body) => AstNode::new(Self::Lib, [bound_value, body]),
+            BindingExpr::LibVar(ix) => AstNode::leaf(Self::LibVar(ix)),
+            BindingExpr::Let(ix, bound_value, body) => {
+                AstNode::new(Self::Lib(ix), [bound_value, body])
+            }
             BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
         }
     }
@@ -130,7 +148,7 @@ impl Teachable for Smiley {
             (Self::Lambda, [body]) => BindingExpr::Lambda(body),
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
             (&Self::Var(DeBruijnIndex(index)), []) => BindingExpr::Var(index),
-            (Self::Lib, [bound_value, body]) => BindingExpr::Let(bound_value, body),
+            (Self::Lib(ix), [bound_value, body]) => BindingExpr::Let(*ix, bound_value, body),
             (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };
@@ -142,11 +160,11 @@ lazy_static! {
     /// Rewrite rules which move containing expressions inside of
     /// [`Smiley::Lib`] expressions.
     pub(crate) static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<Smiley>, ()>] = vec![
-        LiftLib::rewrite("lift_compose", Smiley::Compose),
-        LiftLib::rewrite("lift_rotate", Smiley::Rotate),
-        LiftLib::rewrite("lift_move", Smiley::Move),
-        LiftLib::rewrite("lift_scale", Smiley::Scale),
-        LiftLib::rewrite("lift_apply", Smiley::Apply),
+        // LiftLib::rewrite("lift_compose", Smiley::Compose),
+        // LiftLib::rewrite("lift_rotate", Smiley::Rotate),
+        // LiftLib::rewrite("lift_move", Smiley::Move),
+        // LiftLib::rewrite("lift_scale", Smiley::Scale),
+        // LiftLib::rewrite("lift_apply", Smiley::Apply),
     ]
     .leak();
 

@@ -1,6 +1,7 @@
 use std::{
     convert::Infallible,
     fmt::{self, Display, Formatter},
+    num::ParseIntError,
     str::FromStr,
 };
 
@@ -8,6 +9,7 @@ use egg::Symbol;
 
 use crate::{
     ast_node::{Arity, AstNode},
+    learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
 
@@ -18,12 +20,14 @@ pub enum SimpleOp {
     Apply,
     /// A de Bruijn-indexed variable
     Var(usize),
+    /// A reference to a lib fn
+    LibVar(LibId),
     /// An uninterpreted symbol
     Symbol(Symbol),
     /// An anonymous function
     Lambda,
     /// A library function binding
-    Lib,
+    Lib(LibId),
     /// A shift
     Shift,
 }
@@ -32,8 +36,8 @@ impl Arity for SimpleOp {
     fn min_arity(&self) -> usize {
         match self {
             Self::Var(_) | Self::Symbol(_) => 0,
-            Self::Lambda | Self::Shift => 1,
-            Self::Apply | Self::Lib => 2,
+            Self::Lambda | Self::Shift | Self::LibVar(_) => 1,
+            Self::Apply | Self::Lib(_) => 2,
         }
     }
 }
@@ -44,7 +48,12 @@ impl Display for SimpleOp {
             Self::Apply => "@",
             Self::Lambda => "λ",
             Self::Shift => "shift",
-            Self::Lib => "lib",
+            Self::Lib(libid) => {
+                return write!(f, "lib {}", libid);
+            }
+            Self::LibVar(libid) => {
+                return write!(f, "l{}", libid);
+            }
             Self::Var(index) => {
                 return write!(f, "${}", index);
             }
@@ -64,10 +73,16 @@ impl FromStr for SimpleOp {
             "shift" => Self::Shift,
             "apply" | "@" => Self::Apply,
             "lambda" | "λ" => Self::Lambda,
-            "lib" => Self::Lib,
             input => input
                 .parse()
                 .map(|DeBruijnIndex(index)| Self::Var(index))
+                .or_else(|_| input.parse().map(Self::LibVar))
+                .or_else(|_| {
+                    input
+                        .strip_prefix("lib ")
+                        .ok_or(ParseLibIdError::NoLeadingL)
+                        .and_then(|x| x.parse().map(Self::Lib))
+                })
                 .unwrap_or_else(|_| Self::Symbol(input.into())),
         };
         Ok(op)
@@ -80,7 +95,10 @@ impl Teachable for SimpleOp {
             BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
             BindingExpr::Var(index) => AstNode::leaf(Self::Var(index)),
-            BindingExpr::Let(bound_value, body) => AstNode::new(Self::Lib, [bound_value, body]),
+            BindingExpr::Let(ix, bound_value, body) => {
+                AstNode::new(Self::Lib(ix), [bound_value, body])
+            }
+            BindingExpr::LibVar(ix) => AstNode::new(Self::LibVar(ix), []),
             BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
         }
     }
@@ -90,7 +108,8 @@ impl Teachable for SimpleOp {
             (Self::Lambda, [body]) => BindingExpr::Lambda(body),
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
             (Self::Var(index), []) => BindingExpr::Var(*index),
-            (Self::Lib, [bound_value, body]) => BindingExpr::Let(bound_value, body),
+            (Self::Lib(ix), [bound_value, body]) => BindingExpr::Let(*ix, bound_value, body),
+            (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
             (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };

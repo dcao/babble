@@ -24,7 +24,43 @@ use log::debug;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::{Debug, Display},
+    num::ParseIntError,
+    str::FromStr,
 };
+use thiserror::Error;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LibId(pub usize);
+
+impl Display for LibId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "l{}", self.0)
+    }
+}
+
+/// An error when parsing a LibId.
+#[derive(Clone, Debug, Error)]
+pub enum ParseLibIdError {
+    /// The string did not start with "$"
+    #[error("expected de Bruijn index to start with 'l")]
+    NoLeadingL,
+    /// The index is not a valid unsigned integer
+    #[error(transparent)]
+    InvalidIndex(ParseIntError),
+}
+
+impl FromStr for LibId {
+    type Err = ParseLibIdError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(n) = s.strip_prefix('l') {
+            let n = n.parse().map_err(ParseLibIdError::InvalidIndex)?;
+            Ok(LibId(n))
+        } else {
+            Err(ParseLibIdError::NoLeadingL)
+        }
+    }
+}
 
 /// A `LearnedLibrary<Op>` is a collection of functions learned from an
 /// [`EGraph<AstNode<Op>, _>`] by antiunifying pairs of enodes to find their
@@ -118,12 +154,19 @@ where
     ) -> impl Iterator<Item = Rewrite<AstNode<Op>, A>> + '_ {
         self.nontrivial_aus.iter().enumerate().map(|(i, au)| {
             let searcher: Pattern<_> = au.clone().into();
-            let applier: Pattern<_> = reify(au.clone()).into();
+            let applier: Pattern<_> = reify(LibId(i), au.clone()).into();
             let name = format!("anti-unify {}", i);
             debug!("Found rewrite \"{}\":\n{} => {}", name, searcher, applier);
 
             // Both patterns contain the same variables, so this can never fail.
             Rewrite::new(name, searcher, applier).unwrap_or_else(|_| unreachable!())
+        })
+    }
+
+    pub fn libs(&self) -> impl Iterator<Item = Pattern<AstNode<Op>>> + '_ {
+        self.nontrivial_aus.iter().enumerate().map(|(i, au)| {
+            let applier: Pattern<_> = reify(LibId(i), au.clone()).into();
+            applier
         })
     }
 }
@@ -271,13 +314,13 @@ fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> (PartialExpr<Op, Var>, usize)
 /// would be converted to the partial expression
 ///
 /// ```text
-/// (lib foo (lambda (lambda (* $0 (+ $1 1))))
-///  (apply (apply foo ?y) ?x))
+/// (lib (lambda (lambda (* $0 (+ $1 1))))
+///  (apply (apply $0 ?y) ?x))
 /// ```
 ///
 /// assuming `name` is "foo".
 #[must_use]
-fn reify<Op, T>(au: PartialExpr<Op, T>) -> PartialExpr<Op, T>
+fn reify<Op, T>(ix: LibId, au: PartialExpr<Op, T>) -> PartialExpr<Op, T>
 where
     Op: Arity + Teachable,
     T: Eq,
@@ -309,8 +352,8 @@ where
         res
     });
 
-    // All the function variables, plus one for the `lib` binding.
-    let offset = metavars.len() + 1;
+    // All the function variables
+    let offset = metavars.len();
 
     fun = fun.map_leaves_with_binders(|node, binders| match node.as_binding_expr() {
         Some(BindingExpr::Var(index)) if index >= binders => Op::var(index + offset).into(),
@@ -326,7 +369,7 @@ where
 
     // Now apply the new function to the metavariables in reverse order so they
     // match the correct de Bruijn indexed variable.
-    let mut body = Op::var(0).into();
+    let mut body = Op::lib_var(ix).into();
     while let Some((metavar, binders)) = metavars.pop() {
         let mut fn_arg = PartialExpr::Hole(metavar);
         for _i in 0..binders {
@@ -335,5 +378,5 @@ where
         body = Op::apply(body, fn_arg).into();
     }
 
-    PartialExpr::Node(BindingExpr::Let(fun, body).into())
+    PartialExpr::Node(BindingExpr::Let(ix, fun, body).into())
 }

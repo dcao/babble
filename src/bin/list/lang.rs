@@ -2,7 +2,7 @@
 
 use babble::{
     ast_node::{Arity, AstNode},
-    lift_lib::LiftLib,
+    learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
 use babble_macros::rewrite_rules;
@@ -34,7 +34,9 @@ pub enum ListOp {
     /// An anonymous function
     Lambda,
     /// A library function binding
-    Lib,
+    Lib(LibId),
+    /// A reference to a lib var
+    LibVar(LibId),
     /// A list
     List,
     /// A shift
@@ -44,9 +46,14 @@ pub enum ListOp {
 impl Arity for ListOp {
     fn min_arity(&self) -> usize {
         match self {
-            Self::Bool(_) | Self::Int(_) | Self::Var(_) | Self::Ident(_) | Self::List => 0,
+            Self::Bool(_)
+            | Self::Int(_)
+            | Self::Var(_)
+            | Self::Ident(_)
+            | Self::LibVar(_)
+            | Self::List => 0,
             Self::Lambda | Self::Shift => 1,
-            Self::Cons | Self::Apply | Self::Lib => 2,
+            Self::Cons | Self::Apply | Self::Lib(_) => 2,
             Self::If => 3,
         }
     }
@@ -67,8 +74,13 @@ impl Display for ListOp {
             Self::Apply => "@",
             Self::Lambda => "λ",
             Self::Shift => "shift",
-            Self::Lib => "lib",
             Self::List => "list",
+            Self::Lib(ix) => {
+                return write!(f, "lib {}", ix);
+            }
+            Self::LibVar(ix) => {
+                return write!(f, "{}", ix);
+            }
             Self::Bool(b) => {
                 return write!(f, "{}", b);
             }
@@ -96,13 +108,19 @@ impl FromStr for ListOp {
             "shift" => Self::Shift,
             "apply" | "@" => Self::Apply,
             "lambda" | "λ" => Self::Lambda,
-            "lib" => Self::Lib,
             "list" => Self::List,
             input => input
                 .parse()
                 .map(Self::Bool)
                 .or_else(|_| input.parse().map(Self::Var))
                 .or_else(|_| input.parse().map(Self::Int))
+                .or_else(|_| input.parse().map(Self::LibVar))
+                .or_else(|_| {
+                    input
+                        .strip_prefix("lib ")
+                        .ok_or(ParseLibIdError::NoLeadingL)
+                        .and_then(|x| x.parse().map(Self::Lib))
+                })
                 .unwrap_or_else(|_| Self::Ident(input.into())),
         };
         Ok(op)
@@ -115,7 +133,10 @@ impl Teachable for ListOp {
             BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
             BindingExpr::Var(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
-            BindingExpr::Let(bound_value, body) => AstNode::new(Self::Lib, [bound_value, body]),
+            BindingExpr::Let(ix, bound_value, body) => {
+                AstNode::new(Self::Lib(ix), [bound_value, body])
+            }
+            BindingExpr::LibVar(ix) => AstNode::leaf(Self::LibVar(ix)),
             BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
         }
     }
@@ -125,7 +146,8 @@ impl Teachable for ListOp {
             (Self::Lambda, [body]) => BindingExpr::Lambda(body),
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
             (&Self::Var(index), []) => BindingExpr::Var(index.0),
-            (Self::Lib, [bound_value, body]) => BindingExpr::Let(bound_value, body),
+            (Self::Lib(ix), [bound_value, body]) => BindingExpr::Let(*ix, bound_value, body),
+            (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
             (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };

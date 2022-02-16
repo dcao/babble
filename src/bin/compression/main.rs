@@ -14,18 +14,24 @@
 
 use babble::{
     ast_node::{AstNode, Expr},
-    extract::{beam::PartialLibCost, LpExtractor},
+    extract::{
+        beam::{less_dumb_extractor, PartialLibCost},
+        lift_libs,
+    },
     learn::LearnedLibrary,
 };
 use clap::Clap;
-use dreamcoder::{expr::DcExpr, json::CompressionInput};
-use egg::{AstSize, EGraph, Language, RecExpr, Runner};
+use dreamcoder::json::CompressionInput;
+use egg::{EGraph, RecExpr, Runner};
 use std::{
     fs,
     io::{self, Read},
     path::PathBuf,
     time::{Duration, Instant},
 };
+
+#[cfg(feature = "grb")]
+use babble::extract::ilp::*;
 
 use crate::dreamcoder::expr::DreamCoderOp;
 
@@ -67,74 +73,202 @@ fn main() {
     // res: Vec<(limit, final beam size, inter beam size, smallest full cost, time)>
     let mut wtr = csv::Writer::from_path("target/res.csv").unwrap();
 
-    // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
-    for limit in [802] {
-        for final_beams in (10..=50).step_by(10) {
-            for inter_beams in (10..=50).step_by(10) {
-                // let inter_beams = final_beams;
-                // let final_beams = inter_beams;
-                println!("limit: {}, final_beams: {}, inter_beams: {}", limit, final_beams, inter_beams);
+    let mut run_beam_exp = |limit, final_beams, inter_beams, wtr: &mut csv::Writer<fs::File>| {
+        // let inter_beams = final_beams;
+        // let final_beams = inter_beams;
+        println!(
+            "limit: {}, final_beams: {}, inter_beams: {}",
+            limit, final_beams, inter_beams
+        );
 
-                let start_time = Instant::now();
-                let timeout = Duration::from_secs(60 * 100000);
+        let start_time = Instant::now();
+        let timeout = Duration::from_secs(60 * 100000);
 
-                let mut egraph = EGraph::new(PartialLibCost::new(final_beams, inter_beams));
-                let programs: Vec<Expr<DreamCoderOp>> = input
-                    .clone()
-                    .frontiers
-                    .into_iter()
-                    .flat_map(|frontier| frontier.programs)
-                    .map(|program| program.program.into())
-                    .take(limit)
-                    .collect();
-                let mut roots = Vec::with_capacity(programs.len());
-                let initial_cost: usize = programs.iter().map(Expr::len).sum();
-                for expr in programs.iter().cloned().map(RecExpr::from) {
-                    let root = egraph.add_expr(&expr);
-                    roots.push(root);
-                }
-
-                egraph.rebuild();
-
-                println!("Compressing {} programs", roots.len());
-                println!("Starting cost: {}", initial_cost);
-
-                let learned_lib = LearnedLibrary::from(&egraph);
-                let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
-
-                println!("Found {} antiunifications", lib_rewrites.len());
-
-                println!("Anti-unifying");
-                let runner = Runner::<_, _, ()>::new(PartialLibCost::new(final_beams, inter_beams))
-                    .with_egraph(egraph)
-                    .with_iter_limit(1)
-                    .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
-                    .with_node_limit(100_000)
-                    .run(lib_rewrites.iter());
-
-                println!("Stop reason: {:?}", runner.stop_reason.unwrap());
-
-                let mut egraph = runner.egraph;
-                println!("Number of nodes: {}", egraph.total_size());
-
-                // Add the root combine node.
-                let root = egraph.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
-
-                let mut cs = egraph[egraph.find(root)].data.clone();
-                cs.set.sort_unstable_by_key(|elem| elem.full_cost);
-
-                println!("learned libs");
-                for lib in &cs.set[0].libs {
-                    println!("{}", egraph[egraph.find(lib.0)].nodes[0].build_recexpr(|id| egraph[egraph.find(id)].nodes[0].clone()).pretty(100));
-                }
-
-                println!("full cost: {}", cs.set.iter().min_by_key(|ls| ls.full_cost).unwrap().full_cost);
-                println!();
-
-                wtr.serialize((limit, final_beams, inter_beams, cs.set[0].full_cost, start_time.elapsed().as_secs_f64())).unwrap();
-                wtr.flush().unwrap();
-            }
+        let mut aeg = EGraph::new(PartialLibCost::new(final_beams, inter_beams));
+        let programs: Vec<Expr<DreamCoderOp>> = input
+            .clone()
+            .frontiers
+            .into_iter()
+            .flat_map(|frontier| frontier.programs)
+            .map(|program| program.program.into())
+            .take(limit)
+            .collect();
+        let mut roots = Vec::with_capacity(programs.len());
+        let initial_cost: usize = programs.iter().map(Expr::len).sum();
+        for expr in programs.iter().cloned().map(RecExpr::from) {
+            let root = aeg.add_expr(&expr);
+            roots.push(root);
         }
+
+        aeg.rebuild();
+
+        println!("Compressing {} programs", roots.len());
+        println!("Starting cost: {}", initial_cost);
+
+        let learned_lib = LearnedLibrary::from(&aeg);
+        let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
+
+        println!("Found {} antiunifications", lib_rewrites.len());
+
+        println!("Anti-unifying");
+        let runner = Runner::<_, _, ()>::new(PartialLibCost::new(final_beams, inter_beams))
+            .with_egraph(aeg.clone())
+            .with_iter_limit(1)
+            .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
+            .with_node_limit(100_000)
+            .run(lib_rewrites.iter());
+
+        println!("Stop reason: {:?}", runner.stop_reason.unwrap());
+
+        let mut egraph = runner.egraph;
+        println!("Number of nodes: {}", egraph.total_size());
+
+        // Add the root combine node.
+        let root = egraph.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
+
+        let mut cs = egraph[egraph.find(root)].data.clone();
+        cs.set.sort_unstable_by_key(|elem| elem.full_cost);
+
+        println!("learned libs");
+        let all_libs: Vec<_> = learned_lib.libs().collect();
+        for lib in &cs.set[0].libs {
+            println!("{}: {}", lib.0, &all_libs[lib.0 .0]);
+        }
+
+        println!("upper bound ('full') cost: {}", cs.set[0].full_cost);
+        println!();
+
+        println!("extracting (with duplicate libs)");
+        // Add the root combine node again
+        let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
+            .with_egraph(aeg.clone())
+            .with_iter_limit(1)
+            .run(
+                lib_rewrites
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| cs.set[0].libs.iter().any(|x| *i == x.0 .0))
+                    .map(|x| x.1),
+            )
+            .egraph;
+        let root = fin.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
+
+        // let extractor = Extractor::new(&fin, NoLibCost);
+        // let (_, best) = extractor.find_best(fin.find(root));
+        // println!();
+
+        let best = less_dumb_extractor(&fin, root);
+
+        println!("extracting (final, lifted libs)");
+        let lifted = lift_libs(best);
+        println!("{}", lifted.pretty(100));
+        println!("final cost: {}", lifted.as_ref().len());
+        println!();
+
+        wtr.serialize((
+            limit,
+            false,
+            final_beams,
+            inter_beams,
+            lifted.as_ref().len(),
+            start_time.elapsed().as_secs_f64(),
+        ))
+        .unwrap();
+        wtr.flush().unwrap();
+    };
+
+    #[cfg(feature = "grb")]
+    let mut run_ilp_exp = |limit, wtr: &mut csv::Writer<fs::File>| {
+        println!(
+            "limit: {} [ILP]",
+            limit
+        );
+
+        let start_time = Instant::now();
+        let timeout = Duration::from_secs(60);
+
+        let mut aeg = EGraph::new(());
+        let programs: Vec<Expr<DreamCoderOp>> = input
+            .clone()
+            .frontiers
+            .into_iter()
+            .flat_map(|frontier| frontier.programs)
+            .map(|program| program.program.into())
+            .take(limit)
+            .collect();
+        let mut roots = Vec::with_capacity(programs.len());
+        let initial_cost: usize = programs.iter().map(Expr::len).sum();
+        for expr in programs.iter().cloned().map(RecExpr::from) {
+            let root = aeg.add_expr(&expr);
+            roots.push(root);
+        }
+
+        aeg.rebuild();
+
+        println!("Compressing {} programs", roots.len());
+        println!("Starting cost: {}", initial_cost);
+
+        let learned_lib = LearnedLibrary::from(&aeg);
+        let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
+
+        println!("Found {} antiunifications", lib_rewrites.len());
+
+        println!("Anti-unifying");
+        let runner = Runner::<_, _, ()>::new(())
+            .with_egraph(aeg.clone())
+            .with_iter_limit(1)
+            .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
+            .with_node_limit(100_000)
+            .run(lib_rewrites.iter());
+
+        println!("Stop reason: {:?}", runner.stop_reason.unwrap());
+
+        let mut egraph = runner.egraph;
+        println!("Number of nodes: {}", egraph.total_size());
+
+        // Add the root combine node.
+        let root = egraph.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
+
+        println!("extracting (ILP)");
+        let best = LpExtractor::new(&egraph, egg::AstSize)
+            .timeout(timeout.saturating_sub(start_time.elapsed()).as_secs_f64())
+            .solve(root);
+        println!();
+
+        println!("extracting (final, lifted libs)");
+        let lifted = lift_libs(best);
+        println!("{}", lifted.pretty(100));
+        println!("final cost: {}", lifted.as_ref().len());
+        println!();
+
+        wtr.serialize((
+            limit,
+            true,
+            0,
+            0,
+            lifted.as_ref().len(),
+            start_time.elapsed().as_secs_f64(),
+        ))
+        .unwrap();
+        wtr.flush().unwrap();
+    };
+
+    #[cfg(not(feature = "grb"))]
+    let mut run_ilp_exp = |limit| {
+        // no-op
+    };
+
+    // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
+    for limit in [50] {
+        // for final_beams in (10..=50).step_by(10) {
+        //     for inter_beams in (100..=1000).step_by(100) {
+        //         run_beam_exp(limit, final_beams, inter_beams, &mut wtr);
+        //     }
+        // }
+        
+        run_beam_exp(limit, 100, 100, &mut wtr);
+        // TODO: vary timeout?
+        run_ilp_exp(limit, &mut wtr);
     }
 
     // --- old code below

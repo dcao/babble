@@ -3,6 +3,7 @@
 use super::{parse, util::parens};
 use babble::{
     ast_node::{Arity, AstNode, Expr},
+    learn::LibId,
     teachable::{BindingExpr, Teachable},
 };
 use egg::{RecExpr, Symbol};
@@ -100,7 +101,9 @@ pub enum DreamCoderOp {
     /// `(((foo bar) baz) quux)`.
     App,
 
-    Lib,
+    Lib(LibId),
+    LibVar(LibId),
+
     Shift,
 
     /// A utility operation that allows us to do extraction taking into account
@@ -111,9 +114,12 @@ pub enum DreamCoderOp {
 impl Arity for DreamCoderOp {
     fn min_arity(&self) -> usize {
         match self {
-            DreamCoderOp::Var(_) | DreamCoderOp::Symbol(_) | DreamCoderOp::Inlined(_) => 0,
+            DreamCoderOp::Var(_)
+            | DreamCoderOp::Symbol(_)
+            | DreamCoderOp::Inlined(_)
+            | DreamCoderOp::LibVar(_) => 0,
             DreamCoderOp::Lambda | DreamCoderOp::Shift | DreamCoderOp::Combine => 1,
-            DreamCoderOp::App | DreamCoderOp::Lib => 2,
+            DreamCoderOp::App | DreamCoderOp::Lib(_) => 2,
         }
     }
 
@@ -131,7 +137,8 @@ impl Teachable for DreamCoderOp {
             BindingExpr::Var(index) => AstNode::leaf(DreamCoderOp::Var(index)),
             BindingExpr::Lambda(body) => AstNode::new(DreamCoderOp::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(DreamCoderOp::App, [fun, arg]),
-            BindingExpr::Let(def, body) => AstNode::new(DreamCoderOp::Lib, [def, body]),
+            BindingExpr::Let(ix, def, body) => AstNode::new(DreamCoderOp::Lib(ix), [def, body]),
+            BindingExpr::LibVar(ix) => AstNode::leaf(DreamCoderOp::LibVar(ix)),
             BindingExpr::Shift(expr) => AstNode::new(DreamCoderOp::Shift, [expr]),
         }
     }
@@ -141,7 +148,8 @@ impl Teachable for DreamCoderOp {
             (DreamCoderOp::Var(index), []) => BindingExpr::Var(*index),
             (DreamCoderOp::Lambda, [body]) => BindingExpr::Lambda(body),
             (DreamCoderOp::App, [fun, arg]) => BindingExpr::Apply(fun, arg),
-            (DreamCoderOp::Lib, [def, body]) => BindingExpr::Let(def, body),
+            (DreamCoderOp::Lib(ix), [def, body]) => BindingExpr::Let(*ix, def, body),
+            (DreamCoderOp::LibVar(ix), []) => BindingExpr::LibVar(*ix),
             (DreamCoderOp::Shift, [expr]) => BindingExpr::Shift(expr),
             _ => return None,
         };
@@ -154,12 +162,13 @@ impl Display for DreamCoderOp {
         let s = match self {
             DreamCoderOp::Lambda => "lambda",
             DreamCoderOp::App => "@",
-            DreamCoderOp::Lib => "lib",
+            DreamCoderOp::Lib(ix) => return write!(f, "lib {}", ix),
+            DreamCoderOp::LibVar(ix) => return write!(f, "{}", ix),
             DreamCoderOp::Shift => "shift",
             DreamCoderOp::Var(index) => return write!(f, "${}", index),
             DreamCoderOp::Inlined(expr) => return write!(f, "#{}", DcExpr::ref_cast(expr)),
             DreamCoderOp::Symbol(symbol) => return write!(f, "{}", symbol),
-            DreamCoderOp::Combine => "combine"
+            DreamCoderOp::Combine => "combine",
         };
         f.write_str(s)
     }

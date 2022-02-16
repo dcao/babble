@@ -14,13 +14,12 @@
 
 use babble::{
     ast_node::Expr,
-    extract::{beam::*, LpExtractor},
+    extract::{beam::*, lift_libs},
     learn::LearnedLibrary,
     sexp::Sexp,
 };
 use clap::Clap;
-use egg::{AstSize, CostFunction, EGraph, Language, RecExpr, Runner};
-use log::info;
+use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner};
 use std::{
     convert::TryInto,
     fs,
@@ -32,24 +31,6 @@ use crate::pretty::Pretty;
 
 pub mod lang;
 pub mod pretty;
-
-// TODO: make this more general for all langs
-struct NoLibAstSize;
-
-impl babble::extract::LpCostFunction<babble::ast_node::AstNode<lang::ListOp>, ()> for NoLibAstSize {
-    fn node_cost(
-        &mut self,
-        _egraph: &EGraph<babble::ast_node::AstNode<lang::ListOp>, ()>,
-        _eclass: egg::Id,
-        enode: &babble::ast_node::AstNode<lang::ListOp>,
-    ) -> f64 {
-        match enode.operation() {
-            lang::ListOp::Lib => 0.0,
-            lang::ListOp::Lambda => 0.0,
-            _ => 1.0,
-        }
-    }
-}
 
 #[derive(Clap)]
 #[clap(version, author, about)]
@@ -87,30 +68,57 @@ fn main() {
     println!("{}", pretty_expr);
     println!();
 
+    println!("running...");
+
     println!("stage one");
-    let mut egraph = EGraph::new(PartialLibCost::new(20, 100));
-    let root = egraph.add_expr(&initial_expr);
-    egraph.rebuild();
+    let mut aeg = EGraph::new(PartialLibCost::new(20, 100));
+    let root = aeg.add_expr(&initial_expr);
+    aeg.rebuild();
 
     println!("stage two");
-    let learned_lib = LearnedLibrary::from(&egraph);
+    let learned_lib = LearnedLibrary::from(&aeg);
     let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
     let egraph = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
-        .with_egraph(egraph)
+        .with_egraph(aeg.clone())
         .with_iter_limit(1)
         .run(lib_rewrites.iter())
         .egraph;
+    println!();
 
-    println!("root analysis data:");
     let mut cs = egraph[egraph.find(root)].data.clone();
     cs.set.sort_unstable_by_key(|elem| elem.full_cost);
 
     println!("learned libs");
+    let all_libs: Vec<_> = learned_lib.libs().collect();
     for lib in &cs.set[0].libs {
-        println!("{}", egraph[egraph.find(lib.0)].nodes[0].build_recexpr(|id| egraph[egraph.find(id)].nodes[0].clone()).pretty(100));
+        println!("{}: {}", lib.0, &all_libs[lib.0 .0]);
     }
 
-    println!("cost {}", cs.set[0].full_cost);
+    println!("upper bound ('full') cost: {}", cs.set[0].full_cost);
+    println!();
+
+    println!("extracting (with duplicate libs)");
+    let fin = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
+        .with_egraph(aeg.clone())
+        .with_iter_limit(1)
+        .run(
+            lib_rewrites
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| cs.set[0].libs.iter().any(|x| *i == x.0 .0))
+                .map(|x| x.1),
+        )
+        .egraph;
+
+    let best = less_dumb_extractor(&fin, root);
+    println!("{}", best.pretty(100));
+    println!();
+
+    println!("extracting (final, lifted libs)");
+    let lifted = lift_libs(best);
+    println!("{}", lifted.pretty(100));
+    println!("final cost: {}", lifted.as_ref().len());
+    println!();
 
     // let runner = Runner::default()
     //     .with_egraph(egraph)

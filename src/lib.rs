@@ -20,7 +20,6 @@ pub mod ast_node;
 mod dfta;
 pub mod extract;
 pub mod learn;
-pub mod lift_lib;
 pub mod sexp;
 pub mod simple_lang;
 pub mod teachable;

@@ -44,12 +44,16 @@ impl<W: Write> Printer<W> {
     /// determines whether the expression with head `op` will be parenthesized
     fn op_precedence(op: &ListOp) -> Precedence {
         match op {
-            ListOp::Bool(_) | ListOp::Int(_) | ListOp::Var(_) | ListOp::Ident(_) => 60,
+            ListOp::Bool(_)
+            | ListOp::Int(_)
+            | ListOp::Var(_)
+            | ListOp::Ident(_)
+            | ListOp::LibVar(_) => 60,
             ListOp::List => 50,
             ListOp::Apply | ListOp::Shift => 40,
             ListOp::Cons => 30,
             ListOp::If => 20,
-            ListOp::Lambda | ListOp::Lib => 10,
+            ListOp::Lambda | ListOp::Lib(_) => 10,
         }
     }
 
@@ -135,10 +139,9 @@ impl<W: Write> Printer<W> {
                     Ok(())
                 }
             },
-            (&ListOp::Lib, [def, body]) => {
+            (&ListOp::Lib(ix), [def, body]) => {
                 self.with_binding("f", |p| {
-                    let fresh_var = p.bindings.last().unwrap(); // the name of the latest binding
-                    write!(p.writer, "lib {} =", fresh_var)?; // print binding
+                    write!(p.writer, "lib {} =", ix)?; // print binding
 
                     p.indented(|p| {
                         p.new_line()?;

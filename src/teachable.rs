@@ -1,6 +1,6 @@
 //! Defines the [`Teachable`] trait for languages that support library learning.
 
-use crate::ast_node::AstNode;
+use crate::{ast_node::AstNode, learn::LibId};
 use std::{
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
@@ -46,8 +46,13 @@ where
 
     /// Creates a let-expression binding `ident` to `value` in `body`.
     #[must_use]
-    fn lib<T>(value: T, body: T) -> AstNode<Self, T> {
-        Self::from_binding_expr(BindingExpr::Let(value, body))
+    fn lib<T>(id: LibId, value: T, body: T) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::Let(id, value, body))
+    }
+
+    #[must_use]
+    fn lib_var<T>(id: LibId) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::LibVar(id))
     }
 }
 
@@ -58,13 +63,15 @@ where
 pub enum BindingExpr<T> {
     /// A de Bruijn index
     Var(usize),
+    /// A reference to an occurrence of a lib function
+    LibVar(LibId),
     /// A lambda
     Lambda(T),
     /// An application of a function to an argument
     Apply(T, T),
     /// A let-expression:
     /// `(let expr body)` is equivalent to `(apply (lambda body) expr)`
-    Let(T, T),
+    Let(LibId, T, T),
     /// Shift free de Bruijn vars in body by one, so that `(shift $0)` is equivalent to `$1`
     Shift(T),
 }
