@@ -392,7 +392,6 @@ pub fn dumb_extractor<
 
         for node in &egraph[id].nodes {
             if let Some(BindingExpr::Let(_, _, _)) = node.as_binding_expr() {
-                println!("{}", node);
                 return node.clone();
             }
         }

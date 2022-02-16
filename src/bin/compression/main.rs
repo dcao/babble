@@ -129,39 +129,56 @@ fn main() {
         let mut cs = egraph[egraph.find(root)].data.clone();
         cs.set.sort_unstable_by_key(|elem| elem.full_cost);
 
-        println!("learned libs");
-        let all_libs: Vec<_> = learned_lib.libs().collect();
-        for lib in &cs.set[0].libs {
-            println!("{}: {}", lib.0, &all_libs[lib.0 .0]);
-        }
+        // println!("learned libs");
+        // let all_libs: Vec<_> = learned_lib.libs().collect();
+        // for lib in &cs.set[0].libs {
+        //     println!("{}: {}", lib.0, &all_libs[lib.0 .0]);
+        // }
 
         println!("upper bound ('full') cost: {}", cs.set[0].full_cost);
         println!();
 
-        println!("extracting (with duplicate libs)");
-        // Add the root combine node again
-        let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
-            .with_egraph(aeg.clone())
-            .with_iter_limit(1)
-            .run(
-                lib_rewrites
-                    .iter()
-                    .enumerate()
-                    .filter(|(i, _)| cs.set[0].libs.iter().any(|x| *i == x.0 .0))
-                    .map(|x| x.1),
-            )
-            .egraph;
-        let root = fin.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
-
-        // let extractor = Extractor::new(&fin, NoLibCost);
-        // let (_, best) = extractor.find_best(fin.find(root));
-        // println!();
-
-        let best = less_dumb_extractor(&fin, root);
-
         println!("extracting (final, lifted libs)");
-        let lifted = lift_libs(best);
-        let final_cost = true_cost(&lifted);
+        let mut best_seen = None;
+
+        for att in 0..final_beams {
+        // for _i in 0..1 {
+            // Add the root combine node again
+            let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
+                .with_egraph(aeg.clone())
+                .with_iter_limit(1)
+                .run(
+                    lib_rewrites
+                        .iter()
+                        .enumerate()
+                        .filter(|(i, _)| cs.set[att].libs.iter().any(|x| *i == x.0 .0))
+                        .map(|x| x.1),
+                )
+                .egraph;
+            let root = fin.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
+
+            // let extractor = Extractor::new(&fin, NoLibCost);
+            // let (_, best) = extractor.find_best(fin.find(root));
+            // println!();
+
+            let best = less_dumb_extractor(&fin, root);
+
+            let lifted = lift_libs(best);
+            let final_cost = true_cost(&lifted);
+
+            if let Some((expr, cost)) = best_seen {
+                if final_cost < cost {
+                    best_seen = Some((lifted, final_cost));
+                } else {
+                    best_seen = Some((expr, cost));
+                }
+            } else {
+                best_seen = Some((lifted, final_cost));
+            }
+        }
+
+        let (lifted, final_cost) = best_seen.unwrap();
+
         println!("{}", lifted.pretty(100));
         println!("final cost: {}", final_cost);
         println!();
@@ -261,14 +278,16 @@ fn main() {
     };
 
     // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
-    for limit in [802] {
+    for limit in [20, 35, 50, 200] {
         // for final_beams in (10..=50).step_by(10) {
         //     for inter_beams in (100..=1000).step_by(100) {
         //         run_beam_exp(limit, final_beams, inter_beams, &mut wtr);
         //     }
         // }
+        for inter_beams in (100..=500).step_by(100) {
+            run_beam_exp(limit, 30, inter_beams, &mut wtr);
+        }
         
-        run_beam_exp(limit, 10, 100, &mut wtr);
         // TODO: vary timeout?
         run_ilp_exp(limit, &mut wtr);
     }

@@ -43,7 +43,6 @@ where
 
     // TODO: order based on libs dependency w each other?
     while let Some((lib, expr)) = q.pop() {
-        println!("{}", lib);
         let body = res.len() - 1;
         let value: Vec<_> = orig[Into::<usize>::into(expr)]
                 .build_recexpr(|id| build(&orig, id, |k, v| {
