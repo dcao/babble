@@ -76,6 +76,10 @@ fn main() {
     let mut run_beam_exp = |limit, final_beams, inter_beams, wtr: &mut csv::Writer<fs::File>| {
         // let inter_beams = final_beams;
         // let final_beams = inter_beams;
+        if final_beams > inter_beams {
+            return;
+        }
+
         println!(
             "limit: {}, final_beams: {}, inter_beams: {}",
             limit, final_beams, inter_beams
@@ -142,6 +146,7 @@ fn main() {
         let mut best_seen = None;
 
         for att in 0..final_beams {
+        // for att in 0..cs.set.len() {
         // for _i in 0..1 {
             // Add the root combine node again
             let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
@@ -185,9 +190,11 @@ fn main() {
 
         wtr.serialize((
             limit,
-            false,
+            "beam",
+            timeout.as_secs(),
             final_beams,
             inter_beams,
+            initial_cost,
             final_cost,
             start_time.elapsed().as_secs_f64(),
         ))
@@ -196,14 +203,14 @@ fn main() {
     };
 
     #[cfg(feature = "grb")]
-    let mut run_ilp_exp = |limit, wtr: &mut csv::Writer<fs::File>| {
+    let mut run_ilp_exp = |limit, timeout, wtr: &mut csv::Writer<fs::File>| {
         println!(
             "limit: {} [ILP]",
             limit
         );
 
         let start_time = Instant::now();
-        let timeout = Duration::from_secs(60);
+        let timeout = Duration::from_secs(timeout);
 
         let mut aeg = EGraph::new(());
         let programs: Vec<Expr<DreamCoderOp>> = input
@@ -262,9 +269,11 @@ fn main() {
 
         wtr.serialize((
             limit,
-            true,
+            "ilp",
+            timeout.as_secs(),
             0,
             0,
+            initial_cost,
             final_cost,
             start_time.elapsed().as_secs_f64(),
         ))
@@ -273,23 +282,26 @@ fn main() {
     };
 
     #[cfg(not(feature = "grb"))]
-    let mut run_ilp_exp = |limit, wtr: &mut csv::Writer<fs::File>| {
+    let mut run_ilp_exp = |limit, timeout, wtr: &mut csv::Writer<fs::File>| {
         // no-op
     };
 
     // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
-    for limit in [20, 35, 50, 200] {
+    for limit in [20, 35, 50, 100, 250, 802] {
         // for final_beams in (10..=50).step_by(10) {
         //     for inter_beams in (100..=1000).step_by(100) {
         //         run_beam_exp(limit, final_beams, inter_beams, &mut wtr);
         //     }
         // }
-        for inter_beams in (100..=500).step_by(100) {
-            run_beam_exp(limit, 30, inter_beams, &mut wtr);
+        for beam_size in [5, 10, 25, 50, 100, 200] {
+            for inter_beam in (100..=500).step_by(100) {
+                run_beam_exp(limit, beam_size, inter_beam, &mut wtr);
+            }
         }
         
-        // TODO: vary timeout?
-        run_ilp_exp(limit, &mut wtr);
+        // for timeout in [1, 10, 100, 200, 500, 1000, 10000] {
+        //     run_ilp_exp(limit, timeout, &mut wtr);
+        // }
     }
 
     // --- old code below
