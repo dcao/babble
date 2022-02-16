@@ -62,3 +62,19 @@ where
 
     res.into()
 }
+
+/// Get the true cost of an expr
+pub fn true_cost<Op>(expr: &RecExpr<AstNode<Op>>) -> usize {
+    let expr = expr.as_ref();
+    let mut res = 0;
+
+    // Start at the root.
+    let mut q = vec![expr.len() - 1];
+    while let Some(id) = q.pop() {
+        res += 1;
+
+        expr[id].iter().for_each(|x| q.push(usize::from(*x)));
+    }
+
+    res
+}

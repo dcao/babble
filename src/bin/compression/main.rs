@@ -16,7 +16,7 @@ use babble::{
     ast_node::{AstNode, Expr},
     extract::{
         beam::{less_dumb_extractor, PartialLibCost},
-        lift_libs,
+        lift_libs, true_cost,
     },
     learn::LearnedLibrary,
 };
@@ -161,8 +161,9 @@ fn main() {
 
         println!("extracting (final, lifted libs)");
         let lifted = lift_libs(best);
+        let final_cost = true_cost(&lifted);
         println!("{}", lifted.pretty(100));
-        println!("final cost: {}", lifted.as_ref().len());
+        println!("final cost: {}", final_cost);
         println!();
 
         wtr.serialize((
@@ -170,7 +171,7 @@ fn main() {
             false,
             final_beams,
             inter_beams,
-            lifted.as_ref().len(),
+            final_cost,
             start_time.elapsed().as_secs_f64(),
         ))
         .unwrap();
@@ -237,8 +238,9 @@ fn main() {
 
         println!("extracting (final, lifted libs)");
         let lifted = lift_libs(best);
+        let final_cost = true_cost(&lifted);
         println!("{}", lifted.pretty(100));
-        println!("final cost: {}", lifted.as_ref().len());
+        println!("final cost: {}", final_cost);
         println!();
 
         wtr.serialize((
@@ -246,7 +248,7 @@ fn main() {
             true,
             0,
             0,
-            lifted.as_ref().len(),
+            final_cost,
             start_time.elapsed().as_secs_f64(),
         ))
         .unwrap();
@@ -254,19 +256,19 @@ fn main() {
     };
 
     #[cfg(not(feature = "grb"))]
-    let mut run_ilp_exp = |limit| {
+    let mut run_ilp_exp = |limit, wtr: &mut csv::Writer<fs::File>| {
         // no-op
     };
 
     // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
-    for limit in [50] {
+    for limit in [802] {
         // for final_beams in (10..=50).step_by(10) {
         //     for inter_beams in (100..=1000).step_by(100) {
         //         run_beam_exp(limit, final_beams, inter_beams, &mut wtr);
         //     }
         // }
         
-        run_beam_exp(limit, 100, 100, &mut wtr);
+        run_beam_exp(limit, 10, 100, &mut wtr);
         // TODO: vary timeout?
         run_ilp_exp(limit, &mut wtr);
     }
