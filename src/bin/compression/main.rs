@@ -282,7 +282,7 @@ fn main() {
     };
 
     #[cfg(not(feature = "grb"))]
-    let mut run_ilp_exp = |limit, timeout, wtr: &mut csv::Writer<fs::File>| {
+    let mut run_ilp_exp = |limit: usize, timeout: usize, wtr: &mut csv::Writer<fs::File>| {
         // no-op
     };
 
@@ -293,15 +293,14 @@ fn main() {
         //         run_beam_exp(limit, final_beams, inter_beams, &mut wtr);
         //     }
         // }
+
         for beam_size in [5, 10, 25, 50, 100, 200] {
-            for inter_beam in (100..=500).step_by(100) {
-                run_beam_exp(limit, beam_size, inter_beam, &mut wtr);
-            }
+            run_beam_exp(limit, beam_size, beam_size, &mut wtr);
         }
         
-        // for timeout in [1, 10, 100, 200, 500, 1000, 10000] {
-        //     run_ilp_exp(limit, timeout, &mut wtr);
-        // }
+        for timeout in [1, 10, 100, 200, 500, 1000, 10000] {
+            run_ilp_exp(limit, timeout, &mut wtr);
+        }
     }
 
     // --- old code below
