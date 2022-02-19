@@ -307,15 +307,20 @@ pub fn less_dumb_extractor<
 ) -> RecExpr<AstNode<Op>> {
     let mut expr = Vec::new();
     let mut stack = Vec::new();
+    let mut lib_stack = Vec::new();
 
+    // TODO: optimize this code maybe. This feels inefficient and wrong tbh
     // For each eclass id.
     fn go<
         Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display,
         N: Analysis<AstNode<Op>>,
-    >(expr: &mut Vec<AstNode<Op>>, stack: &mut Vec<(Id, usize)>, egraph: &EGraph<AstNode<Op>, N>, id: Id) -> Option<Id> {
-        // If we've hit a cycle, return immediately.
-        // Otherwise, add this Id to the stack.
-
+    >(
+        expr: &mut Vec<AstNode<Op>>,
+        stack: &mut Vec<(Id, usize)>,
+        lib_stack: &mut Vec<LibId>,
+        egraph: &EGraph<AstNode<Op>, N>,
+        id: Id,
+    ) -> Option<Id> {
         // Partition the nodes by whether they're libs or not.
         // We want to always use libs so
         let (mut all, nons): (Vec<AstNode<Op>>, Vec<AstNode<Op>>) =
@@ -334,7 +339,7 @@ pub fn less_dumb_extractor<
             } else {
                 *prev_ix
             };
-            
+
             stack.push((id, new_ix));
 
             all = all.drain(new_ix..).collect();
@@ -346,10 +351,23 @@ pub fn less_dumb_extractor<
 
         // Go through each node
         'outer: for mut lib in all {
+            // If this node is a lib, check if it's been in the lib stack yet.
+            // We do this since without this, we might produce the following result:
+            // (lib l20 (lambda (lib l20 (lambda (whatever)) (@ l20 $0))) (@ l20 $0))
+            // This causes problems during lib lifting since we'll just replace
+            // the value of l20 with (@ l20 $0). As a result, this janky hack.
+            if let Some(BindingExpr::Let(lib_id, _, _)) = lib.as_binding_expr() {
+                if lib_stack.contains(&lib_id) {
+                    continue 'outer;
+                } else {
+                    lib_stack.push(lib_id);
+                }
+            }
+
             // Try for each child
             for child in lib.iter_mut() {
                 // Debugging
-                if let Some(id) = go(expr, stack, egraph, *child) {
+                if let Some(id) = go(expr, stack, lib_stack, egraph, *child) {
                     *child = id;
                 } else {
                     continue 'outer;
@@ -358,6 +376,9 @@ pub fn less_dumb_extractor<
 
             // If we make it to this point; success!
             // Add to expr. Pop off stack. Return Id.
+            if let Some(BindingExpr::Let(_, _, _)) = lib.as_binding_expr() {
+                lib_stack.pop();
+            }
             expr.push(lib);
             stack.pop();
             // println!("SUCCESS {:?}", stack);
@@ -371,7 +392,7 @@ pub fn less_dumb_extractor<
         None
     }
 
-    go(&mut expr, &mut stack, &egraph, root);
+    go(&mut expr, &mut stack, &mut lib_stack, &egraph, root);
 
     expr.into()
 }

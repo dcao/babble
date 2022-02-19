@@ -73,7 +73,7 @@ fn main() {
     // res: Vec<(limit, final beam size, inter beam size, smallest full cost, time)>
     let mut wtr = csv::Writer::from_path("target/res.csv").unwrap();
 
-    let mut run_beam_exp = |limit, final_beams, inter_beams, wtr: &mut csv::Writer<fs::File>| {
+    let run_beam_exp = |limit, final_beams, inter_beams, wtr: &mut csv::Writer<fs::File>| {
         // let inter_beams = final_beams;
         // let final_beams = inter_beams;
         if final_beams > inter_beams {
@@ -166,10 +166,13 @@ fn main() {
             // let (_, best) = extractor.find_best(fin.find(root));
             // println!();
 
-            // println!("{:#?}", fin[14.into()]);
-            // println!("{:#?}", fin[15.into()]);
+            // println!("{:#?}", fin[root]);
+            // println!("{:#?}", fin[17.into()]);
+            // println!("{:#?}", fin[31.into()]);
 
             let best = less_dumb_extractor(&fin, root);
+
+            // println!("{}", best.pretty(100));
 
             let lifted = lift_libs(best);
             let final_cost = true_cost(&lifted);
@@ -206,7 +209,7 @@ fn main() {
     };
 
     #[cfg(feature = "grb")]
-    let mut run_ilp_exp = |limit, timeout, wtr: &mut csv::Writer<fs::File>| {
+    let run_ilp_exp = |limit, timeout, wtr: &mut csv::Writer<fs::File>| {
         println!(
             "limit: {} [ILP]",
             limit
@@ -286,28 +289,28 @@ fn main() {
     };
 
     #[cfg(not(feature = "grb"))]
-    let mut run_ilp_exp = |limit: usize, timeout: usize, wtr: &mut csv::Writer<fs::File>| {
+    let run_ilp_exp = |limit: usize, timeout: usize, wtr: &mut csv::Writer<fs::File>| {
         // no-op
     };
 
     // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
-    for limit in [20] {
+    for limit in [20, 35, 50] {
         // for final_beams in (10..=50).step_by(10) {
         //     for inter_beams in (100..=1000).step_by(100) {
         //         run_beam_exp(limit, final_beams, inter_beams, &mut wtr);
         //     }
         // }
 
-        run_beam_exp(limit, 30, 100, &mut wtr);
-        run_ilp_exp(limit, 10, &mut wtr);
-
-        // for beam_size in [5, 10, 25, 50, 100, 200] {
-        //     run_beam_exp(limit, beam_size, beam_size, &mut wtr);
-        // }
+        for beam_size in [5, 10, 25, 50] {
+            run_beam_exp(limit, beam_size, beam_size, &mut wtr);
+        }
         
         // for timeout in [1, 10, 100, 200, 500, 1000, 10000] {
         //     run_ilp_exp(limit, timeout, &mut wtr);
         // }
+
+        // run_beam_exp(limit, 30, 100, &mut wtr);
+        // run_ilp_exp(limit, 10, &mut wtr);
     }
 
     // --- old code below
