@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use egg::{Id, Language, RecExpr};
 
 use crate::{
-    ast_node::AstNode,
+    ast_node::{AstNode, Expr},
     learn::LibId,
     teachable::{BindingExpr, Teachable},
 };
@@ -63,17 +63,6 @@ where
 }
 
 /// Get the true cost of an expr
-pub fn true_cost<Op>(expr: &RecExpr<AstNode<Op>>) -> usize {
-    let expr = expr.as_ref();
-    let mut res = 0;
-
-    // Start at the root.
-    let mut q = vec![expr.len() - 1];
-    while let Some(id) = q.pop() {
-        res += 1;
-
-        expr[id].iter().for_each(|x| q.push(usize::from(*x)));
-    }
-
-    res
+pub fn true_cost<Op: Clone>(expr: RecExpr<AstNode<Op>>) -> usize {
+    Expr::len(&expr.into())
 }

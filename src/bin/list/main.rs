@@ -14,7 +14,7 @@
 
 use babble::{
     ast_node::Expr,
-    extract::{beam::*, lift_libs},
+    extract::{beam::*, lift_libs, true_cost},
     learn::LearnedLibrary,
     sexp::Sexp,
 };
@@ -116,8 +116,9 @@ fn main() {
 
     println!("extracting (final, lifted libs)");
     let lifted = lift_libs(best);
+    let final_cost = true_cost(lifted.clone());
     println!("{}", lifted.pretty(100));
-    println!("final cost: {}", lifted.as_ref().len());
+    println!("final cost: {}", final_cost);
     println!();
 
     // let runner = Runner::default()

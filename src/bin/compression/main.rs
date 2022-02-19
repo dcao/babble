@@ -23,6 +23,7 @@ use babble::{
 use clap::Clap;
 use dreamcoder::json::CompressionInput;
 use egg::{EGraph, RecExpr, Runner, Extractor};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fs,
     io::{self, Read},
@@ -143,11 +144,7 @@ fn main() {
         println!();
 
         println!("extracting (final, lifted libs)");
-        let mut best_seen = None;
-
-        for att in 0..final_beams {
-        // for att in 0..cs.set.len() {
-        // for _i in 0..1 {
+        let (lifted, final_cost) = cs.set.par_iter().map(|ls| {
             // Add the root combine node again
             let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
                 .with_egraph(aeg.clone())
@@ -156,7 +153,7 @@ fn main() {
                     lib_rewrites
                         .iter()
                         .enumerate()
-                        .filter(|(i, _)| cs.set[att].libs.iter().any(|x| *i == x.0 .0))
+                        .filter(|(i, _)| ls.libs.iter().any(|x| *i == x.0 .0))
                         .map(|x| x.1),
                 )
                 .egraph;
@@ -177,20 +174,10 @@ fn main() {
             // println!();
 
             let lifted = lift_libs(best);
-            let final_cost = true_cost(&lifted);
+            let final_cost = true_cost(lifted.clone()) - 1;
 
-            if let Some((expr, cost)) = best_seen {
-                if final_cost < cost {
-                    best_seen = Some((lifted, final_cost));
-                } else {
-                    best_seen = Some((expr, cost));
-                }
-            } else {
-                best_seen = Some((lifted, final_cost));
-            }
-        }
-
-        let (lifted, final_cost) = best_seen.unwrap();
+            (lifted, final_cost)
+        }).min_by_key(|x| x.1).unwrap();
 
         println!("{}", lifted.pretty(100));
         println!("final cost: {}", final_cost);
@@ -271,7 +258,7 @@ fn main() {
 
         println!("extracting (final, lifted libs)");
         let lifted = lift_libs(best);
-        let final_cost = true_cost(&lifted);
+        let final_cost = true_cost(lifted.clone()) - 1;
         println!("{}", lifted.pretty(100));
         println!("final cost: {}", final_cost);
         println!();
@@ -307,9 +294,9 @@ fn main() {
             run_beam_exp(limit, beam_size, beam_size, &mut wtr);
         }
         
-        for timeout in [1, 10, 100, 200, 500, 1000, 10000] {
-            run_ilp_exp(limit, timeout, &mut wtr);
-        }
+        // for timeout in [10, 100, 200, 500, 1000, 10000] {
+        //     run_ilp_exp(limit, timeout, &mut wtr);
+        // }
 
         // run_beam_exp(limit, 30, 100, &mut wtr);
         // run_ilp_exp(limit, 10, &mut wtr);
