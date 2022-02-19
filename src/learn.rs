@@ -352,18 +352,28 @@ where
         res
     });
 
+    // foo (\. \. $0 $2 ?hole) => foo (\. \. $0 $2 ?$2)
+    //                                          ^ binders = 2
+
     // All the function variables
     let offset = metavars.len();
 
+    let mut max_locals = 0;
+
     fun = fun.map_leaves_with_binders(|node, binders| match node.as_binding_expr() {
-        Some(BindingExpr::Var(index)) if index >= binders => Op::var(index + offset).into(),
+        Some(BindingExpr::Var(index)) if index >= binders => {
+            max_locals = std::cmp::max(max_locals, index - binders + 1);
+            Op::var(index + offset).into()
+        },
         _ => node.into(),
     });
+
+    // foo (\. \. $0 $2 ?$2) => foo (\. \. $0 $3 ?$2)
 
     let mut fun = fun.fill(|index| Op::var(index).into());
 
     // Wrap that in a lambda-abstraction, one for each variable we introduced.
-    for _ in 0..metavars.len() {
+    for _ in 0..(metavars.len() + max_locals) {
         fun = Op::lambda(fun).into();
     }
 
@@ -376,6 +386,10 @@ where
             fn_arg = Op::lambda(fn_arg).into();
         }
         body = Op::apply(body, fn_arg).into();
+    }
+
+    for index in 0..max_locals {
+        body = Op::apply(body, Op::var(index).into()).into();
     }
 
     PartialExpr::Node(BindingExpr::Let(ix, fun, body).into())
