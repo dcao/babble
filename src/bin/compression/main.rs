@@ -166,6 +166,9 @@ fn main() {
             // let (_, best) = extractor.find_best(fin.find(root));
             // println!();
 
+            // println!("{:#?}", fin[14.into()]);
+            // println!("{:#?}", fin[15.into()]);
+
             let best = less_dumb_extractor(&fin, root);
 
             let lifted = lift_libs(best);

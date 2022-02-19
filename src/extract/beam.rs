@@ -297,8 +297,7 @@ where
     // }
 }
 
-/// A slightly less simple extractor that prioritizes choosing libs where it can
-/// while avoiding cycles.
+/// A less simple extractor which avoids cycles.
 pub fn less_dumb_extractor<
     Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display,
     N: Analysis<AstNode<Op>>,
@@ -313,18 +312,9 @@ pub fn less_dumb_extractor<
     fn go<
         Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display,
         N: Analysis<AstNode<Op>>,
-    >(expr: &mut Vec<AstNode<Op>>, stack: &mut Vec<Id>, egraph: &EGraph<AstNode<Op>, N>, id: Id) -> Option<Id> {
+    >(expr: &mut Vec<AstNode<Op>>, stack: &mut Vec<(Id, usize)>, egraph: &EGraph<AstNode<Op>, N>, id: Id) -> Option<Id> {
         // If we've hit a cycle, return immediately.
         // Otherwise, add this Id to the stack.
-
-        // TODO: More granular stack?
-        // If we have an id and it's in the stack, theoretically we could use the id twice. just use the
-        // next best option for the expr.
-        if stack.contains(&id) {
-            return None;
-        } else {
-            stack.push(id);
-        }
 
         // Partition the nodes by whether they're libs or not.
         // We want to always use libs so
@@ -338,10 +328,27 @@ pub fn less_dumb_extractor<
             });
         all.extend(nons);
 
+        if let Some((_, prev_ix)) = stack.iter().rev().find(|x| x.0 == id) {
+            let new_ix = if prev_ix + 1 < all.len() {
+                prev_ix + 1
+            } else {
+                *prev_ix
+            };
+            
+            stack.push((id, new_ix));
+
+            all = all.drain(new_ix..).collect();
+
+            // println!("{}", id);
+        } else {
+            stack.push((id, 0));
+        }
+
         // Go through each node
         'outer: for mut lib in all {
             // Try for each child
             for child in lib.iter_mut() {
+                // Debugging
                 if let Some(id) = go(expr, stack, egraph, *child) {
                     *child = id;
                 } else {
@@ -353,11 +360,13 @@ pub fn less_dumb_extractor<
             // Add to expr. Pop off stack. Return Id.
             expr.push(lib);
             stack.pop();
+            // println!("SUCCESS {:?}", stack);
             return Some((expr.len() - 1).into());
         }
 
         // If we made it here, we never reached success.
         // Pop off stack, return None
+        // println!("FAIL {:?}", stack);
         stack.pop();
         None
     }
