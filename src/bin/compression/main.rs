@@ -172,7 +172,9 @@ fn main() {
 
             let best = less_dumb_extractor(&fin, root);
 
+            // println!("extracting (before lib lifting)");
             // println!("{}", best.pretty(100));
+            // println!();
 
             let lifted = lift_libs(best);
             let final_cost = true_cost(&lifted);
@@ -260,12 +262,12 @@ fn main() {
         // Add the root combine node.
         let root = egraph.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
 
-        println!("extracting (ILP, before lifting)");
+        // println!("extracting (ILP, before lifting)");
         let best = LpExtractor::new(&egraph, egg::AstSize)
             .timeout(timeout.saturating_sub(start_time.elapsed()).as_secs_f64())
             .solve(root);
-        println!("{}", best.pretty(100));
-        println!();
+        // println!("{}", best.pretty(100));
+        // println!();
 
         println!("extracting (final, lifted libs)");
         let lifted = lift_libs(best);
@@ -294,20 +296,20 @@ fn main() {
     };
 
     // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
-    for limit in [20, 35, 50] {
+    for limit in [20, 35, 50, 100, 250, 802] {
         // for final_beams in (10..=50).step_by(10) {
         //     for inter_beams in (100..=1000).step_by(100) {
         //         run_beam_exp(limit, final_beams, inter_beams, &mut wtr);
         //     }
         // }
 
-        for beam_size in [5, 10, 25, 50] {
+        for beam_size in [5, 10, 25, 50, 100, 200] {
             run_beam_exp(limit, beam_size, beam_size, &mut wtr);
         }
         
-        // for timeout in [1, 10, 100, 200, 500, 1000, 10000] {
-        //     run_ilp_exp(limit, timeout, &mut wtr);
-        // }
+        for timeout in [1, 10, 100, 200, 500, 1000, 10000] {
+            run_ilp_exp(limit, timeout, &mut wtr);
+        }
 
         // run_beam_exp(limit, 30, 100, &mut wtr);
         // run_ilp_exp(limit, 10, &mut wtr);
