@@ -117,7 +117,8 @@ fn main() {
     println!("extracting (final, lifted libs)");
     let lifted = lift_libs(best);
     let final_cost = true_cost(lifted.clone());
-    println!("{}", lifted.pretty(100));
+    // println!("{}", lifted.pretty(100));
+    println!("{}", Pretty(&Expr::from(lifted)));
     println!("final cost: {}", final_cost);
     println!();
 
