@@ -22,7 +22,7 @@ use babble::{
 };
 use clap::Clap;
 use dreamcoder::json::CompressionInput;
-use egg::{EGraph, RecExpr, Runner, Extractor};
+use egg::{EGraph, RecExpr, Runner};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fs,
@@ -107,6 +107,16 @@ fn main() {
 
         aeg.rebuild();
 
+        let runner = Runner::<_, _, ()>::new(PartialLibCost::new(final_beams, inter_beams))
+            .with_egraph(aeg)
+            .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
+            .run(&[
+                egg::rewrite!("add comm"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)"),
+                egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x"),
+            ]);
+
+        let aeg = runner.egraph;
+
         println!("Compressing {} programs", roots.len());
         println!("Starting cost: {}", initial_cost);
 
@@ -120,7 +130,7 @@ fn main() {
             .with_egraph(aeg.clone())
             .with_iter_limit(1)
             .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
-            .with_node_limit(100_000)
+            .with_node_limit(1_000_000)
             .run(lib_rewrites.iter());
 
         println!("Stop reason: {:?}", runner.stop_reason.unwrap());
@@ -225,6 +235,16 @@ fn main() {
 
         aeg.rebuild();
 
+        let runner = Runner::<_, _, ()>::new(())
+            .with_egraph(aeg)
+            .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
+            .run(&[
+                egg::rewrite!("add comm"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)"),
+                egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x"),
+            ]);
+
+        let aeg = runner.egraph;
+
         println!("Compressing {} programs", roots.len());
         println!("Starting cost: {}", initial_cost);
 
@@ -238,7 +258,7 @@ fn main() {
             .with_egraph(aeg.clone())
             .with_iter_limit(1)
             .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
-            .with_node_limit(100_000)
+            .with_node_limit(1_000_000)
             .run(lib_rewrites.iter());
 
         println!("Stop reason: {:?}", runner.stop_reason.unwrap());
@@ -283,18 +303,18 @@ fn main() {
     };
 
     // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
-    for limit in [20, 35, 50, 100, 250, 802] {
+    for limit in [20] {
         // for final_beams in (10..=50).step_by(10) {
         //     for inter_beams in (100..=1000).step_by(100) {
         //         run_beam_exp(limit, final_beams, inter_beams, &mut wtr);
         //     }
         // }
 
-        for beam_size in [5, 10, 25, 50, 100, 200] {
+        for beam_size in [25, 50, 100, 200] {
             run_beam_exp(limit, beam_size, beam_size, &mut wtr);
         }
         
-        // for timeout in [10, 100, 200, 500, 1000, 10000] {
+        // for timeout in [10] {
         //     run_ilp_exp(limit, timeout, &mut wtr);
         // }
 

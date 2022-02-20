@@ -3,7 +3,7 @@
 use super::{parse, util::parens};
 use babble::{
     ast_node::{Arity, AstNode, Expr},
-    learn::LibId,
+    learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, Teachable},
 };
 use egg::{RecExpr, Symbol};
@@ -13,7 +13,7 @@ use ref_cast::RefCast;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
-    convert::TryFrom,
+    convert::{TryFrom, Infallible},
     fmt::{self, Display, Formatter},
     ops::{Deref, DerefMut},
     str::FromStr,
@@ -130,6 +130,33 @@ impl Arity for DreamCoderOp {
         }
     }
 }
+
+impl FromStr for DreamCoderOp {
+    type Err = Infallible;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let op = match input {
+            "shift" => Self::Shift,
+            "apply" | "@" => Self::App,
+            "lambda" | "λ" => Self::Lambda,
+            input => input
+                .parse()
+                .map(Self::Var)
+                .or_else(|_| input.parse().map(Self::Var))
+                .or_else(|_| input.parse().map(Self::LibVar))
+                .or_else(|_| {
+                    input
+                        .strip_prefix("lib ")
+                        .ok_or(ParseLibIdError::NoLeadingL)
+                        .and_then(|x| x.parse().map(Self::Lib))
+                })
+                .unwrap_or_else(|_| Self::Symbol(input.into())),
+        };
+
+        Ok(op)
+    }
+}
+
 
 impl Teachable for DreamCoderOp {
     fn from_binding_expr<T>(binding_expr: BindingExpr<T>) -> AstNode<Self, T> {
