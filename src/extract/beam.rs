@@ -39,7 +39,7 @@ impl CostSet {
             for ls2 in &other.set {
                 let ls = ls1.combine(ls2);
 
-                match set.binary_search_by_key(&ls.expr_cost, |ls: &LibSel| ls.expr_cost) {
+                match set.binary_search(&ls) {
                     Ok(pos) => set.insert(pos, ls),
                     Err(pos) => set.insert(pos, ls),
                 }
@@ -55,7 +55,7 @@ impl CostSet {
         for elem in other.set {
             match self
                 .set
-                .binary_search_by_key(&elem.expr_cost, |ls| ls.expr_cost)
+                .binary_search(&elem)
             {
                 Ok(pos) => self.set.insert(pos, elem),
                 Err(pos) => self.set.insert(pos, elem),
@@ -104,7 +104,7 @@ impl CostSet {
             for ls2 in &self.set {
                 let ls = ls2.add_lib(lib, ls1);
 
-                match set.binary_search_by_key(&ls.expr_cost, |ls: &LibSel| ls.expr_cost) {
+                match set.binary_search(&ls) {
                     Ok(pos) => set.insert(pos, ls),
                     Err(pos) => set.insert(pos, ls),
                 }
@@ -120,7 +120,7 @@ impl CostSet {
         if self.set.len() > n {
             self.set.sort_unstable_by_key(|elem| elem.full_cost);
             self.set.drain(n..);
-            self.set.sort_unstable_by_key(|elem| elem.expr_cost);
+            self.set.sort_unstable();
         }
     }
 }
@@ -128,10 +128,11 @@ impl CostSet {
 /// A `LibSel` is a selection of library functions, paired with two
 /// corresponding cost values: the cost of the expression without the library
 /// functions, and the cost of the library functions themselves
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LibSel {
-    pub libs: Vec<(LibId, usize)>,
+    // We place this first so that it has prio in the Ord impl
     pub expr_cost: usize,
+    pub libs: Vec<(LibId, usize)>,
     // Memoized expr_cost + sum({ l.1 for l in libs })
     pub full_cost: usize,
 }
@@ -237,6 +238,8 @@ where
         to.unify();
         to.prune(self.beam_size);
 
+        // println!("{:?}", to);
+        // println!("{} {}", &a0 != to, to != &from);
         // TODO: be more efficient with how we do this
         DidMerge(&a0 != to, to != &from)
         // DidMerge(false, false)
