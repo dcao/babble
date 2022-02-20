@@ -146,7 +146,7 @@ fn main() {
         println!("extracting (final, lifted libs)");
         let (lifted, final_cost) = cs.set.par_iter().map(|ls| {
             // Add the root combine node again
-            let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
+            let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0))
                 .with_egraph(aeg.clone())
                 .with_iter_limit(1)
                 .run(
