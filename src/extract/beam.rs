@@ -52,14 +52,15 @@ impl CostSet {
     // Combination without unification
     pub fn combine(&mut self, other: CostSet) {
         // println!("combine");
+        let mut cix = 0;
+
         for elem in other.set {
-            match self
-                .set
-                .binary_search(&elem)
-            {
-                Ok(pos) => self.set.insert(pos, elem),
-                Err(pos) => self.set.insert(pos, elem),
+            while cix < self.set.len() && &elem >= &self.set[cix] {
+                cix += 1;
             }
+
+            self.set.insert(cix, elem);
+            cix += 1;
         }
     }
 
