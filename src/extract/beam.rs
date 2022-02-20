@@ -132,9 +132,9 @@ impl CostSet {
 pub struct LibSel {
     // We place this first so that it has prio in the Ord impl
     pub expr_cost: usize,
-    pub libs: Vec<(LibId, usize)>,
     // Memoized expr_cost + sum({ l.1 for l in libs })
     pub full_cost: usize,
+    pub libs: Vec<(LibId, usize)>,
 }
 
 impl LibSel {
