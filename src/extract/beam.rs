@@ -75,11 +75,7 @@ impl CostSet {
                 let ls1 = &self.set[i];
                 let ls2 = &self.set[j];
 
-                if ls1
-                    .libs
-                    .iter()
-                    .all(|(k, _)| ls2.libs.binary_search_by_key(k, |(elem, _)| *elem).is_ok())
-                {
+                if ls1.is_subset(&ls2) {
                     self.set.remove(j);
                 } else {
                     j += 1;
@@ -198,6 +194,37 @@ impl LibSel {
     pub fn inc_cost(&mut self) {
         self.expr_cost += 1;
         self.full_cost += 1;
+    }
+
+    /// O(n) subset check
+    pub fn is_subset(&self, other: &LibSel) -> bool {
+        let mut oix = 0;
+
+        // For every element in this LibSel, we want to see
+        // if it exists in other.
+        'outer: for (lib, _) in &self.libs {
+            loop {
+                // If oix is beyond the length of other, return false.
+                if oix >= other.libs.len() {
+                    return false;
+                }
+
+                if &other.libs[oix].0 == lib {
+                    // If other[oix] is equal to lib, continue in the outer loop and increment oix
+                    continue 'outer;
+                } else if &other.libs[oix].0 > lib {
+                    // Otherwise if it's larger, there was no element equal. Not subset, ret false.
+                    return false;
+                } else {
+                    // Increment oix by default
+                    oix += 1;
+                }
+            }
+
+        }
+
+        // We made it! ret true
+        true
     }
 }
 
