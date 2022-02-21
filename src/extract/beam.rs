@@ -211,6 +211,7 @@ impl LibSel {
 
                 if &other.libs[oix].0 == lib {
                     // If other[oix] is equal to lib, continue in the outer loop and increment oix
+                    oix += 1;
                     continue 'outer;
                 } else if &other.libs[oix].0 > lib {
                     // Otherwise if it's larger, there was no element equal. Not subset, ret false.
