@@ -99,6 +99,9 @@ impl<W: Write> Printer<W> {
                     .expect("unbound variable");
                 self.writer.write_str(name)
             }
+            (&ListOp::LibVar(libid), []) => {
+              write!(self.writer, "{}", libid)
+            }
             (&ListOp::Ident(ident), []) => {
                 let name: &str = ident.into();
                 if name == "empty" {
