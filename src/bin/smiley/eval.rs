@@ -56,7 +56,7 @@ impl<'a> Context<'a> {
                 let val = self.eval(expr)?;
                 val.map_shapes(|shape| shape.rotate(angle))
             }
-            (Smiley::Lib, [bound_value, body]) => {
+            (Smiley::Lib(_), [bound_value, body]) => {
                 let bound_value = self.eval(bound_value)?;
                 let context = self.clone().with_arg(bound_value);
                 context.eval(body)?
