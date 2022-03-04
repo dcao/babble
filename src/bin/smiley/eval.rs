@@ -1,19 +1,30 @@
+use std::collections::HashMap;
+
 use crate::lang::Smiley;
-use babble::ast_node::Expr;
+use babble::{ast_node::Expr, learn::LibId};
 use thiserror::Error;
 
 #[derive(Clone, Debug)]
 struct Context<'a> {
+    libs: HashMap<LibId, Value<'a>>,
     args: Vec<Value<'a>>,
 }
 
 impl<'a> Context<'a> {
     fn new() -> Self {
-        Self { args: Vec::new() }
+        Self {
+            libs: HashMap::new(),
+            args: Vec::new(),
+        }
     }
 
     fn with_arg(mut self, value: Value<'a>) -> Self {
         self.args.push(value);
+        self
+    }
+
+    fn with_lib(mut self, name: LibId, value: Value<'a>) -> Self {
+        self.libs.insert(name, value);
         self
     }
 
@@ -24,6 +35,10 @@ impl<'a> Context<'a> {
 
     fn get_index(&self, index: usize) -> &Value<'a> {
         &self.args[self.args.len() - (index + 1)]
+    }
+
+    fn get_lib(&self, name: LibId) -> &Value<'a> {
+        &self.libs[&name]
     }
 
     fn eval(&self, expr: &'a Expr<Smiley>) -> Result<Value<'a>, TypeError> {
@@ -39,6 +54,7 @@ impl<'a> Context<'a> {
                 end: (0.5, 0.0),
             }]),
             (&Smiley::Var(index), []) => self.get_index(index.0).clone(),
+            (&Smiley::LibVar(name), []) => self.get_lib(name).clone(),
             (Smiley::Lambda, [body]) => Value::Lambda(body),
             (Smiley::Move, [x_offset, y_offset, expr]) => {
                 let x_offset: f64 = self.eval(x_offset)?.to_float()?;
@@ -56,9 +72,9 @@ impl<'a> Context<'a> {
                 let val = self.eval(expr)?;
                 val.map_shapes(|shape| shape.rotate(angle))
             }
-            (Smiley::Lib, [bound_value, body]) => {
+            (&Smiley::Lib(name), [bound_value, body]) => {
                 let bound_value = self.eval(bound_value)?;
-                let context = self.clone().with_arg(bound_value);
+                let context = self.clone().with_lib(name, bound_value);
                 context.eval(body)?
             }
             (Smiley::Apply, [fun, arg]) => {
@@ -67,11 +83,12 @@ impl<'a> Context<'a> {
                 let context = self.clone().with_arg(arg);
                 context.eval(body)?
             }
-            (Smiley::Compose, [expr1, expr2]) => {
-                let mut shapes1 = self.eval(expr1)?.into_shapes()?;
-                let shapes2 = self.eval(expr2)?.into_shapes()?;
-                shapes1.extend(shapes2);
-                Value::Shapes(shapes1)
+            (Smiley::Compose, exprs) => {
+                let mut shapes = Vec::with_capacity(exprs.len());
+                for expr in exprs {
+                    shapes.extend(self.eval(expr)?.into_shapes()?);
+                }
+                Value::Shapes(shapes)
             }
             (Smiley::Shift, [body]) => {
                 let context = self.clone().shift();
