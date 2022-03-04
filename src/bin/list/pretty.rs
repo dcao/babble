@@ -100,7 +100,7 @@ impl<W: Write> Printer<W> {
                 self.writer.write_str(name)
             }
             (&ListOp::LibVar(libid), []) => {
-              write!(self.writer, "{}", libid)
+                write!(self.writer, "{}", libid)
             }
             (&ListOp::Ident(ident), []) => {
                 let name: &str = ident.into();

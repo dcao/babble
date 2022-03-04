@@ -221,7 +221,6 @@ impl LibSel {
                     oix += 1;
                 }
             }
-
         }
 
         // We made it! ret true

@@ -364,7 +364,7 @@ where
         Some(BindingExpr::Var(index)) if index >= binders => {
             max_locals = std::cmp::max(max_locals, index - binders + 1);
             Op::var(index + offset).into()
-        },
+        }
         _ => node.into(),
     });
 

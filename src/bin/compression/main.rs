@@ -15,7 +15,7 @@
 use babble::{
     ast_node::{AstNode, Expr},
     extract::{
-        beam::{less_dumb_extractor, PartialLibCost, NoLibCost},
+        beam::{less_dumb_extractor, NoLibCost, PartialLibCost},
         lift_libs, true_cost,
     },
     learn::LearnedLibrary,
@@ -154,40 +154,45 @@ fn main() {
         println!();
 
         println!("extracting (final, lifted libs)");
-        let (lifted, final_cost) = cs.set.par_iter().map(|ls| {
-            // Add the root combine node again
-            let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0))
-                .with_egraph(aeg.clone())
-                .with_iter_limit(1)
-                .run(
-                    lib_rewrites
-                        .iter()
-                        .enumerate()
-                        .filter(|(i, _)| ls.libs.iter().any(|x| *i == x.0 .0))
-                        .map(|x| x.1),
-                )
-                .egraph;
-            let root = fin.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
+        let (lifted, final_cost) = cs
+            .set
+            .par_iter()
+            .map(|ls| {
+                // Add the root combine node again
+                let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0))
+                    .with_egraph(aeg.clone())
+                    .with_iter_limit(1)
+                    .run(
+                        lib_rewrites
+                            .iter()
+                            .enumerate()
+                            .filter(|(i, _)| ls.libs.iter().any(|x| *i == x.0 .0))
+                            .map(|x| x.1),
+                    )
+                    .egraph;
+                let root = fin.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
 
-            // let extractor = Extractor::new(&fin, NoLibCost);
-            // let (_, best) = extractor.find_best(fin.find(root));
-            // println!();
+                // let extractor = Extractor::new(&fin, NoLibCost);
+                // let (_, best) = extractor.find_best(fin.find(root));
+                // println!();
 
-            // println!("{:#?}", fin[root]);
-            // println!("{:#?}", fin[17.into()]);
-            // println!("{:#?}", fin[31.into()]);
+                // println!("{:#?}", fin[root]);
+                // println!("{:#?}", fin[17.into()]);
+                // println!("{:#?}", fin[31.into()]);
 
-            let best = less_dumb_extractor(&fin, root);
+                let best = less_dumb_extractor(&fin, root);
 
-            // println!("extracting (before lib lifting)");
-            // println!("{}", best.pretty(100));
-            // println!();
+                // println!("extracting (before lib lifting)");
+                // println!("{}", best.pretty(100));
+                // println!();
 
-            let lifted = lift_libs(best);
-            let final_cost = true_cost(lifted.clone()) - 1;
+                let lifted = lift_libs(best);
+                let final_cost = true_cost(lifted.clone()) - 1;
 
-            (lifted, final_cost)
-        }).min_by_key(|x| x.1).unwrap();
+                (lifted, final_cost)
+            })
+            .min_by_key(|x| x.1)
+            .unwrap();
 
         println!("{}", lifted.pretty(100));
         println!("final cost: {}", final_cost);
@@ -209,10 +214,7 @@ fn main() {
 
     #[cfg(feature = "grb")]
     let run_ilp_exp = |limit, timeout, wtr: &mut csv::Writer<fs::File>| {
-        println!(
-            "limit: {} [ILP]",
-            limit
-        );
+        println!("limit: {} [ILP]", limit);
 
         let start_time = Instant::now();
         let timeout = Duration::from_secs(timeout);
@@ -313,7 +315,7 @@ fn main() {
         for beam_size in [25, 50, 100, 200] {
             run_beam_exp(limit, beam_size, beam_size, &mut wtr);
         }
-        
+
         // for timeout in [10] {
         //     run_ilp_exp(limit, timeout, &mut wtr);
         // }

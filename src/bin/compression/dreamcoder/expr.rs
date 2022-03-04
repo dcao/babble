@@ -13,7 +13,7 @@ use ref_cast::RefCast;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
-    convert::{TryFrom, Infallible},
+    convert::{Infallible, TryFrom},
     fmt::{self, Display, Formatter},
     ops::{Deref, DerefMut},
     str::FromStr,
@@ -156,7 +156,6 @@ impl FromStr for DreamCoderOp {
         Ok(op)
     }
 }
-
 
 impl Teachable for DreamCoderOp {
     fn from_binding_expr<T>(binding_expr: BindingExpr<T>) -> AstNode<Self, T> {

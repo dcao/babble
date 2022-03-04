@@ -35,7 +35,11 @@ where
         }
     }
 
-    let rest = orig[orig.len() - 1].build_recexpr(|id| build(&orig, id, |k, v| { seen.insert(k, v); }));
+    let rest = orig[orig.len() - 1].build_recexpr(|id| {
+        build(&orig, id, |k, v| {
+            seen.insert(k, v);
+        })
+    });
     let mut res = rest.as_ref().to_vec();
 
     // Work queue for functions we still have to do
@@ -45,16 +49,18 @@ where
     while let Some((lib, expr)) = q.pop() {
         let body = res.len() - 1;
         let value: Vec<_> = orig[Into::<usize>::into(expr)]
-                .build_recexpr(|id| build(&orig, id, |k, v| {
+            .build_recexpr(|id| {
+                build(&orig, id, |k, v| {
                     if let None = seen.insert(k, v) {
                         q.push((k, v));
                     }
-                }))
-                .as_ref()
-                .iter()
-                .cloned()
-                .map(|x| x.map_children(|x| (usize::from(x) + res.len()).into()))
-                .collect();
+                })
+            })
+            .as_ref()
+            .iter()
+            .cloned()
+            .map(|x| x.map_children(|x| (usize::from(x) + res.len()).into()))
+            .collect();
         res.extend(value);
         res.push(Teachable::lib(lib, Id::from(res.len() - 1), Id::from(body)));
     }
