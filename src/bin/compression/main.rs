@@ -15,7 +15,7 @@
 use babble::{
     ast_node::{AstNode, Expr},
     extract::{
-        beam::{less_dumb_extractor, NoLibCost, PartialLibCost},
+        beam::{less_dumb_extractor, PartialLibCost},
         lift_libs, true_cost,
     },
     learn::LearnedLibrary,
@@ -300,7 +300,7 @@ fn main() {
     };
 
     #[cfg(not(feature = "grb"))]
-    let run_ilp_exp = |limit: usize, timeout: usize, wtr: &mut csv::Writer<fs::File>| {
+    let run_ilp_exp = |_limit: usize, _timeout: usize, _wtr: &mut csv::Writer<fs::File>| {
         // no-op
     };
 
@@ -316,9 +316,9 @@ fn main() {
             run_beam_exp(limit, beam_size, beam_size, &mut wtr);
         }
 
-        // for timeout in [10] {
-        //     run_ilp_exp(limit, timeout, &mut wtr);
-        // }
+        for timeout in [10] {
+            run_ilp_exp(limit, timeout, &mut wtr);
+        }
 
         // run_beam_exp(limit, 30, 100, &mut wtr);
         // run_ilp_exp(limit, 10, &mut wtr);

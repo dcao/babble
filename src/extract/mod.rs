@@ -27,7 +27,7 @@ where
         mut seen: impl FnMut(LibId, Id),
     ) -> AstNode<Op> {
         match orig[Into::<usize>::into(cur)].as_binding_expr() {
-            Some(BindingExpr::Let(id, lam, c)) => {
+            Some(BindingExpr::Lib(id, lam, c)) => {
                 seen(id, *lam);
                 build(orig, *c, seen)
             }

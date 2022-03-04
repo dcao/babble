@@ -1,7 +1,8 @@
+//! Defines [`SimpleOp`], a simple lambda calculus which can be used with babble.
+
 use std::{
     convert::Infallible,
     fmt::{self, Display, Formatter},
-    num::ParseIntError,
     str::FromStr,
 };
 
@@ -95,7 +96,7 @@ impl Teachable for SimpleOp {
             BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
             BindingExpr::Var(index) => AstNode::leaf(Self::Var(index)),
-            BindingExpr::Let(ix, bound_value, body) => {
+            BindingExpr::Lib(ix, bound_value, body) => {
                 AstNode::new(Self::Lib(ix), [bound_value, body])
             }
             BindingExpr::LibVar(ix) => AstNode::new(Self::LibVar(ix), []),
@@ -108,7 +109,7 @@ impl Teachable for SimpleOp {
             (Self::Lambda, [body]) => BindingExpr::Lambda(body),
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
             (Self::Var(index), []) => BindingExpr::Var(*index),
-            (Self::Lib(ix), [bound_value, body]) => BindingExpr::Let(*ix, bound_value, body),
+            (Self::Lib(ix), [bound_value, body]) => BindingExpr::Lib(*ix, bound_value, body),
             (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
             (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,

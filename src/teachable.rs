@@ -44,15 +44,16 @@ where
         Self::from_binding_expr(BindingExpr::Var(index))
     }
 
-    /// Creates a let-expression binding `ident` to `value` in `body`.
+    /// Creates an expression defining the library function `name` as `value` in `body`.
     #[must_use]
-    fn lib<T>(id: LibId, value: T, body: T) -> AstNode<Self, T> {
-        Self::from_binding_expr(BindingExpr::Let(id, value, body))
+    fn lib<T>(name: LibId, value: T, body: T) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::Lib(name, value, body))
     }
 
+    /// Creates a named variable referencing a library function.
     #[must_use]
-    fn lib_var<T>(id: LibId) -> AstNode<Self, T> {
-        Self::from_binding_expr(BindingExpr::LibVar(id))
+    fn lib_var<T>(name: LibId) -> AstNode<Self, T> {
+        Self::from_binding_expr(BindingExpr::LibVar(name))
     }
 }
 
@@ -63,15 +64,14 @@ where
 pub enum BindingExpr<T> {
     /// A de Bruijn index
     Var(usize),
-    /// A reference to an occurrence of a lib function
+    /// A reference to a named library function
     LibVar(LibId),
     /// A lambda
     Lambda(T),
     /// An application of a function to an argument
     Apply(T, T),
-    /// A let-expression:
-    /// `(let expr body)` is equivalent to `(apply (lambda body) expr)`
-    Let(LibId, T, T),
+    /// An expression defining a named library function within a certain scope
+    Lib(LibId, T, T),
     /// Shift free de Bruijn vars in body by one, so that `(shift $0)` is equivalent to `$1`
     Shift(T),
 }

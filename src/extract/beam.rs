@@ -1,11 +1,7 @@
 //! extract::partial implements a non-ILP-based extractor based on partial
 //! orderings of learned library sets.
 use egg::{Analysis, CostFunction, DidMerge, EGraph, Id, Language, RecExpr};
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    hash::Hash,
-};
+use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
     ast_node::{Arity, AstNode},
@@ -278,7 +274,7 @@ where
         let x = |i: &Id| &egraph[*i].data;
 
         match Teachable::as_binding_expr(enode) {
-            Some(BindingExpr::Let(id, f, b)) => {
+            Some(BindingExpr::Lib(id, f, b)) => {
                 // This is a lib binding!
                 // cross e1, e2 and introduce a lib!
                 let mut e = x(b).add_lib(id, x(f));
@@ -347,7 +343,7 @@ pub fn less_dumb_extractor<
     for eclass in egraph.classes() {
         let (mut all, nons): (Vec<AstNode<Op>>, Vec<AstNode<Op>>) =
             eclass.nodes.iter().cloned().partition(|x| {
-                if let Some(BindingExpr::Let(_, _, _)) = x.as_binding_expr() {
+                if let Some(BindingExpr::Lib(_, _, _)) = x.as_binding_expr() {
                     true
                 } else {
                     false
@@ -388,7 +384,7 @@ pub fn less_dumb_extractor<
         let mut node = &node_vecs[&id][*cur_ix];
         let mut is_lib = false;
         loop {
-            if let Some(BindingExpr::Let(lib_id, _, _)) = node.as_binding_expr() {
+            if let Some(BindingExpr::Lib(lib_id, _, _)) = node.as_binding_expr() {
                 if lib_stack.contains(&lib_id) {
                     *cur_ix += 1;
                     node = &node_vecs[&id][*cur_ix];
@@ -457,7 +453,7 @@ pub fn dumb_extractor<
         *v += 1;
 
         for node in &egraph[id].nodes {
-            if let Some(BindingExpr::Let(_, _, _)) = node.as_binding_expr() {
+            if let Some(BindingExpr::Lib(_, _, _)) = node.as_binding_expr() {
                 return node.clone();
             }
         }
@@ -470,7 +466,9 @@ pub fn dumb_extractor<
     sel(&egraph, &mut seen, root).build_recexpr(|id| sel(&egraph, &mut seen, id))
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct NoLibCost;
+
 impl<Op> CostFunction<AstNode<Op>> for NoLibCost
 where
     Op: Ord
@@ -492,7 +490,7 @@ where
         C: FnMut(Id) -> Self::Cost,
     {
         match enode.as_binding_expr() {
-            Some(BindingExpr::Let(_, _, body)) => costs(*body),
+            Some(BindingExpr::Lib(_, _, body)) => costs(*body),
             _ => enode.fold(1.0, |sum, id| sum + costs(id)),
         }
     }

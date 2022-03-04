@@ -163,7 +163,7 @@ impl Teachable for DreamCoderOp {
             BindingExpr::Var(index) => AstNode::leaf(DreamCoderOp::Var(index)),
             BindingExpr::Lambda(body) => AstNode::new(DreamCoderOp::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(DreamCoderOp::App, [fun, arg]),
-            BindingExpr::Let(ix, def, body) => AstNode::new(DreamCoderOp::Lib(ix), [def, body]),
+            BindingExpr::Lib(ix, def, body) => AstNode::new(DreamCoderOp::Lib(ix), [def, body]),
             BindingExpr::LibVar(ix) => AstNode::leaf(DreamCoderOp::LibVar(ix)),
             BindingExpr::Shift(expr) => AstNode::new(DreamCoderOp::Shift, [expr]),
         }
@@ -174,7 +174,7 @@ impl Teachable for DreamCoderOp {
             (DreamCoderOp::Var(index), []) => BindingExpr::Var(*index),
             (DreamCoderOp::Lambda, [body]) => BindingExpr::Lambda(body),
             (DreamCoderOp::App, [fun, arg]) => BindingExpr::Apply(fun, arg),
-            (DreamCoderOp::Lib(ix), [def, body]) => BindingExpr::Let(*ix, def, body),
+            (DreamCoderOp::Lib(ix), [def, body]) => BindingExpr::Lib(*ix, def, body),
             (DreamCoderOp::LibVar(ix), []) => BindingExpr::LibVar(*ix),
             (DreamCoderOp::Shift, [expr]) => BindingExpr::Shift(expr),
             _ => return None,

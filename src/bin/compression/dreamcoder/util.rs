@@ -22,13 +22,7 @@ where
 
 /// A de Bruijn index.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct DeBruijnIndex(pub usize);
-
-impl DeBruijnIndex {
-    pub fn new(index: usize) -> Self {
-        DeBruijnIndex(index)
-    }
-}
+pub(crate) struct DeBruijnIndex(pub(crate) usize);
 
 impl Display for DeBruijnIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -38,7 +32,7 @@ impl Display for DeBruijnIndex {
 
 /// Error type for parsing a de Bruijn index from a string.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
-pub enum ParseDeBruijnIndexError {
+pub(crate) enum ParseDeBruijnIndexError {
     /// The string didn't start with '$'.
     #[error("expected de Bruijn index to start with '$'")]
     MissingSigil,

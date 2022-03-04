@@ -29,6 +29,7 @@ use std::{
 };
 use thiserror::Error;
 
+/// A library function's name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LibId(pub usize);
 
@@ -392,5 +393,5 @@ where
         body = Op::apply(body, Op::var(index).into()).into();
     }
 
-    PartialExpr::Node(BindingExpr::Let(ix, fun, body).into())
+    PartialExpr::Node(BindingExpr::Lib(ix, fun, body).into())
 }

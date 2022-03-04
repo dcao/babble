@@ -136,7 +136,7 @@ impl Teachable for Smiley {
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
             BindingExpr::Var(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
             BindingExpr::LibVar(ix) => AstNode::leaf(Self::LibVar(ix)),
-            BindingExpr::Let(ix, bound_value, body) => {
+            BindingExpr::Lib(ix, bound_value, body) => {
                 AstNode::new(Self::Lib(ix), [bound_value, body])
             }
             BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
@@ -148,7 +148,7 @@ impl Teachable for Smiley {
             (Self::Lambda, [body]) => BindingExpr::Lambda(body),
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
             (&Self::Var(DeBruijnIndex(index)), []) => BindingExpr::Var(index),
-            (Self::Lib(ix), [bound_value, body]) => BindingExpr::Let(*ix, bound_value, body),
+            (Self::Lib(ix), [bound_value, body]) => BindingExpr::Lib(*ix, bound_value, body),
             (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };

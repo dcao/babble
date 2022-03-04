@@ -133,7 +133,7 @@ impl Teachable for ListOp {
             BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
             BindingExpr::Var(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
-            BindingExpr::Let(ix, bound_value, body) => {
+            BindingExpr::Lib(ix, bound_value, body) => {
                 AstNode::new(Self::Lib(ix), [bound_value, body])
             }
             BindingExpr::LibVar(ix) => AstNode::leaf(Self::LibVar(ix)),
@@ -146,7 +146,7 @@ impl Teachable for ListOp {
             (Self::Lambda, [body]) => BindingExpr::Lambda(body),
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
             (&Self::Var(index), []) => BindingExpr::Var(index.0),
-            (Self::Lib(ix), [bound_value, body]) => BindingExpr::Let(*ix, bound_value, body),
+            (Self::Lib(ix), [bound_value, body]) => BindingExpr::Lib(*ix, bound_value, body),
             (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
             (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
@@ -157,7 +157,7 @@ impl Teachable for ListOp {
 
 lazy_static! {
     pub(crate) static ref LIFT_LIB_REWRITES: &'static [Rewrite<AstNode<ListOp>, ()>] = {
-        let mut rules = rewrite_rules! {
+        let rules = rewrite_rules! {
             // TODO: Check for captures of de Bruijn variables and re-index if necessary.
             // lift_lambda: "(lambda (lib ?x ?v ?e))" => "(lib ?x ?v (lambda ?e))";
 
