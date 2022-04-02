@@ -15,11 +15,12 @@
 use babble::{
     ast_node::{AstNode, Expr},
     learn::LearnedLibrary,
-    sexp::Sexp,
+    sexp::Sexp, extract::{beam::{PartialLibCost, less_dumb_extractor}, lift_libs, true_cost},
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, EGraph, Extractor, RecExpr, Rewrite, Runner};
 use log::info;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     convert::TryInto,
     fs,
@@ -79,34 +80,88 @@ fn main() {
         println!("{}", initial_expr.pretty(100));
         println!();
 
-        let mut egraph: EGraph<AstNode<Smiley>, ()> = EGraph::default();
-        let root = egraph.add_expr(&initial_expr);
-        egraph.rebuild();
+        println!("stage one");
+        let mut aeg = EGraph::new(PartialLibCost::new(100, 100));
+        let root = aeg.add_expr(&initial_expr);
+        aeg.rebuild();
 
-        let learned_lib = LearnedLibrary::from(&egraph);
-        let lib_rewrites: Vec<Rewrite<_, ()>> = learned_lib.rewrites().collect();
-        let egraph = Runner::default()
-            .with_egraph(egraph)
+        let learned_lib = LearnedLibrary::from(&aeg);
+        let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
+        let egraph = Runner::<_, _, ()>::new(PartialLibCost::new(100, 100))
+            .with_egraph(aeg.clone())
             .with_iter_limit(1)
-            .run(&lib_rewrites)
+            .run(lib_rewrites.iter())
             .egraph;
-        let runner = Runner::default()
-            .with_egraph(egraph)
-            .run(*lang::LIFT_LIB_REWRITES);
-        let stop_reason = runner.stop_reason.unwrap_or_else(|| unreachable!());
-        info!("Stop reason: {:?}", stop_reason);
-        info!("Number of iterations: {}", runner.iterations.len());
 
-        let egraph = runner.egraph;
-        info!("Number of nodes: {}", egraph.total_size());
-        let (final_cost, final_expr) = Extractor::new(&egraph, AstSize).find_best(root);
+        let mut cs = egraph[egraph.find(root)].data.clone();
+        cs.set.sort_unstable_by_key(|elem| elem.full_cost);
 
-        println!("Final expression (cost {}):", final_cost);
-        println!("{}", final_expr.pretty(100));
+        println!("learned libs");
+        let all_libs: Vec<_> = learned_lib.libs().collect();
+        for x in &cs.set {
+            for lib in &x.libs {
+                println!("{}: {}", lib.0, &all_libs[lib.0 .0]);
+            }
+            println!("upper bound ('full') cost: {:?}", x);
+            println!();
+        }
+
+
+        println!("extracting (with duplicate libs)");
+        let (lifted, final_cost) = cs
+            .set
+            .par_iter()
+            .map(|ls| {
+                // Add the root combine node again
+                let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0))
+                    .with_egraph(aeg.clone())
+                    .with_iter_limit(1)
+                    .run(
+                        lib_rewrites
+                            .iter()
+                            .enumerate()
+                            .filter(|(i, _)| ls.libs.iter().any(|x| *i == x.0 .0))
+                            .map(|x| x.1),
+                    )
+                    .egraph;
+
+                // let extractor = Extractor::new(&fin, NoLibCost);
+                // let (_, best) = extractor.find_best(fin.find(root));
+                // println!();
+
+                // println!("{:#?}", fin[root]);
+                // println!("{:#?}", fin[17.into()]);
+                // println!("{:#?}", fin[31.into()]);
+
+                let best = less_dumb_extractor(&fin, root);
+
+                // println!("extracting (before lib lifting)");
+                // println!("{}", best.pretty(100));
+                // println!();
+
+                let lifted = lift_libs(best);
+                let final_cost = true_cost(lifted.clone()) - 1;
+
+                (lifted, final_cost)
+            })
+            .min_by_key(|x| x.1)
+            .unwrap();
+
+        // println!("{}", lifted.pretty(100));
+        println!("{}", lifted.pretty(100));
+        println!("final cost: {}", final_cost);
         println!();
 
-        #[allow(clippy::cast_precision_loss)]
-        let compression_ratio = (initial_cost as f64) / (final_cost as f64);
-        println!("Compression ratio: {:.2}", compression_ratio);
+        // let egraph = runner.egraph;
+        // info!("Number of nodes: {}", egraph.total_size());
+        // let (final_cost, final_expr) = Extractor::new(&egraph, AstSize).find_best(root);
+
+        // println!("Final expression (cost {}):", final_cost);
+        // println!("{}", final_expr.pretty(100));
+        // println!();
+
+        // #[allow(clippy::cast_precision_loss)]
+        // let compression_ratio = (initial_cost as f64) / (final_cost as f64);
+        // println!("Compression ratio: {:.2}", compression_ratio);
     }
 }

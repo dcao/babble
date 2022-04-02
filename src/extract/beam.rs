@@ -170,6 +170,25 @@ impl LibSel {
         let v = cost.expr_cost;
         let mut full_cost = res.full_cost;
 
+        // Add all libs that the lib uses, then add the lib itself.
+        for (lib, v) in &cost.libs {
+            let lib = *lib;
+            let v = *v;
+
+            match res.libs.binary_search_by_key(&lib, |(id, _)| *id) {
+                Ok(ix) => {
+                    if v < res.libs[ix].1 {
+                        full_cost -= res.libs[ix].1 - v;
+                        res.libs[ix].1 = v
+                    }
+                }
+                Err(ix) => {
+                    full_cost += v;
+                    res.libs.insert(ix, (lib, v))
+                }
+            }
+        }
+
         match res.libs.binary_search_by_key(&lib, |(id, _)| *id) {
             Ok(ix) => {
                 if v < res.libs[ix].1 {
@@ -279,7 +298,6 @@ where
                 // cross e1, e2 and introduce a lib!
                 let mut e = x(b).add_lib(id, x(f));
                 e.unify();
-                // TODO: don't hardcode this
                 e.prune(self.beam_size);
                 e.inc_cost();
                 e
@@ -309,7 +327,7 @@ where
 
                     // TODO: intermediate unify/beam size reduction for each crossing step?
                     // do perf testing on this
-                    // e.unify();
+                    e.unify();
                     e.prune(self.beam_size);
                     e.inc_cost();
                     e
