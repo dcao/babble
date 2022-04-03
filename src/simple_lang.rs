@@ -20,7 +20,7 @@ pub enum SimpleOp {
     /// A function application
     Apply,
     /// A de Bruijn-indexed variable
-    Var(usize),
+    Var(DeBruijnIndex),
     /// A reference to a lib fn
     LibVar(LibId),
     /// An uninterpreted symbol
@@ -76,7 +76,7 @@ impl FromStr for SimpleOp {
             "lambda" | "λ" => Self::Lambda,
             input => input
                 .parse()
-                .map(|DeBruijnIndex(index)| Self::Var(index))
+                .map(Self::Var)
                 .or_else(|_| input.parse().map(Self::LibVar))
                 .or_else(|_| {
                     input

@@ -4,7 +4,7 @@ use super::{parse, util::parens};
 use babble::{
     ast_node::{Arity, AstNode, Expr},
     learn::{LibId, ParseLibIdError},
-    teachable::{BindingExpr, Teachable},
+    teachable::{BindingExpr, Teachable, DeBruijnIndex},
 };
 use egg::{RecExpr, Symbol};
 use internment::ArcIntern;
@@ -83,7 +83,7 @@ impl<'a> TryFrom<RawStr<'a>> for DcExpr {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DreamCoderOp {
     /// A variable.
-    Var(usize),
+    Var(DeBruijnIndex),
 
     /// A symbol, typically one of the language's primitives.
     Symbol(Symbol),
@@ -255,7 +255,7 @@ mod tests {
     use babble::ast_node::AstNode;
     use internment::ArcIntern;
 
-    use super::{DcExpr, DreamCoderOp};
+    use super::{DcExpr, DreamCoderOp, DeBruijnIndex};
 
     impl DcExpr {
         fn lambda(body: Self) -> Self {
@@ -271,7 +271,7 @@ mod tests {
         }
 
         fn var(index: usize) -> Self {
-            Self(AstNode::leaf(DreamCoderOp::Var(index)).into())
+            Self(AstNode::leaf(DreamCoderOp::Var(DeBruijnIndex(index))).into())
         }
 
         fn inlined(expr: Self) -> Self {

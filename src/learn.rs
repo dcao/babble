@@ -362,9 +362,9 @@ where
     let mut max_locals = 0;
 
     fun = fun.map_leaves_with_binders(|node, binders| match node.as_binding_expr() {
-        Some(BindingExpr::Var(index)) if index >= binders => {
-            max_locals = std::cmp::max(max_locals, index - binders + 1);
-            Op::var(index + offset).into()
+        Some(BindingExpr::Var(index)) if index.0 >= binders => {
+            max_locals = std::cmp::max(max_locals, index.0 - binders + 1);
+            Op::var(index.0 + offset).into()
         }
         _ => node.into(),
     });
