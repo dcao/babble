@@ -158,28 +158,24 @@ impl Teachable for ListOp {
 impl Printable for ListOp {
     fn precedence(&self) -> Precedence {
         match self {
-            ListOp::Bool(_)
-            | ListOp::Int(_)
-            | ListOp::Var(_)
-            | ListOp::Ident(_)
-            | ListOp::LibVar(_) => 60,
-            ListOp::List => 50,
-            ListOp::Apply | ListOp::Shift => 40,
-            ListOp::Cons => 30,
-            ListOp::If => 20,
-            ListOp::Lambda | ListOp::Lib(_) => 10,
+            Self::Bool(_) | Self::Int(_) | Self::Var(_) | Self::Ident(_) | Self::LibVar(_) => 60,
+            Self::List => 50,
+            Self::Apply | Self::Shift => 40,
+            Self::Cons => 30,
+            Self::If => 20,
+            Self::Lambda | ListOp::Lib(_) => 10,
         }
     }
 
     fn print_naked<W: Write>(expr: &Expr<Self>, printer: &mut Printer<W>) -> fmt::Result {
         match (expr.0.operation(), expr.0.args()) {
-            (&ListOp::Int(i), []) => {
+            (&Self::Int(i), []) => {
                 write!(printer.writer, "{}", i)
             }
-            (&ListOp::Bool(b), []) => {
+            (&Self::Bool(b), []) => {
                 write!(printer.writer, "{}", b)
             }
-            (&ListOp::Ident(ident), []) => {
+            (&Self::Ident(ident), []) => {
                 let name: &str = ident.into();
                 if name == "empty" {
                     printer.writer.write_str("[]")
@@ -187,12 +183,12 @@ impl Printable for ListOp {
                     printer.writer.write_str(ident.into())
                 }
             }
-            (&ListOp::Cons, [head, tail]) => {
+            (&Self::Cons, [head, tail]) => {
                 printer.print(head)?;
                 printer.writer.write_str(" : ")?;
                 printer.print_in_context(tail, printer.ctx_precedence - 1) // cons is right-associative
             }
-            (&ListOp::If, [cond, then, els]) => {
+            (&Self::If, [cond, then, els]) => {
                 printer.writer.write_str("if ")?;
                 printer.print_in_context(cond, 0)?; // children do not need parens
                 printer.writer.write_str(" then ")?;
@@ -200,7 +196,7 @@ impl Printable for ListOp {
                 printer.writer.write_str(" else ")?;
                 printer.print_in_context(els, 0)
             }
-            (&ListOp::List, ts) => {
+            (&Self::List, ts) => {
                 let elem = |p: &mut Printer<W>, i: usize| {
                     p.print_in_context(&ts[i], 0) // children do not need parens
                 };
