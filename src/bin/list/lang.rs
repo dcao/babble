@@ -1,7 +1,7 @@
 //! The language of list transformations.
 
 use babble::{
-    ast_node::{Arity, AstNode, Expr, Printable, Precedence, Printer},
+    ast_node::{Arity, AstNode, Expr, Precedence, Printable, Printer},
     learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
@@ -209,7 +209,6 @@ impl Printable for ListOp {
             _ => printer.writer.write_str("???"),
         }
     }
-
 }
 
 lazy_static! {

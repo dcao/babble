@@ -12,15 +12,15 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
+use crate::lang::ListOp;
 use babble::{
-    ast_node::{Expr, Pretty, AstNode},
+    ast_node::{AstNode, Expr, Pretty},
     extract::{beam::*, lift_libs, true_cost},
     learn::LearnedLibrary,
     sexp::Sexp,
 };
-use crate::lang::ListOp;
 use clap::Clap;
-use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner, Rewrite};
+use egg::{AstSize, CostFunction, EGraph, RecExpr, Rewrite, Runner};
 use std::{
     convert::TryInto,
     fs,

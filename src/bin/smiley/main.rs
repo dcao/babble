@@ -14,8 +14,12 @@
 
 use babble::{
     ast_node::{AstNode, Expr},
+    extract::{
+        beam::{less_dumb_extractor, PartialLibCost},
+        lift_libs, true_cost,
+    },
     learn::LearnedLibrary,
-    sexp::Sexp, extract::{beam::{PartialLibCost, less_dumb_extractor}, lift_libs, true_cost},
+    sexp::Sexp,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, EGraph, Extractor, RecExpr, Rewrite, Runner};
@@ -105,7 +109,6 @@ fn main() {
             println!("upper bound ('full') cost: {:?}", x);
             println!();
         }
-
 
         println!("extracting (with duplicate libs)");
         let (lifted, final_cost) = cs

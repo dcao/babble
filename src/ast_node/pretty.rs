@@ -1,8 +1,8 @@
 use std::fmt::{self, Display, Write};
 
 use crate::{
-    ast_node::Expr, 
-    teachable::{Teachable, BindingExpr}
+    ast_node::Expr,
+    teachable::{BindingExpr, Teachable},
 };
 
 /// A wrapper around [`&'a Expr<Op>`] whose [`Display`] impl pretty-prints the
@@ -11,7 +11,8 @@ use crate::{
 pub struct Pretty<'a, Op>(pub &'a Expr<Op>);
 
 impl<Op> Display for Pretty<'_, Op>
-    where Op: Printable + Teachable
+where
+    Op: Printable + Teachable,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Printer::new(f).print(self.0)
@@ -24,7 +25,7 @@ pub type Precedence = u8;
 /// A language whose expressions can be pretty-printed.
 /// This is used for printing language-specific operations,
 /// whereas the printing of binding expressions is implemented inside Printer.
-pub trait Printable 
+pub trait Printable
 where
     Self: Sized,
 {
@@ -79,7 +80,11 @@ impl<W: Write> Printer<W> {
     /// Print `expr` into the buffer at precedence level `prec`:
     /// this function is used to implement associativity and bracket-like expressions,
     /// where the children should be printed at a lower precedence level than the expression itself
-    pub fn print_in_context<Op: Printable + Teachable>(&mut self, expr: &Expr<Op>, prec: Precedence) -> fmt::Result {
+    pub fn print_in_context<Op: Printable + Teachable>(
+        &mut self,
+        expr: &Expr<Op>,
+        prec: Precedence,
+    ) -> fmt::Result {
         let old_prec = self.ctx_precedence;
         self.ctx_precedence = prec;
         self.print(expr)?;
@@ -111,7 +116,7 @@ impl<W: Write> Printer<W> {
                     BindingExpr::Lib(ix, def, body) => {
                         self.with_binding("f", |p| {
                             write!(p.writer, "lib {} =", ix)?; // print binding
-        
+
                             p.indented(|p| {
                                 p.new_line()?;
                                 p.print_in_context(def, 0)
@@ -143,7 +148,7 @@ impl<W: Write> Printer<W> {
                 // This is not a binding expr: use language-specific printing
                 Op::print_naked(expr, self)
             }
-        }        
+        }
     }
 
     /// Print abstraction with body `body` without the "λ" symbol

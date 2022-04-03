@@ -4,7 +4,7 @@ use super::{parse, util::parens};
 use babble::{
     ast_node::{Arity, AstNode, Expr},
     learn::{LibId, ParseLibIdError},
-    teachable::{BindingExpr, Teachable, DeBruijnIndex},
+    teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
 use egg::{RecExpr, Symbol};
 use internment::ArcIntern;
@@ -255,7 +255,7 @@ mod tests {
     use babble::ast_node::AstNode;
     use internment::ArcIntern;
 
-    use super::{DcExpr, DreamCoderOp, DeBruijnIndex};
+    use super::{DcExpr, DeBruijnIndex, DreamCoderOp};
 
     impl DcExpr {
         fn lambda(body: Self) -> Self {
