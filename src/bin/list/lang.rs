@@ -202,7 +202,7 @@ impl Printable for ListOp {
                 };
                 printer.in_brackets(|p| p.indented(|p| p.vsep(elem, ts.len(), ",")))
             }
-            _ => printer.writer.write_str("???"),
+            (op, _) => write!(printer.writer, "{} ???", op),
         }
     }
 }

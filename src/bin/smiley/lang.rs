@@ -207,7 +207,7 @@ impl Printable for Smiley {
                 };
                 printer.in_brackets(|p| p.indented(|p| p.vsep(elem, ts.len(), ",")))
             }
-            (op, _) => write!(printer.writer, "{}", op), // printer.writer.write_str("???"),
+            (op, _) => write!(printer.writer, "{} ???", op),
         }
     }
 }

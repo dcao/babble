@@ -13,7 +13,7 @@
 #![allow(clippy::non_ascii_literal)]
 
 use babble::{
-    ast_node::{AstNode, Expr},
+    ast_node::{AstNode, Expr, Pretty},
     extract::{
         beam::{less_dumb_extractor, PartialLibCost},
         lift_libs, true_cost,
@@ -194,7 +194,8 @@ fn main() {
             .min_by_key(|x| x.1)
             .unwrap();
 
-        println!("{}", lifted.pretty(100));
+        // println!("{}", lifted.pretty(100));
+        println!("{}", Pretty(&Expr::from(lifted)));
         println!("final cost: {}", final_cost);
         println!();
 
@@ -281,7 +282,8 @@ fn main() {
         println!("extracting (final, lifted libs)");
         let lifted = lift_libs(best);
         let final_cost = true_cost(lifted.clone()) - 1;
-        println!("{}", lifted.pretty(100));
+        // println!("{}", lifted.pretty(100));
+        println!("{}", Pretty(&Expr::from(lifted)));
         println!("final cost: {}", final_cost);
         println!();
 
