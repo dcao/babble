@@ -149,6 +149,7 @@ impl Teachable for Smiley {
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
             (&Self::Var(index), []) => BindingExpr::Var(index),
             (Self::Lib(ix), [bound_value, body]) => BindingExpr::Lib(*ix, bound_value, body),
+            (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
             (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };
