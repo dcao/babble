@@ -41,7 +41,7 @@ where
     /// Creates a de Bruijn-indexed variable.
     #[must_use]
     fn var<T>(index: usize) -> AstNode<Self, T> {
-        Self::from_binding_expr(BindingExpr::Var(index))
+        Self::from_binding_expr(BindingExpr::Var(DeBruijnIndex(index)))
     }
 
     /// Creates an expression defining the library function `name` as `value` in `body`.
@@ -63,7 +63,7 @@ where
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BindingExpr<T> {
     /// A de Bruijn index
-    Var(usize),
+    Var(DeBruijnIndex),
     /// A reference to a named library function
     LibVar(LibId),
     /// A lambda

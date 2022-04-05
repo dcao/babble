@@ -22,9 +22,11 @@ pub struct AstNode<Op, T = Id> {
 
 pub use expr::Expr;
 pub use partial_expr::PartialExpr;
+pub use pretty::{Precedence, Pretty, Printable, Printer};
 
 mod expr;
 mod partial_expr;
+mod pretty;
 
 /// A trait for operations which take a specific number of arguments.
 pub trait Arity {

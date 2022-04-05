@@ -13,9 +13,13 @@
 #![allow(clippy::non_ascii_literal)]
 
 use babble::{
-    ast_node::{AstNode, Expr},
+    ast_node::{Expr, Pretty},
+    extract::{
+        beam::{less_dumb_extractor, PartialLibCost},
+        lift_libs, true_cost,
+    },
     learn::LearnedLibrary,
-    sexp::Sexp, extract::{beam::{PartialLibCost, less_dumb_extractor}, lift_libs, true_cost},
+    sexp::Sexp,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, EGraph, Extractor, RecExpr, Rewrite, Runner};
@@ -77,7 +81,8 @@ fn main() {
         let initial_cost = AstSize.cost_rec(&initial_expr);
 
         println!("Initial expression (cost {}):", initial_cost);
-        println!("{}", initial_expr.pretty(100));
+        // println!("{}", initial_expr.pretty(100));
+        println!("{}", Pretty(&Expr::from(initial_expr.clone())));
         println!();
 
         println!("stage one");
@@ -105,7 +110,6 @@ fn main() {
             println!("upper bound ('full') cost: {:?}", x);
             println!();
         }
-
 
         println!("extracting (with duplicate libs)");
         let (lifted, final_cost) = cs
@@ -148,7 +152,7 @@ fn main() {
             .unwrap();
 
         // println!("{}", lifted.pretty(100));
-        println!("{}", lifted.pretty(100));
+        println!("{}", Pretty(&Expr::from(lifted)));
         println!("final cost: {}", final_cost);
         println!();
 

@@ -12,14 +12,15 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
+use crate::lang::ListOp;
 use babble::{
-    ast_node::Expr,
+    ast_node::{AstNode, Expr, Pretty},
     extract::{beam::*, lift_libs, true_cost},
     learn::LearnedLibrary,
     sexp::Sexp,
 };
 use clap::Clap;
-use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner};
+use egg::{AstSize, CostFunction, EGraph, RecExpr, Rewrite, Runner};
 use std::{
     convert::TryInto,
     fs,
@@ -27,10 +28,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::pretty::Pretty;
-
 pub mod lang;
-pub mod pretty;
 
 #[derive(Clap)]
 #[clap(version, author, about)]
@@ -77,7 +75,7 @@ fn main() {
 
     println!("stage two");
     let learned_lib = LearnedLibrary::from(&aeg);
-    let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
+    let lib_rewrites: Vec<Rewrite<AstNode<ListOp>, _>> = learned_lib.rewrites().collect();
     let egraph = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
         .with_egraph(aeg.clone())
         .with_iter_limit(1)

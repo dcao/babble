@@ -1,7 +1,7 @@
 //! The AST defining the smiley language.
 
 use babble::{
-    ast_node::{Arity, AstNode},
+    ast_node::{Arity, AstNode, Expr, Precedence, Printable, Printer},
     learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
@@ -9,7 +9,7 @@ use egg::Rewrite;
 use lazy_static::lazy_static;
 use ordered_float::NotNan;
 use std::{
-    fmt::{self, Display, Formatter},
+    fmt::{self, Display, Formatter, Write},
     num::ParseIntError,
     str::FromStr,
 };
@@ -134,7 +134,7 @@ impl Teachable for Smiley {
         match binding_expr {
             BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
-            BindingExpr::Var(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
+            BindingExpr::Var(index) => AstNode::leaf(Self::Var(index)),
             BindingExpr::LibVar(ix) => AstNode::leaf(Self::LibVar(ix)),
             BindingExpr::Lib(ix, bound_value, body) => {
                 AstNode::new(Self::Lib(ix), [bound_value, body])
@@ -147,12 +147,69 @@ impl Teachable for Smiley {
         let binding_expr = match node.as_parts() {
             (Self::Lambda, [body]) => BindingExpr::Lambda(body),
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
-            (&Self::Var(DeBruijnIndex(index)), []) => BindingExpr::Var(index),
+            (&Self::Var(index), []) => BindingExpr::Var(index),
             (Self::Lib(ix), [bound_value, body]) => BindingExpr::Lib(*ix, bound_value, body),
+            (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
             (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };
         Some(binding_expr)
+    }
+}
+
+impl Printable for Smiley {
+    fn precedence(&self) -> Precedence {
+        match self {
+            Self::Int(_)
+            | Self::Float(_)
+            | Self::Var(_)
+            | Self::LibVar(_)
+            | Self::Circle
+            | Self::Line => 60,
+            Self::Compose => 50,
+            Self::Move | Self::Scale | Self::Rotate | Self::Apply | Self::Shift => 40,
+            Self::Lambda | Self::Lib(_) => 10,
+        }
+    }
+
+    fn print_naked<W: Write>(expr: &Expr<Self>, printer: &mut Printer<W>) -> fmt::Result {
+        match (expr.0.operation(), expr.0.args()) {
+            (&Self::Int(i), []) => {
+                write!(printer.writer, "{}", i)
+            }
+            (&Self::Float(f), []) => {
+                write!(printer.writer, "{}", f)
+            }
+            (&Self::Circle, []) => printer.writer.write_str("circle"),
+            (&Self::Line, []) => printer.writer.write_str("line"),
+            (&Self::Move, [x, y, arg]) => {
+                printer.writer.write_str("move <")?;
+                printer.print(x)?;
+                printer.writer.write_str(", ")?;
+                printer.print(y)?;
+                printer.writer.write_str("> ")?;
+                printer.print(arg)
+            }
+            (&Self::Scale, [s, arg]) => {
+                printer.writer.write_str("scale ")?;
+                printer.print(s)?;
+                printer.writer.write_str(" ")?;
+                printer.print(arg)
+            }
+            (&Self::Rotate, [a, arg]) => {
+                printer.writer.write_str("rotate ")?;
+                printer.print(a)?;
+                printer.writer.write_str(" ")?;
+                printer.print(arg)
+            }
+            (&Self::Compose, ts) => {
+                let elem = |p: &mut Printer<W>, i: usize| {
+                    p.print_in_context(&ts[i], 0) // children do not need parens
+                };
+                printer.in_brackets(|p| p.indented(|p| p.vsep(elem, ts.len(), ",")))
+            }
+            (op, _) => write!(printer.writer, "{} ???", op),
+        }
     }
 }
 

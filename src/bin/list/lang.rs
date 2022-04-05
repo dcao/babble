@@ -1,7 +1,7 @@
 //! The language of list transformations.
 
 use babble::{
-    ast_node::{Arity, AstNode},
+    ast_node::{Arity, AstNode, Expr, Precedence, Printable, Printer},
     learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
@@ -10,7 +10,7 @@ use egg::{Rewrite, Symbol};
 use lazy_static::lazy_static;
 use std::{
     convert::Infallible,
-    fmt::{self, Display, Formatter},
+    fmt::{self, Display, Formatter, Write},
     str::FromStr,
 };
 
@@ -132,7 +132,7 @@ impl Teachable for ListOp {
         match binding_expr {
             BindingExpr::Lambda(body) => AstNode::new(Self::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(Self::Apply, [fun, arg]),
-            BindingExpr::Var(index) => AstNode::leaf(Self::Var(DeBruijnIndex(index))),
+            BindingExpr::Var(index) => AstNode::leaf(Self::Var(index)),
             BindingExpr::Lib(ix, bound_value, body) => {
                 AstNode::new(Self::Lib(ix), [bound_value, body])
             }
@@ -145,13 +145,65 @@ impl Teachable for ListOp {
         let binding_expr = match node.as_parts() {
             (Self::Lambda, [body]) => BindingExpr::Lambda(body),
             (Self::Apply, [fun, arg]) => BindingExpr::Apply(fun, arg),
-            (&Self::Var(index), []) => BindingExpr::Var(index.0),
+            (&Self::Var(index), []) => BindingExpr::Var(index),
             (Self::Lib(ix), [bound_value, body]) => BindingExpr::Lib(*ix, bound_value, body),
             (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
             (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };
         Some(binding_expr)
+    }
+}
+
+impl Printable for ListOp {
+    fn precedence(&self) -> Precedence {
+        match self {
+            Self::Bool(_) | Self::Int(_) | Self::Var(_) | Self::Ident(_) | Self::LibVar(_) => 60,
+            Self::List => 50,
+            Self::Apply | Self::Shift => 40,
+            Self::Cons => 30,
+            Self::If => 20,
+            Self::Lambda | ListOp::Lib(_) => 10,
+        }
+    }
+
+    fn print_naked<W: Write>(expr: &Expr<Self>, printer: &mut Printer<W>) -> fmt::Result {
+        match (expr.0.operation(), expr.0.args()) {
+            (&Self::Int(i), []) => {
+                write!(printer.writer, "{}", i)
+            }
+            (&Self::Bool(b), []) => {
+                write!(printer.writer, "{}", b)
+            }
+            (&Self::Ident(ident), []) => {
+                let name: &str = ident.into();
+                if name == "empty" {
+                    printer.writer.write_str("[]")
+                } else {
+                    printer.writer.write_str(ident.into())
+                }
+            }
+            (&Self::Cons, [head, tail]) => {
+                printer.print(head)?;
+                printer.writer.write_str(" : ")?;
+                printer.print_in_context(tail, printer.ctx_precedence - 1) // cons is right-associative
+            }
+            (&Self::If, [cond, then, els]) => {
+                printer.writer.write_str("if ")?;
+                printer.print_in_context(cond, 0)?; // children do not need parens
+                printer.writer.write_str(" then ")?;
+                printer.print_in_context(then, 0)?;
+                printer.writer.write_str(" else ")?;
+                printer.print_in_context(els, 0)
+            }
+            (&Self::List, ts) => {
+                let elem = |p: &mut Printer<W>, i: usize| {
+                    p.print_in_context(&ts[i], 0) // children do not need parens
+                };
+                printer.in_brackets(|p| p.indented(|p| p.vsep(elem, ts.len(), ",")))
+            }
+            (op, _) => write!(printer.writer, "{} ???", op),
+        }
     }
 }
 

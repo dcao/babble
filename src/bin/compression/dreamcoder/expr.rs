@@ -2,9 +2,9 @@
 
 use super::{parse, util::parens};
 use babble::{
-    ast_node::{Arity, AstNode, Expr},
+    ast_node::{Arity, AstNode, Expr, Precedence, Printable, Printer},
     learn::{LibId, ParseLibIdError},
-    teachable::{BindingExpr, Teachable},
+    teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
 use egg::{RecExpr, Symbol};
 use internment::ArcIntern;
@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     convert::{Infallible, TryFrom},
-    fmt::{self, Display, Formatter},
+    fmt::{self, Display, Formatter, Write},
     ops::{Deref, DerefMut},
     str::FromStr,
 };
@@ -160,7 +160,7 @@ impl FromStr for DreamCoderOp {
 impl Teachable for DreamCoderOp {
     fn from_binding_expr<T>(binding_expr: BindingExpr<T>) -> AstNode<Self, T> {
         match binding_expr {
-            BindingExpr::Var(index) => AstNode::leaf(DreamCoderOp::Var(index)),
+            BindingExpr::Var(DeBruijnIndex(index)) => AstNode::leaf(DreamCoderOp::Var(index)),
             BindingExpr::Lambda(body) => AstNode::new(DreamCoderOp::Lambda, [body]),
             BindingExpr::Apply(fun, arg) => AstNode::new(DreamCoderOp::App, [fun, arg]),
             BindingExpr::Lib(ix, def, body) => AstNode::new(DreamCoderOp::Lib(ix), [def, body]),
@@ -171,7 +171,7 @@ impl Teachable for DreamCoderOp {
 
     fn as_binding_expr<T>(node: &AstNode<Self, T>) -> Option<BindingExpr<&T>> {
         let binding_expr = match node.as_parts() {
-            (DreamCoderOp::Var(index), []) => BindingExpr::Var(*index),
+            (DreamCoderOp::Var(index), []) => BindingExpr::Var(DeBruijnIndex(*index)),
             (DreamCoderOp::Lambda, [body]) => BindingExpr::Lambda(body),
             (DreamCoderOp::App, [fun, arg]) => BindingExpr::Apply(fun, arg),
             (DreamCoderOp::Lib(ix), [def, body]) => BindingExpr::Lib(*ix, def, body),
@@ -197,6 +197,32 @@ impl Display for DreamCoderOp {
             DreamCoderOp::Combine => "combine",
         };
         f.write_str(s)
+    }
+}
+
+impl Printable for DreamCoderOp {
+    fn precedence(&self) -> Precedence {
+        match self {
+            Self::Symbol(_) | Self::Var(_) | Self::LibVar(_) => 60,
+            Self::Combine => 50,
+            Self::App | Self::Shift => 40,
+            Self::Lambda | Self::Lib(_) | Self::Inlined(_) => 10,
+        }
+    }
+
+    fn print_naked<W: Write>(expr: &Expr<Self>, printer: &mut Printer<W>) -> fmt::Result {
+        match (expr.0.operation(), expr.0.args()) {
+            (&Self::Symbol(s), []) => {
+                write!(printer.writer, "{}", s)
+            }
+            (&Self::Combine, ts) => {
+                let elem = |p: &mut Printer<W>, i: usize| {
+                    p.print_in_context(&ts[i], 0) // children do not need parens
+                };
+                printer.in_brackets(|p| p.indented(|p| p.vsep(elem, ts.len(), ",")))
+            }
+            (op, _) => write!(printer.writer, "{} ???", op),
+        }
     }
 }
 
@@ -255,7 +281,7 @@ mod tests {
     use babble::ast_node::AstNode;
     use internment::ArcIntern;
 
-    use super::{DcExpr, DreamCoderOp};
+    use super::{DcExpr, DeBruijnIndex, DreamCoderOp};
 
     impl DcExpr {
         fn lambda(body: Self) -> Self {
