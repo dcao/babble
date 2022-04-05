@@ -299,7 +299,6 @@ where
                 let mut e = x(b).add_lib(id, x(f));
                 e.unify();
                 e.prune(self.beam_size);
-                e.inc_cost();
                 e
             }
             Some(_) | None => {
