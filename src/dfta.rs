@@ -61,7 +61,7 @@ where
         let mut new_dfta = Dfta::new();
         for (op, rules) in &self.by_operation {
             for rule1 in rules {
-                for (inputs2, output2) in rules.range(rule1..) {
+                for (inputs2, output2) in rules {
                     let (inputs1, output1) = rule1;
                     let new_inputs = inputs1.iter().cloned().zip(inputs2.iter().cloned());
                     let new_output = (output1.clone(), output2.clone());
