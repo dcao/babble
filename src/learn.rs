@@ -220,7 +220,11 @@ where
                     aus.extend(new_aus);
                 }
             }
+        }
 
+        if aus.is_empty() {
+            aus.insert(PartialExpr::Hole(state.clone()));
+        } else {
             // We filter out the anti-unifications which are just concrete
             // expressions with no variables, and then convert the contained
             // states to pattern variables. The conversion takes
@@ -264,12 +268,6 @@ where
                 });
 
             self.nontrivial_aus.extend(nontrivial_aus);
-        } else {
-            // This state isn't the output of any rules, so we treat it as a
-            // metavariable. We don't do this for states that are rule outputs
-            // to ensure we're getting only the "least general generalization",
-            // rather than all generalizations.
-            aus.insert(PartialExpr::Hole(state.clone()));
         }
 
         *self.aus_by_state.get_mut(state).unwrap() = aus;
