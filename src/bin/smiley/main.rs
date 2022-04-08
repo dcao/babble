@@ -15,7 +15,7 @@
 use babble::{
     ast_node::{Expr, Pretty},
     extract::{
-        beam::{less_dumb_extractor, PartialLibCost},
+        beam::{less_dumb_extractor, PartialLibCost, LibExtractor},
         lift_libs, true_cost,
     },
     learn::LearnedLibrary,
@@ -90,6 +90,14 @@ fn main() {
         let root = aeg.add_expr(&initial_expr);
         aeg.rebuild();
 
+        // let runner = Runner::<_, _, ()>::new(PartialLibCost::new(100, 100))
+        //     .with_egraph(aeg)
+        //     .run(&[
+        //         egg::rewrite!("scale 1"; "circle" => "(scale 1 circle)"),
+        //     ]);
+
+        // let aeg = runner.egraph;
+
         let learned_lib = LearnedLibrary::from(&aeg);
         let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
         let egraph = Runner::<_, _, ()>::new(PartialLibCost::new(100, 100))
@@ -101,23 +109,23 @@ fn main() {
         let mut cs = egraph[egraph.find(root)].data.clone();
         cs.set.sort_unstable_by_key(|elem| elem.full_cost);
 
-        println!("learned libs");
-        let all_libs: Vec<_> = learned_lib.libs().collect();
-        for x in &cs.set {
-            for lib in &x.libs {
-                println!("{}: {}", lib.0, &all_libs[lib.0 .0]);
-            }
-            println!("upper bound ('full') cost: {:?}", x);
-            println!();
-        }
+        // println!("learned libs");
+        // let all_libs: Vec<_> = learned_lib.libs().collect();
+        // for x in &cs.set {
+        //     for lib in &x.libs {
+        //         println!("{}: {}", lib.0, &all_libs[lib.0 .0]);
+        //     }
+        //     println!("upper bound ('full') cost: {:?}", x);
+        //     println!();
+        // }
 
         println!("extracting (with duplicate libs)");
         let (lifted, final_cost) = cs
             .set
-            .par_iter()
+            .iter()
             .map(|ls| {
                 // Add the root combine node again
-                let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0))
+                let fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0))
                     .with_egraph(aeg.clone())
                     .with_iter_limit(1)
                     .run(
@@ -137,11 +145,15 @@ fn main() {
                 // println!("{:#?}", fin[17.into()]);
                 // println!("{:#?}", fin[31.into()]);
 
-                let best = less_dumb_extractor(&fin, root);
+                // let best = less_dumb_extractor(&fin, root);
 
                 // println!("extracting (before lib lifting)");
                 // println!("{}", best.pretty(100));
                 // println!();
+
+                let mut extractor = LibExtractor::new(&fin);                
+                let best = extractor.best(root);
+                println!("extraction done: {:?}", best);
 
                 let lifted = lift_libs(best);
                 let final_cost = true_cost(lifted.clone()) - 1;

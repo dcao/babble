@@ -446,6 +446,107 @@ pub fn less_dumb_extractor<
     expr.into()
 }
 
+pub struct LibExtractor<Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display> {
+    memo: HashMap<Id, Option<Vec<AstNode<Op>>>>,
+    node_vecs: HashMap<Id, Vec<AstNode<Op>>>,
+    // egraph: &'a EGraph<AstNode<Op>, N>,
+}
+
+impl<Op> LibExtractor<Op> 
+where Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display + Arity
+{
+    pub fn new<N: Analysis<AstNode<Op>>>(egraph: &EGraph<AstNode<Op>, N>) -> Self {
+        let mut node_vecs = HashMap::new();
+        for eclass in egraph.classes() {
+            println!("{}: {:?}", eclass.id, eclass.nodes);
+            let (libs, mut non_libs): (Vec<AstNode<Op>>, Vec<AstNode<Op>>) =
+                eclass.nodes.iter().cloned().partition(|x| {
+                    if let Some(BindingExpr::Lib(_, _, _)) = x.as_binding_expr() {
+                        true
+                    } else {
+                        false
+                    }
+                });
+                    // { matches!(x.as_binding_expr(), Some(BindingExpr::Lib(_, _, _))) });
+            println!("libs: {:?}", libs);
+            println!("non_libs: {:?}", non_libs);
+            non_libs.extend(libs);
+            node_vecs.insert(eclass.id, non_libs);
+        }
+        println!("node vecs {:?}", node_vecs);
+
+        Self {
+            memo: HashMap::new(),
+            node_vecs,
+        }
+    }
+
+    pub fn best(&mut self, id: Id) -> RecExpr<AstNode<Op>> {
+        self.extract(id).unwrap().into()
+    }
+
+    fn extract(&mut self, id: Id) -> Option<Vec<AstNode<Op>>> {
+        println!("extracting {}", id);
+        if let Some(res) = self.memo.get(&id) {
+            println!("memoized {:?}", res);
+            res.clone()
+        } else {
+            self.memo.insert(id, None);
+            let mut alternatives = vec![]; 
+            for node in self.node_vecs[&id].clone() {
+                alternatives.push(self.extract_node(&node));
+            }
+            let alternatives = alternatives.into_iter().flatten().collect::<Vec<_>>();
+            println!("all: {:?}", alternatives);
+            if alternatives.is_empty() {
+                None
+            } else {
+                let best = alternatives.into_iter().min_by_key(Vec::len).unwrap();
+                self.memo.insert(id, Some(best.clone()));
+                println!("best: {:?}", best);
+                Some(best)
+            }
+        }
+    }
+
+    fn extract_node(&mut self, node: &AstNode<Op>) -> Option<Vec<AstNode<Op>>> {
+        let mut partial_expr = vec![];
+        let mut child_indexes = vec![];
+        self.extract_children(node, 0, &mut partial_expr, &mut child_indexes)
+    }
+
+    fn extract_children(&mut self, node: &AstNode<Op>, current: usize, partial_expr: &mut Vec<AstNode<Op>>, child_indexes: &mut Vec<usize>) -> Option<Vec<AstNode<Op>>> {
+        if current == node.children().len() {
+            // Done with children: add ourselves to the partial expression and return
+            let child_ids: Vec<Id> = child_indexes.iter().map(|x| (*x).into()).collect();
+            let root = AstNode::new(node.operation().clone(), child_ids);
+            partial_expr.push(root);
+            Some(partial_expr.clone())
+        } else {
+            // Recurse on the next child
+            match self.extract(node.children()[current]) {
+                None => None,
+                Some(mut expr) => {
+                    for n in &mut expr {
+                        Self::offset_children(n, partial_expr.len());
+                    }
+                    partial_expr.extend(expr);
+                    child_indexes.push(partial_expr.len() - 1);
+                    self.extract_children(node, current + 1, partial_expr, child_indexes)
+                }
+            }
+        }
+    }
+
+    /// Add offset to all children of the node
+    fn offset_children(node: &mut AstNode<Op>, offset: usize) {
+        for child in node.children_mut() {
+            let child_index: usize = (*child).into();
+            *child = (child_index + offset).into();
+        }
+    }
+}
+
 /// A simple extractor that always chooses libs where it can.
 pub fn dumb_extractor<
     Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display,
