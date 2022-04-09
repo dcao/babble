@@ -453,7 +453,10 @@ pub fn less_dumb_extractor<
 pub struct LibExtractor<
     Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display,
 > {
-    /// Remembers the best expression so far for each class id
+    /// Remembers the best expression so far for each class id;
+    /// if a class id is absent, we haven't visited it yet;
+    /// if a class id maps to None, it's currently under processing, but we have no results for it yet;
+    /// if a class id maps to Some(_), we have found an expression for it (but it might still be improved).
     memo: HashMap<Id, Option<RecExpr<AstNode<Op>>>>,
     /// Representation of the egraph
     /// where in each eclass, all non-lib nodes come before all lib nodes
