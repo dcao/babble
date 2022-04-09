@@ -1,6 +1,7 @@
 //! extract::partial implements a non-ILP-based extractor based on partial
 //! orderings of learned library sets.
 use egg::{Analysis, CostFunction, DidMerge, EGraph, Id, Language, RecExpr};
+use log::debug;
 use std::{collections::HashMap, fmt::Debug};
 
 use crate::{
@@ -446,34 +447,37 @@ pub fn less_dumb_extractor<
     expr.into()
 }
 
-pub struct LibExtractor<Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display> {
-    memo: HashMap<Id, Option<Vec<AstNode<Op>>>>,
+/// Extractor that minimizes AST size but ignores the cost of library definitions
+/// (which will be later lifted to the top)
+#[derive(Debug)]
+pub struct LibExtractor<
+    Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display,
+> {
+    /// Remembers the best expression so far for each class id
+    memo: HashMap<Id, Option<RecExpr<AstNode<Op>>>>,
+    /// Representation of the egraph
+    /// where in each eclass, all non-lib nodes come before all lib nodes
     node_vecs: HashMap<Id, Vec<AstNode<Op>>>,
-    // egraph: &'a EGraph<AstNode<Op>, N>,
 }
 
-impl<Op> LibExtractor<Op> 
-where Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display + Arity
+impl<Op> LibExtractor<Op>
+where
+    Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display + Arity,
 {
+    /// Create a lib extractor for the given egraph
     pub fn new<N: Analysis<AstNode<Op>>>(egraph: &EGraph<AstNode<Op>, N>) -> Self {
         let mut node_vecs = HashMap::new();
         for eclass in egraph.classes() {
-            println!("{}: {:?}", eclass.id, eclass.nodes);
-            let (libs, mut non_libs): (Vec<AstNode<Op>>, Vec<AstNode<Op>>) =
-                eclass.nodes.iter().cloned().partition(|x| {
-                    if let Some(BindingExpr::Lib(_, _, _)) = x.as_binding_expr() {
-                        true
-                    } else {
-                        false
-                    }
-                });
-                    // { matches!(x.as_binding_expr(), Some(BindingExpr::Lib(_, _, _))) });
-            println!("libs: {:?}", libs);
-            println!("non_libs: {:?}", non_libs);
+            debug!("{}: {:?}", eclass.id, eclass.nodes);
+            // Sort nodes so that non-lib nodes come first
+            let (libs, mut non_libs): (Vec<AstNode<Op>>, Vec<AstNode<Op>>) = eclass
+                .nodes
+                .iter()
+                .cloned()
+                .partition(|x| matches!(x.as_binding_expr(), Some(BindingExpr::Lib(_, _, _))));
             non_libs.extend(libs);
             node_vecs.insert(eclass.id, non_libs);
         }
-        println!("node vecs {:?}", node_vecs);
 
         Self {
             memo: HashMap::new(),
@@ -481,56 +485,95 @@ where Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt
         }
     }
 
+    /// Extract the smallest expression from the eclass id
+    /// # Panics
+    /// Panics if extraction fails (but this should never happen)
     pub fn best(&mut self, id: Id) -> RecExpr<AstNode<Op>> {
-        self.extract(id).unwrap().into()
+        // Populate the memo:
+        self.extract(id);
+        // Get the best expression from the memo:
+        self.memo.get(&id).unwrap().clone().unwrap()
     }
 
-    fn extract(&mut self, id: Id) -> Option<Vec<AstNode<Op>>> {
-        println!("extracting {}", id);
+    /// Expression cost used by this extractor (which is `NoLibCost`)
+    fn cost(expr: &RecExpr<AstNode<Op>>) -> usize {
+        NoLibCost.cost_rec(expr)
+    }
+
+    /// Extract the smallest expression from the eclass id and its descendants
+    /// storing results in the memo
+    fn extract(&mut self, id: Id) {
+        debug!("extracting {}", id);
         if let Some(res) = self.memo.get(&id) {
-            println!("memoized {:?}", res);
-            res.clone()
+            debug!("memoized {:?}", res);
         } else {
+            // Initialize memo with None to prevent infinite recursion
+            // in case of cycles in the egraph
             self.memo.insert(id, None);
-            let mut alternatives = vec![]; 
+            // Extract a candidate expression from each node
             for node in self.node_vecs[&id].clone() {
-                alternatives.push(self.extract_node(&node));
-            }
-            let alternatives = alternatives.into_iter().flatten().collect::<Vec<_>>();
-            println!("all: {:?}", alternatives);
-            if alternatives.is_empty() {
-                None
-            } else {
-                let best = alternatives.into_iter().min_by_key(Vec::len).unwrap();
-                self.memo.insert(id, Some(best.clone()));
-                println!("best: {:?}", best);
-                Some(best)
+                match self.extract_node(&node) {
+                    None => (), // Extraction for this node failed (must be a cycle)
+                    Some(cand) => {
+                        // Extraction succeeded: check if cand is better than what we have so far
+                        match self.memo.get(&id).unwrap() {
+                            // If we already had an expression and it was better, do nothing
+                            Some(prev) if Self::cost(prev) <= Self::cost(&cand) => (),
+                            // Otherwise, update the memo;
+                            // the reason we want to update the memo after each candidate as opposed to once at the end
+                            // is because a lib definition could loop back to the same eclass as the lib iteself;
+                            // and in that case we want to pick the best non-lib node as the lib definition (as opposed to having it undefined);
+                            // this is also why we need to sort the nodes.
+                            _ => {
+                                debug!("new best for {}: {:?}", id, cand);
+                                self.memo.insert(id, Some(cand));
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
-    fn extract_node(&mut self, node: &AstNode<Op>) -> Option<Vec<AstNode<Op>>> {
-        let mut partial_expr = vec![];
+    /// Extract the smallest expression from the node
+    fn extract_node(&mut self, node: &AstNode<Op>) -> Option<RecExpr<AstNode<Op>>> {
         let mut child_indexes = vec![];
-        self.extract_children(node, 0, &mut partial_expr, &mut child_indexes)
+        self.extract_children(node, 0, vec![], &mut child_indexes)
     }
 
-    fn extract_children(&mut self, node: &AstNode<Op>, current: usize, partial_expr: &mut Vec<AstNode<Op>>, child_indexes: &mut Vec<usize>) -> Option<Vec<AstNode<Op>>> {
+    /// Process the children of `node` starting from index `current`
+    /// and accumulate results in `partial expr`;
+    /// `child_indexes` stores the indexes of already processed children within `partial_expr`,
+    /// so that we can use them in the `AstNode` at the end.
+    fn extract_children(
+        &mut self,
+        node: &AstNode<Op>,
+        current: usize,
+        mut partial_expr: Vec<AstNode<Op>>,
+        child_indexes: &mut Vec<usize>,
+    ) -> Option<RecExpr<AstNode<Op>>> {
         if current == node.children().len() {
             // Done with children: add ourselves to the partial expression and return
             let child_ids: Vec<Id> = child_indexes.iter().map(|x| (*x).into()).collect();
             let root = AstNode::new(node.operation().clone(), child_ids);
             partial_expr.push(root);
-            Some(partial_expr.clone())
+            Some(partial_expr.into())
         } else {
             // Recurse on the next child
-            match self.extract(node.children()[current]) {
+            let child = &node.children()[current];
+            self.extract(*child);
+            match self.memo.get(child).unwrap() {
                 None => None,
-                Some(mut expr) => {
-                    for n in &mut expr {
+                Some(expr) => {
+                    // We need to clone the expr because we're going to offset child indexes,
+                    // and we don't want it to affect the memo result for child.
+                    let mut new_expr = expr.clone().as_ref().to_vec();
+                    for n in &mut new_expr {
+                        // Increment all indexes inside `n` by the current expression length;
+                        // this is needed to make a well-formed `RecExpr`
                         Self::offset_children(n, partial_expr.len());
                     }
-                    partial_expr.extend(expr);
+                    partial_expr.extend(new_expr);
                     child_indexes.push(partial_expr.len() - 1);
                     self.extract_children(node, current + 1, partial_expr, child_indexes)
                 }
@@ -538,7 +581,7 @@ where Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt
         }
     }
 
-    /// Add offset to all children of the node
+    /// Add `offset` to all children of `node`
     fn offset_children(node: &mut AstNode<Op>, offset: usize) {
         for child in node.children_mut() {
             let child_index: usize = (*child).into();
@@ -584,6 +627,7 @@ pub fn dumb_extractor<
     sel(&egraph, &mut seen, root).build_recexpr(|id| sel(&egraph, &mut seen, id))
 }
 
+/// Cost function that does not count library definitions
 #[derive(Debug, Clone, Copy)]
 pub struct NoLibCost;
 
@@ -593,15 +637,9 @@ where
         + std::hash::Hash
         + Debug
         + Teachable
-        + Arity
-        + Eq
-        + Clone
-        + Send
-        + Sync
-        + std::fmt::Display
-        + 'static,
+        + Clone,
 {
-    type Cost = f64;
+    type Cost = usize;
 
     fn cost<C>(&mut self, enode: &AstNode<Op>, mut costs: C) -> Self::Cost
     where
@@ -609,7 +647,7 @@ where
     {
         match enode.as_binding_expr() {
             Some(BindingExpr::Lib(_, _, body)) => costs(*body),
-            _ => enode.fold(1.0, |sum, id| sum + costs(id)),
+            _ => enode.fold(1, |sum, id| sum + costs(id)),
         }
     }
 }

@@ -108,7 +108,9 @@ fn main() {
         )
         .egraph;
 
-    let best = less_dumb_extractor(&fin, root);
+    let mut extractor = LibExtractor::new(&fin);
+    let best = extractor.best(root);
+    // let best = less_dumb_extractor(&fin, root);
     println!("{}", best.pretty(100));
     println!();
 

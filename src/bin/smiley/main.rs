@@ -15,24 +15,21 @@
 use babble::{
     ast_node::{Expr, Pretty},
     extract::{
-        beam::{less_dumb_extractor, PartialLibCost, LibExtractor},
+        beam::{LibExtractor, PartialLibCost},
         lift_libs, true_cost,
     },
     learn::LearnedLibrary,
     sexp::Sexp,
 };
 use clap::Clap;
-use egg::{AstSize, CostFunction, EGraph, Extractor, RecExpr, Rewrite, Runner};
-use log::info;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner};
+// use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     convert::TryInto,
     fs,
     io::{self, Read},
     path::PathBuf,
 };
-
-use crate::lang::Smiley;
 
 mod eval;
 mod lang;
@@ -90,13 +87,14 @@ fn main() {
         let root = aeg.add_expr(&initial_expr);
         aeg.rebuild();
 
-        // let runner = Runner::<_, _, ()>::new(PartialLibCost::new(100, 100))
-        //     .with_egraph(aeg)
-        //     .run(&[
-        //         egg::rewrite!("scale 1"; "circle" => "(scale 1 circle)"),
-        //     ]);
+        let runner = Runner::<_, _, ()>::new(PartialLibCost::new(100, 100))
+            .with_egraph(aeg)
+            .run(&[
+                egg::rewrite!("scale 1"; "circle" => "(scale 1 circle)"),
+                egg::rewrite!("rotate circle"; "circle" => "(rotate 90 circle)"),
+            ]);
 
-        // let aeg = runner.egraph;
+        let aeg = runner.egraph;
 
         let learned_lib = LearnedLibrary::from(&aeg);
         let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
@@ -137,23 +135,10 @@ fn main() {
                     )
                     .egraph;
 
-                // let extractor = Extractor::new(&fin, NoLibCost);
-                // let (_, best) = extractor.find_best(fin.find(root));
-                // println!();
-
-                // println!("{:#?}", fin[root]);
-                // println!("{:#?}", fin[17.into()]);
-                // println!("{:#?}", fin[31.into()]);
-
                 // let best = less_dumb_extractor(&fin, root);
 
-                // println!("extracting (before lib lifting)");
-                // println!("{}", best.pretty(100));
-                // println!();
-
-                let mut extractor = LibExtractor::new(&fin);                
+                let mut extractor = LibExtractor::new(&fin);
                 let best = extractor.best(root);
-                println!("extraction done: {:?}", best);
 
                 let lifted = lift_libs(best);
                 let final_cost = true_cost(lifted.clone()) - 1;
@@ -163,21 +148,8 @@ fn main() {
             .min_by_key(|x| x.1)
             .unwrap();
 
-        // println!("{}", lifted.pretty(100));
         println!("{}", Pretty(&Expr::from(lifted)));
         println!("final cost: {}", final_cost);
         println!();
-
-        // let egraph = runner.egraph;
-        // info!("Number of nodes: {}", egraph.total_size());
-        // let (final_cost, final_expr) = Extractor::new(&egraph, AstSize).find_best(root);
-
-        // println!("Final expression (cost {}):", final_cost);
-        // println!("{}", final_expr.pretty(100));
-        // println!();
-
-        // #[allow(clippy::cast_precision_loss)]
-        // let compression_ratio = (initial_cost as f64) / (final_cost as f64);
-        // println!("Compression ratio: {:.2}", compression_ratio);
     }
 }
