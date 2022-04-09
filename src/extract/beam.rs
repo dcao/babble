@@ -490,7 +490,8 @@ where
 
     /// Extract the smallest expression from the eclass id
     /// # Panics
-    /// Panics if extraction fails (but this should never happen)
+    /// Panics if extraction fails
+    /// (but this should never happen because the e-graph must contain a non-cyclic expression)
     pub fn best(&mut self, id: Id) -> RecExpr<AstNode<Op>> {
         // Populate the memo:
         self.extract(id);
@@ -636,11 +637,7 @@ pub struct NoLibCost;
 
 impl<Op> CostFunction<AstNode<Op>> for NoLibCost
 where
-    Op: Ord
-        + std::hash::Hash
-        + Debug
-        + Teachable
-        + Clone,
+    Op: Ord + std::hash::Hash + Debug + Teachable + Clone,
 {
     type Cost = usize;
 
