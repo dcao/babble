@@ -447,56 +447,112 @@ pub fn less_dumb_extractor<
     expr.into()
 }
 
-/// Extractor that minimizes AST size but ignores the cost of library definitions
-/// (which will be later lifted to the top)
-#[derive(Debug)]
-pub struct LibExtractor<
-    Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display,
-> {
-    /// Remembers the best expression so far for each class id;
-    /// if a class id is absent, we haven't visited it yet;
-    /// if a class id maps to None, it's currently under processing, but we have no results for it yet;
-    /// if a class id maps to Some(_), we have found an expression for it (but it might still be improved).
-    memo: HashMap<Id, Option<RecExpr<AstNode<Op>>>>,
-    /// Representation of the egraph
-    /// where in each eclass, all non-lib nodes come before all lib nodes
-    node_vecs: HashMap<Id, Vec<AstNode<Op>>>,
+/// Library context is a set of library function names.
+/// It is used in the extractor to represent the fact that we are extracting
+/// inside (nested) library definitions.
+#[derive(Debug, Clone, PartialEq, Eq, std::hash::Hash)]
+struct LibContext {
+    set: Vec<LibId>,
 }
 
-impl<Op> LibExtractor<Op>
-where
-    Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display + Arity,
-{
-    /// Create a lib extractor for the given egraph
-    pub fn new<N: Analysis<AstNode<Op>>>(egraph: &EGraph<AstNode<Op>, N>) -> Self {
-        let mut node_vecs = HashMap::new();
-        for eclass in egraph.classes() {
-            debug!("{}: {:?}", eclass.id, eclass.nodes);
-            // Sort nodes so that non-lib nodes come first
-            let (libs, mut non_libs): (Vec<AstNode<Op>>, Vec<AstNode<Op>>) = eclass
-                .nodes
-                .iter()
-                .cloned()
-                .partition(|x| matches!(x.as_binding_expr(), Some(BindingExpr::Lib(_, _, _))));
-            non_libs.extend(libs);
-            node_vecs.insert(eclass.id, non_libs);
-        }
+impl LibContext {
+    fn new() -> Self {
+        Self { set: Vec::new() }
+    }
 
-        Self {
-            memo: HashMap::new(),
-            node_vecs,
+    /// Add a new lib to the context if not yet present,
+    /// keeping it sorted.
+    fn add(&mut self, lib_id: LibId) {
+        match self.set.binary_search(&lib_id) {
+            Ok(_) => {} // already present
+            Err(pos) => self.set.insert(pos, lib_id),
         }
     }
 
-    /// Extract the smallest expression from the eclass id
+    /// Does the context contain the given lib?
+    fn contains(&self, lib_id: LibId) -> bool {
+        self.set.binary_search(&lib_id).is_ok()
+    }
+}
+
+type MaybeExpr<Op> = Option<RecExpr<AstNode<Op>>>;
+
+/// This is here for debugging purposes.
+fn display_maybe_expr<Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + std::fmt::Display>(
+    maybe_expr: &MaybeExpr<Op>,
+) -> String {
+    if let Some(expr) = maybe_expr {
+        expr.pretty(100)
+    } else {
+        "<none>".to_string()
+    }
+}
+
+/// Extractor that minimizes AST size but ignores the cost of library definitions
+/// (which will be later lifted to the top).
+/// The main difference between this and a standard extractor is that
+/// instead of finding the best expression *per eclass*,
+/// we need to find the best expression *per eclass and lib context*.
+/// This is because when extracting inside library definitions,
+/// we are not allowed to use those libraries;
+/// so the best expression is different depending on which library defs we are currently inside.
+#[derive(Debug)]
+pub struct LibExtractor<
+    'a,
+    Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display,
+    N: Analysis<AstNode<Op>>,
+> {
+    /// Remembers the best expression so far for each pair of class id and lib context;
+    /// if an entry is absent, we haven't visited this class in this context yet;
+    /// if an entry is None, it's currently under processing, but we have no results for it yet;
+    /// if an entry is Some(_), we have found an expression for it (but it might still be improved).
+    memo: HashMap<Id, HashMap<LibContext, MaybeExpr<Op>>>,
+    /// Current lib context:
+    /// contains all lib ids inside whose definitions we are currently extracting.
+    lib_context: LibContext,
+    /// The egraph to extract from.
+    egraph: &'a EGraph<AstNode<Op>, N>,
+    /// This is here for pretty debug messages.
+    indent: usize,
+}
+
+impl<'a, Op, N> LibExtractor<'a, Op, N>
+where
+    Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + Teachable + std::fmt::Display + Arity,
+    N: Analysis<AstNode<Op>> + Clone,
+{
+    /// Create a lib extractor for the given egraph
+    pub fn new(egraph: &'a EGraph<AstNode<Op>, N>) -> Self {
+        Self {
+            memo: HashMap::new(),
+            lib_context: LibContext::new(),
+            egraph,
+            indent: 0,
+        }
+    }
+
+    /// Get best best expression for `id` in the current lib context.
+    fn get_from_memo(&self, id: Id) -> Option<&MaybeExpr<Op>> {
+        self.memo.get(&id)?.get(&self.lib_context)
+    }
+
+    /// Set best best expression for `id` in the current lib context.
+    fn insert_into_memo(&mut self, id: Id, val: MaybeExpr<Op>) {
+        self.memo
+            .entry(id)
+            .or_insert_with(HashMap::new)
+            .insert(self.lib_context.clone(), val);
+    }
+
+    /// Extract the smallest expression for the eclass `id`.
     /// # Panics
     /// Panics if extraction fails
-    /// (but this should never happen because the e-graph must contain a non-cyclic expression)
+    /// (this should never happen because the e-graph must contain a non-cyclic expression)
     pub fn best(&mut self, id: Id) -> RecExpr<AstNode<Op>> {
         // Populate the memo:
         self.extract(id);
         // Get the best expression from the memo:
-        self.memo.get(&id).unwrap().clone().unwrap()
+        self.get_from_memo(id).unwrap().clone().unwrap()
     }
 
     /// Expression cost used by this extractor (which is `NoLibCost`)
@@ -505,32 +561,39 @@ where
     }
 
     /// Extract the smallest expression from the eclass id and its descendants
-    /// storing results in the memo
+    /// in the current context, storing results in the memo
     fn extract(&mut self, id: Id) {
-        debug!("extracting {}", id);
-        if let Some(res) = self.memo.get(&id) {
-            debug!("memoized {:?}", res);
+        self.debug_indented(format!("extracting eclass {}", id));
+        if let Some(res) = self.get_from_memo(id) {
+            // This node has already been visited in this context (either done or under processing)
+            self.debug_indented(format!(
+                "visited, memoized value: {}",
+                display_maybe_expr(res)
+            ));
         } else {
-            // Initialize memo with None to prevent infinite recursion
-            // in case of cycles in the egraph
-            self.memo.insert(id, None);
+            // Initialize memo with None to prevent infinite recursion in case of cycles in the egraph
+            self.insert_into_memo(id, None);
             // Extract a candidate expression from each node
-            for node in self.node_vecs[&id].clone() {
-                match self.extract_node(&node) {
+            for node in self.egraph[id].iter() {
+                match self.extract_node(node) {
                     None => (), // Extraction for this node failed (must be a cycle)
                     Some(cand) => {
                         // Extraction succeeded: check if cand is better than what we have so far
-                        match self.memo.get(&id).unwrap() {
+                        match self.get_from_memo(id).unwrap() {
                             // If we already had an expression and it was better, do nothing
                             Some(prev) if Self::cost(prev) <= Self::cost(&cand) => (),
                             // Otherwise, update the memo;
-                            // the reason we want to update the memo after each candidate as opposed to once at the end
-                            // is because a lib definition could loop back to the same eclass as the lib iteself;
-                            // and in that case we want to pick the best non-lib node as the lib definition (as opposed to having it undefined);
-                            // this is also why we need to sort the nodes.
+                            // note that updating the memo after each better candidate is found instead of at the end
+                            // is slightly suboptimal (because it might cause us to go around some cycles once),
+                            // but the code is simpler and it doesn't matter too much.
                             _ => {
-                                debug!("new best for {}: {:?}", id, cand);
-                                self.memo.insert(id, Some(cand));
+                                self.debug_indented(format!(
+                                    "new best for {}: {} (cost {})",
+                                    id,
+                                    cand.pretty(100),
+                                    Self::cost(&cand)
+                                ));
+                                self.insert_into_memo(id, Some(cand));
                             }
                         }
                     }
@@ -539,8 +602,18 @@ where
         }
     }
 
-    /// Extract the smallest expression from the node
-    fn extract_node(&mut self, node: &AstNode<Op>) -> Option<RecExpr<AstNode<Op>>> {
+    /// Extract the smallest expression from `node`.
+    fn extract_node(&mut self, node: &AstNode<Op>) -> MaybeExpr<Op> {
+        self.debug_indented(format!("extracting node {:?}", node));
+        if let Some(BindingExpr::Lib(lid, _, _)) = node.as_binding_expr() {
+            if self.lib_context.contains(lid) {
+                // This node is a definition of one of the libs, whose definition we are currently extracting:
+                // do not go down this road since it leads to lib definitions using themselves
+                self.debug_indented(format!("encountered banned lib: {}", lid));
+                return None;
+            }
+        }
+        // Otherwise: extract all children
         let mut child_indexes = vec![];
         self.extract_children(node, 0, vec![], &mut child_indexes)
     }
@@ -555,7 +628,7 @@ where
         current: usize,
         mut partial_expr: Vec<AstNode<Op>>,
         child_indexes: &mut Vec<usize>,
-    ) -> Option<RecExpr<AstNode<Op>>> {
+    ) -> MaybeExpr<Op> {
         if current == node.children().len() {
             // Done with children: add ourselves to the partial expression and return
             let child_ids: Vec<Id> = child_indexes.iter().map(|x| (*x).into()).collect();
@@ -563,13 +636,32 @@ where
             partial_expr.push(root);
             Some(partial_expr.into())
         } else {
-            // Recurse on the next child
+            // If this is the first child of a lib node (i.e. lib definition) add this lib to the context:
+            let old_lib_context = self.lib_context.clone();
+            if let Some(BindingExpr::Lib(lid, _, _)) = node.as_binding_expr() {
+                if current == 0 {
+                    self.debug_indented(format!(
+                        "processing first child of {:?}, adding {} to context",
+                        node, lid
+                    ));
+                    self.lib_context.add(lid);
+                }
+            }
+
+            // Process the current child
             let child = &node.children()[current];
+            self.indent += 1;
             self.extract(*child);
-            match self.memo.get(child).unwrap() {
-                None => None,
+            self.indent -= 1;
+            // We need to get the result before restoring the context
+            let child_res = self.get_from_memo(*child).unwrap().clone();
+            // Restore lib context
+            self.lib_context = old_lib_context;
+
+            match child_res {
+                None => None, // Failed to extract a child, so the extraction of this node fails
                 Some(expr) => {
-                    // We need to clone the expr because we're going to offset child indexes,
+                    // We need to clone the expr because we're going to mutate it (offset child indexes),
                     // and we don't want it to affect the memo result for child.
                     let mut new_expr = expr.clone().as_ref().to_vec();
                     for n in &mut new_expr {
@@ -591,6 +683,12 @@ where
             let child_index: usize = (*child).into();
             *child = (child_index + offset).into();
         }
+    }
+
+    /// Print a debug message with the current indentation
+    /// TODO: this should be a macro
+    fn debug_indented(&self, msg: String) {
+        debug!("{:indent$}{}", "", msg, indent = 2 * self.indent);
     }
 }
 
@@ -631,7 +729,7 @@ pub fn dumb_extractor<
     sel(&egraph, &mut seen, root).build_recexpr(|id| sel(&egraph, &mut seen, id))
 }
 
-/// Cost function that does not count library definitions
+/// Cost function that ignores library definitions
 #[derive(Debug, Clone, Copy)]
 pub struct NoLibCost;
 

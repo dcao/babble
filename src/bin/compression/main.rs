@@ -15,7 +15,7 @@
 use babble::{
     ast_node::{AstNode, Expr, Pretty},
     extract::{
-        beam::{less_dumb_extractor, PartialLibCost},
+        beam::{less_dumb_extractor, LibExtractor, PartialLibCost},
         lift_libs, true_cost,
     },
     learn::LearnedLibrary,
@@ -23,6 +23,7 @@ use babble::{
 use clap::Clap;
 use dreamcoder::json::CompressionInput;
 use egg::{EGraph, RecExpr, Runner};
+use log::debug;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fs,
@@ -112,7 +113,7 @@ fn main() {
             .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
             .run(&[
                 egg::rewrite!("add comm"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)"),
-                egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x"),
+                // egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x"),
             ]);
 
         let aeg = runner.egraph;
@@ -144,11 +145,11 @@ fn main() {
         let mut cs = egraph[egraph.find(root)].data.clone();
         cs.set.sort_unstable_by_key(|elem| elem.full_cost);
 
-        // println!("learned libs");
-        // let all_libs: Vec<_> = learned_lib.libs().collect();
-        // for lib in &cs.set[0].libs {
-        //     println!("{}: {}", lib.0, &all_libs[lib.0 .0]);
-        // }
+        debug!("learned libs");
+        let all_libs: Vec<_> = learned_lib.libs().collect();
+        for lib in &cs.set[0].libs {
+            debug!("{}: {}", lib.0, &all_libs[lib.0 .0]);
+        }
 
         println!("upper bound ('full') cost: {}", cs.set[0].full_cost);
         println!();
@@ -180,7 +181,9 @@ fn main() {
                 // println!("{:#?}", fin[17.into()]);
                 // println!("{:#?}", fin[31.into()]);
 
-                let best = less_dumb_extractor(&fin, root);
+                // let best = less_dumb_extractor(&fin, root);
+                let mut extractor = LibExtractor::new(&fin);
+                let best = extractor.best(root);
 
                 // println!("extracting (before lib lifting)");
                 // println!("{}", best.pretty(100));
@@ -243,7 +246,7 @@ fn main() {
             .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
             .run(&[
                 egg::rewrite!("add comm"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)"),
-                egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x"),
+                // egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x"),
             ]);
 
         let aeg = runner.egraph;
@@ -314,7 +317,8 @@ fn main() {
         //     }
         // }
 
-        for beam_size in [25, 50, 100, 200] {
+        for beam_size in [25] {
+            // [25, 50, 100, 200] {
             run_beam_exp(limit, beam_size, beam_size, &mut wtr);
         }
 
