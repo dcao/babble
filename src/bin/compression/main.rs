@@ -15,7 +15,7 @@
 use babble::{
     ast_node::{AstNode, Expr, Pretty},
     extract::{
-        beam::{less_dumb_extractor, LibExtractor, PartialLibCost},
+        beam::{LibExtractor, PartialLibCost},
         lift_libs, true_cost,
     },
     learn::LearnedLibrary,
