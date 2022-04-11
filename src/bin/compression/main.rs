@@ -22,7 +22,7 @@ use babble::{
 };
 use clap::Clap;
 use dreamcoder::json::CompressionInput;
-use egg::{EGraph, RecExpr, Runner};
+use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner};
 use log::debug;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
@@ -100,7 +100,8 @@ fn main() {
             .take(limit)
             .collect();
         let mut roots = Vec::with_capacity(programs.len());
-        let initial_cost: usize = programs.iter().map(Expr::len).sum();
+        // Add 1 to initial cost to account for the top-level `Compose` node.
+        let initial_cost = programs.iter().map(Expr::len).sum::<usize>() + 1;
         for expr in programs.iter().cloned().map(RecExpr::from) {
             let root = aeg.add_expr(&expr);
             roots.push(root);
@@ -157,7 +158,9 @@ fn main() {
         println!("extracting (final, lifted libs)");
         let (lifted, final_cost) = cs
             .set
-            .par_iter()
+            // .par_iter()
+            .iter()
+            .take(1)
             .map(|ls| {
                 // Add the root combine node again
                 let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0))
@@ -173,13 +176,10 @@ fn main() {
                     .egraph;
                 let root = fin.add(AstNode::new(DreamCoderOp::Combine, roots.iter().copied()));
 
-                // let extractor = Extractor::new(&fin, NoLibCost);
-                // let (_, best) = extractor.find_best(fin.find(root));
-                // println!();
-
-                // println!("{:#?}", fin[root]);
-                // println!("{:#?}", fin[17.into()]);
-                // println!("{:#?}", fin[31.into()]);
+                // print out the fin egraph:
+                // for eclass in fin.classes() {
+                //     debug!("{}:\n{:?}\n{:?}\n", eclass.id, eclass.nodes, eclass.data);
+                // }
 
                 // let best = less_dumb_extractor(&fin, root);
                 let mut extractor = LibExtractor::new(&fin);
@@ -190,7 +190,8 @@ fn main() {
                 // println!();
 
                 let lifted = lift_libs(best);
-                let final_cost = true_cost(lifted.clone()) - 1;
+                // let final_cost = true_cost(lifted.clone());
+                let final_cost = AstSize.cost_rec(&lifted);
 
                 (lifted, final_cost)
             })

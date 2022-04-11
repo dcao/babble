@@ -37,7 +37,7 @@ impl CostSet {
                 let ls = ls1.combine(ls2);
 
                 match set.binary_search(&ls) {
-                    Ok(pos) => set.insert(pos, ls),
+                    Ok(pos) => set.insert(pos, ls), // Nadia: Why insert it again?
                     Err(pos) => set.insert(pos, ls),
                 }
             }
@@ -54,7 +54,7 @@ impl CostSet {
         for elem in other.set {
             while cix < self.set.len() && &elem >= &self.set[cix] {
                 cix += 1;
-            }
+            } // Nadia: can't this be done with a binary search?
 
             self.set.insert(cix, elem);
             cix += 1;
@@ -95,6 +95,11 @@ impl CostSet {
         let mut set = Vec::new();
 
         for ls1 in &cost.set {
+            if ls1.libs.iter().any(|l| l.0 == lib) {
+                // If this libsel contains the lib we are defining,
+                // we can't use in in the definition.
+                continue;
+            }
             for ls2 in &self.set {
                 let ls = ls2.add_lib(lib, ls1);
 
@@ -168,15 +173,15 @@ impl LibSel {
 
     pub fn add_lib(&self, lib: LibId, cost: &LibSel) -> LibSel {
         let mut res = self.clone();
-        let v = cost.expr_cost;
+        let v = cost.expr_cost + 1; // +1 for the lib node, which you also have to pay for if you use the lib
         let mut full_cost = res.full_cost;
 
-        // Add all libs that the lib uses, then add the lib itself.
-        for (lib, v) in &cost.libs {
-            let lib = *lib;
+        // Add all nested libs that the lib uses, then add the lib itself.
+        for (nested_lib, v) in &cost.libs {
+            let nested_lib = *nested_lib;
             let v = *v;
 
-            match res.libs.binary_search_by_key(&lib, |(id, _)| *id) {
+            match res.libs.binary_search_by_key(&nested_lib, |(id, _)| *id) {
                 Ok(ix) => {
                     if v < res.libs[ix].1 {
                         full_cost -= res.libs[ix].1 - v;
@@ -185,7 +190,7 @@ impl LibSel {
                 }
                 Err(ix) => {
                     full_cost += v;
-                    res.libs.insert(ix, (lib, v))
+                    res.libs.insert(ix, (nested_lib, v))
                 }
             }
         }
