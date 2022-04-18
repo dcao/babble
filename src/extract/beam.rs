@@ -21,15 +21,15 @@ pub struct CostSet {
 }
 
 impl CostSet {
+    /// Creates a CostSet corresponding to introducing a nonary operation.
+    /// This will always have the value [{} -> (1, 1)].
     pub fn intro_op() -> CostSet {
-        // println!("intro_op");
         let mut set = Vec::with_capacity(10);
         set.push(LibSel::intro_op());
         CostSet { set }
     }
 
     pub fn cross(&self, other: &CostSet) -> CostSet {
-        // println!("cross");
         let mut set = Vec::new();
 
         for ls1 in &self.set {
@@ -37,7 +37,7 @@ impl CostSet {
                 let ls = ls1.combine(ls2);
 
                 match set.binary_search(&ls) {
-                    Ok(pos) => set.insert(pos, ls), // Nadia: Why insert it again?
+                    Ok(_) => {}, // Nadia: Why insert it again?
                     Err(pos) => set.insert(pos, ls),
                 }
             }

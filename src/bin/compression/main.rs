@@ -311,14 +311,14 @@ fn main() {
     };
 
     // For benching purposes: ignore the limit option and just rerun with multiple different possibilities
-    for limit in [20] {
+    for limit in [25, 50] {
         // for final_beams in (10..=50).step_by(10) {
         //     for inter_beams in (100..=1000).step_by(100) {
         //         run_beam_exp(limit, final_beams, inter_beams, &mut wtr);
         //     }
         // }
 
-        for beam_size in [25] {
+        for beam_size in [10, 25, 50, 100] {
             // [25, 50, 100, 200] {
             run_beam_exp(limit, beam_size, beam_size, &mut wtr);
         }
