@@ -15,12 +15,11 @@
 use crate::lang::ListOp;
 use babble::{
     ast_node::{AstNode, Expr, Pretty},
-    extract::{beam::*, lift_libs, true_cost},
-    learn::LearnedLibrary,
+    runner::Experiments,
     sexp::Sexp,
 };
 use clap::Clap;
-use egg::{AstSize, CostFunction, EGraph, RecExpr, Rewrite, Runner};
+use egg::{AstSize, CostFunction, RecExpr};
 use std::{
     convert::TryInto,
     fs,
@@ -36,6 +35,22 @@ struct Opts {
     /// The input file. If no file is specified, reads from stdin.
     #[clap(parse(from_os_str))]
     file: Option<PathBuf>,
+
+    /// The number of programs to anti-unify
+    #[clap(long)]
+    limit: Vec<usize>,
+
+    /// The beam sizes to use for the beam extractor
+    #[clap(long)]
+    beams: Vec<usize>,
+
+    /// The timeouts to use for the ILP extractor
+    #[clap(long)]
+    timeout: Vec<u64>,
+
+    /// Whether to use the additional partial order reduction step
+    #[clap(long)]
+    extra_por: Vec<bool>,
 }
 
 fn main() {
@@ -58,88 +73,22 @@ fn main() {
         .try_into()
         .expect("Input is not a valid expression");
     let pretty_expr = Pretty(&initial_expr);
-    let initial_expr: RecExpr<_> = initial_expr.clone().into();
+    let initial_expr: RecExpr<AstNode<ListOp>> = initial_expr.clone().into();
     let initial_cost = AstSize.cost_rec(&initial_expr);
 
     println!("Initial expression (cost {}):", initial_cost);
-    // println!("{}", initial_expr.pretty(100));
     println!("{}", pretty_expr);
     println!();
 
+    let exps = Experiments::gen(
+        initial_expr,
+        vec![], // TODO
+        opts.beams.clone(),
+        opts.extra_por.clone(),
+        opts.timeout.clone(),
+        (),
+    );
+
     println!("running...");
-
-    println!("stage one");
-    let mut aeg = EGraph::new(PartialLibCost::new(20, 100));
-    let root = aeg.add_expr(&initial_expr);
-    aeg.rebuild();
-
-    println!("stage two");
-    let learned_lib = LearnedLibrary::from(&aeg);
-    let lib_rewrites: Vec<Rewrite<AstNode<ListOp>, _>> = learned_lib.rewrites().collect();
-    let egraph = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
-        .with_egraph(aeg.clone())
-        .with_iter_limit(1)
-        .run(lib_rewrites.iter())
-        .egraph;
-    println!();
-
-    let mut cs = egraph[egraph.find(root)].data.clone();
-    cs.set.sort_unstable_by_key(|elem| elem.full_cost);
-
-    println!("learned libs");
-    let all_libs: Vec<_> = learned_lib.libs().collect();
-    for lib in &cs.set[0].libs {
-        println!("{}: {}", lib.0, &all_libs[lib.0 .0]);
-    }
-
-    println!("upper bound ('full') cost: {}", cs.set[0].full_cost);
-    println!();
-
-    println!("extracting (with duplicate libs)");
-    let fin = Runner::<_, _, ()>::new(PartialLibCost::new(20, 100))
-        .with_egraph(aeg.clone())
-        .with_iter_limit(1)
-        .run(
-            lib_rewrites
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| cs.set[0].libs.iter().any(|x| *i == x.0 .0))
-                .map(|x| x.1),
-        )
-        .egraph;
-
-    let mut extractor = LibExtractor::new(&fin);
-    let best = extractor.best(root);
-    // let best = less_dumb_extractor(&fin, root);
-    println!("{}", best.pretty(100));
-    println!();
-
-    println!("extracting (final, lifted libs)");
-    let lifted = lift_libs(best);
-    let final_cost = true_cost(lifted.clone());
-    // println!("{}", lifted.pretty(100));
-    println!("{}", Pretty(&Expr::from(lifted)));
-    println!("final cost: {}", final_cost);
-    println!();
-
-    // let runner = Runner::default()
-    //     .with_egraph(egraph)
-    //     .run(*lang::LIFT_LIB_REWRITES);
-    // let stop_reason = runner.stop_reason.unwrap_or_else(|| unreachable!());
-    // info!("Stop reason: {:?}", stop_reason);
-    // info!("Number of iterations: {}", runner.iterations.len());
-
-    // let egraph = runner.egraph;
-    // info!("Number of nodes: {}", egraph.total_size());
-    // let final_expr = LpExtractor::new(&egraph, AstSize).solve(root);
-    // let final_cost = final_expr.as_ref().len();
-
-    // println!("Final expression (cost {}):", final_cost);
-    // // println!("{}", final_rexpr.pretty(100));
-    // println!("{}", Pretty(&Expr::from(final_expr)));
-    // println!();
-
-    // #[allow(clippy::cast_precision_loss)]
-    // let compression_ratio = (initial_cost as f64) / (final_cost as f64);
-    // println!("Compression ratio: {:.2}", compression_ratio);
+    exps.run("target/res_list.csv");
 }

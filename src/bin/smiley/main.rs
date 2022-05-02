@@ -14,16 +14,11 @@
 
 use babble::{
     ast_node::{Expr, Pretty},
-    extract::{
-        beam::{LibExtractor, PartialLibCost},
-        lift_libs, true_cost,
-    },
-    learn::LearnedLibrary,
+    runner::Experiments,
     sexp::Sexp,
 };
 use clap::Clap;
-use egg::{AstSize, CostFunction, EGraph, RecExpr, Runner};
-// use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use egg::{AstSize, CostFunction, RecExpr};
 use std::{
     convert::TryInto,
     fs,
@@ -45,6 +40,21 @@ struct Opts {
     /// Evaluate the input file and output it as an SVG.
     #[clap(long)]
     svg: bool,
+    /// The number of programs to anti-unify
+    #[clap(long)]
+    limit: Vec<usize>,
+
+    /// The beam sizes to use for the beam extractor
+    #[clap(long)]
+    beams: Vec<usize>,
+
+    /// The timeouts to use for the ILP extractor
+    #[clap(long)]
+    timeout: Vec<u64>,
+
+    /// Whether to use the additional partial order reduction step
+    #[clap(long)]
+    extra_por: Vec<bool>,
 }
 
 fn main() {
@@ -78,78 +88,19 @@ fn main() {
         let initial_cost = AstSize.cost_rec(&initial_expr);
 
         println!("Initial expression (cost {}):", initial_cost);
-        // println!("{}", initial_expr.pretty(100));
         println!("{}", Pretty(&Expr::from(initial_expr.clone())));
         println!();
 
-        println!("stage one");
-        let mut aeg = EGraph::new(PartialLibCost::new(100, 100));
-        let root = aeg.add_expr(&initial_expr);
-        aeg.rebuild();
+        let exps = Experiments::gen(
+            initial_expr,
+            vec![], // TODO
+            opts.beams.clone(),
+            opts.extra_por.clone(),
+            opts.timeout.clone(),
+            (),
+        );
 
-        let runner = Runner::<_, _, ()>::new(PartialLibCost::new(100, 100))
-            .with_egraph(aeg)
-            .run(&[
-                egg::rewrite!("scale 1"; "circle" => "(scale 1 circle)"),
-                egg::rewrite!("rotate circle"; "circle" => "(rotate 90 circle)"),
-            ]);
-
-        let aeg = runner.egraph;
-
-        let learned_lib = LearnedLibrary::from(&aeg);
-        let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
-        let egraph = Runner::<_, _, ()>::new(PartialLibCost::new(100, 100))
-            .with_egraph(aeg.clone())
-            .with_iter_limit(1)
-            .run(lib_rewrites.iter())
-            .egraph;
-
-        let mut cs = egraph[egraph.find(root)].data.clone();
-        cs.set.sort_unstable_by_key(|elem| elem.full_cost);
-
-        // println!("learned libs");
-        // let all_libs: Vec<_> = learned_lib.libs().collect();
-        // for x in &cs.set {
-        //     for lib in &x.libs {
-        //         println!("{}: {}", lib.0, &all_libs[lib.0 .0]);
-        //     }
-        //     println!("upper bound ('full') cost: {:?}", x);
-        //     println!();
-        // }
-
-        println!("extracting (with duplicate libs)");
-        let (lifted, final_cost) = cs
-            .set
-            .iter()
-            .map(|ls| {
-                // Add the root combine node again
-                let fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0))
-                    .with_egraph(aeg.clone())
-                    .with_iter_limit(1)
-                    .run(
-                        lib_rewrites
-                            .iter()
-                            .enumerate()
-                            .filter(|(i, _)| ls.libs.iter().any(|x| *i == x.0 .0))
-                            .map(|x| x.1),
-                    )
-                    .egraph;
-
-                // let best = less_dumb_extractor(&fin, root);
-
-                let mut extractor = LibExtractor::new(&fin);
-                let best = extractor.best(root);
-
-                let lifted = lift_libs(best);
-                let final_cost = true_cost(lifted.clone()) - 1;
-
-                (lifted, final_cost)
-            })
-            .min_by_key(|x| x.1)
-            .unwrap();
-
-        println!("{}", Pretty(&Expr::from(lifted)));
-        println!("final cost: {}", final_cost);
-        println!();
+        println!("running...");
+        exps.run("target/res_smiley.csv");
     }
 }

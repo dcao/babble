@@ -1,3 +1,5 @@
+//! ILP extraction
+
 use std::collections::{HashMap, HashSet};
 
 use egg::{Analysis, AstSize, EGraph, Id, Language, RecExpr};

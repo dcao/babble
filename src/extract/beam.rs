@@ -15,8 +15,9 @@ use crate::{
 /// without the lib fns, and the cost of the lib fns themselves.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CostSet {
-    // Invariant: always sorted in ascending order of
-    // expr_cost
+    /// The set of library selections and their associated costs.
+    /// Invariant: sorted in ascending order of expr_cost, except during
+    /// pruning, when it's sorted in order of full_cost.
     pub set: Vec<LibSel>,
 }
 
@@ -29,6 +30,10 @@ impl CostSet {
         CostSet { set }
     }
 
+    /// Crosses over two CostSets.
+    /// This is essentially a Cartesian product between two CostSets (e.g. if
+    /// each CostSet corresponds to an argument of a node) such that paired
+    /// LibSels have their libraries combined and costs added.
     pub fn cross(&self, other: &CostSet) -> CostSet {
         let mut set = Vec::new();
 
@@ -46,7 +51,8 @@ impl CostSet {
         CostSet { set }
     }
 
-    // Combination without unification
+    /// Combines two CostSets by unioning them together.
+    /// Used for e.g. different ENodes of an EClass.
     pub fn combine(&mut self, other: CostSet) {
         // println!("combine");
         let mut cix = 0;
@@ -61,6 +67,8 @@ impl CostSet {
         }
     }
 
+    /// Performs trivial partial order reduction: if CostSet A contains a superset
+    /// of the libs of another CostSet B, and A has a higher expr_cost than B, remove A.
     pub fn unify(&mut self) {
         // println!("unify");
         let mut i = 0;
@@ -82,6 +90,9 @@ impl CostSet {
         }
     }
 
+    /// Increments the expr and full cost of every LibSel in this CostSet.
+    /// This is done if we e.g. cross all the args of a node, then have to add
+    /// the node itself to the cost.
     pub fn inc_cost(&mut self) {
         // println!("inc_cost");
         for ls in &mut self.set {
@@ -113,13 +124,41 @@ impl CostSet {
         CostSet { set }
     }
 
-    pub fn prune(&mut self, n: usize) {
+    pub fn prune(&mut self, n: usize, extra_por: bool) {
         // println!("prune");
         // Only preserve the n best `LibSel`s in the set.
         if self.set.len() > n {
             self.set.sort_unstable_by_key(|elem| elem.full_cost);
+            if extra_por {
+                self.unify2();
+                if self.set.len() <= n {
+                    return;
+                }
+            }
+
             self.set.drain(n..);
             self.set.sort_unstable();
+        }
+    }
+
+    pub fn unify2(&mut self) {
+        // println!("unify");
+        let mut i = 0;
+
+        while i < self.set.len() {
+            let mut j = i + 1;
+
+            while j < self.set.len() {
+                let ls1 = &self.set[i];
+                let ls2 = &self.set[j];
+
+                if ls2.is_subset(&ls1) {
+                    self.set.remove(j);
+                } else {
+                    j += 1;
+                }
+            }
+            i += 1;
         }
     }
 }
@@ -258,13 +297,15 @@ pub struct PartialLibCost {
     /// The number of `LibSel`s to keep per EClass.
     beam_size: usize,
     inter_beam: usize,
+    extra_por: bool,
 }
 
 impl PartialLibCost {
-    pub fn new(beam_size: usize, inter_beam: usize) -> PartialLibCost {
+    pub fn new(beam_size: usize, inter_beam: usize, extra_por: bool) -> PartialLibCost {
         PartialLibCost {
             beam_size,
             inter_beam,
+            extra_por,
         }
     }
 }
@@ -285,7 +326,7 @@ where
         // pruning.
         to.combine(from.clone());
         to.unify();
-        to.prune(self.beam_size);
+        to.prune(self.beam_size, self.extra_por);
 
         // println!("{:?}", to);
         // println!("{} {}", &a0 != to, to != &from);
@@ -304,7 +345,7 @@ where
                 // cross e1, e2 and introduce a lib!
                 let mut e = x(b).add_lib(id, x(f));
                 e.unify();
-                e.prune(self.beam_size);
+                e.prune(self.beam_size, self.extra_por);
                 e
             }
             Some(_) | None => {
@@ -327,13 +368,13 @@ where
                         e = e.cross(x(cs));
                         // Intermediate prune.
                         e.unify();
-                        e.prune(self.inter_beam);
+                        e.prune(self.inter_beam, self.extra_por);
                     }
 
                     // TODO: intermediate unify/beam size reduction for each crossing step?
                     // do perf testing on this
                     e.unify();
-                    e.prune(self.beam_size);
+                    e.prune(self.beam_size, self.extra_por);
                     e.inc_cost();
                     e
                 }
