@@ -14,26 +14,55 @@ pub enum Sexp<'a> {
     List(&'a str, Vec<Self>),
 }
 
+/// A program consisting of several s-expressions
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Program<'a>(pub Vec<Sexp<'a>>);
+
 impl<'a> Sexp<'a> {
-    /// Parses a string as an s-expression.
+    /// Parses a string as an s-expression, which may contain comments.
     ///
     /// # Errors
     ///
     /// Returns an error if the string is not a valid s-expression.
-    pub fn parse(s: &'a str) -> Result<Self, ParseSexpError> {
+    pub fn parse(s: &'a str) -> Result<Self, ParseError> {
         parse::parse_sexp(s)
     }
 }
 
+impl<'a> Program<'a> {
+    /// Parses a program consisting of s-expressions, whitespace, and comments.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the program contains an invalid s-expression.
+    pub fn parse(s: &'a str) -> Result<Self, ParseError> {
+        parse::parse_program(s).map(Self)
+    }
+}
+
 impl<'a> TryFrom<&'a str> for Sexp<'a> {
-    type Error = ParseSexpError;
+    type Error = ParseError;
 
     fn try_from(s: &'a str) -> Result<Self, Self::Error> {
         Self::parse(s)
     }
 }
 
-pub use parse::ParseSexpError;
+impl<'a> TryFrom<&'a str> for Program<'a> {
+    type Error = ParseError;
+
+    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        Self::parse(s)
+    }
+}
+
+impl<'a> From<Program<'a>> for Vec<Sexp<'a>> {
+    fn from(program: Program<'a>) -> Self {
+        program.0
+    }
+}
+
+pub use parse::ParseError;
 
 mod parse {
     use super::Sexp;
@@ -43,8 +72,8 @@ mod parse {
         combinator::{all_consuming, map, opt, recognize},
         error::{convert_error, VerboseError},
         multi::{many0, many1_count},
-        sequence::{delimited, pair, preceded},
-        Finish, IResult,
+        sequence::{delimited, pair, preceded, terminated},
+        Finish, IResult, Parser,
     };
     use std::fmt::{self, Debug, Formatter};
     use thiserror::Error;
@@ -53,11 +82,11 @@ mod parse {
 
     /// An error while parsing an s-expression
     #[allow(clippy::module_name_repetitions)]
-    #[derive(Clone, Error)]
+    #[derive(Clone, Error, PartialEq, Eq)]
     #[error("{0}")]
-    pub struct ParseSexpError(String);
+    pub struct ParseError(String);
 
-    impl Debug for ParseSexpError {
+    impl Debug for ParseError {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             f.write_str(&self.0)
         }
@@ -94,16 +123,27 @@ mod parse {
         alt((list, atom))(input)
     }
 
-    fn program(input: &str) -> ParseResult<'_, Sexp<'_>> {
-        all_consuming(delimited(opt(whitespace), sexp, opt(whitespace)))(input)
+    fn program(input: &str) -> ParseResult<'_, Vec<Sexp<'_>>> {
+        preceded(opt(whitespace), many0(terminated(sexp, opt(whitespace))))(input)
     }
 
-    pub(super) fn parse_sexp(input: &str) -> Result<Sexp<'_>, ParseSexpError> {
-        match program(input).finish() {
-            Ok(("", sexp)) => Ok(sexp),
-            Err(e) => Err(ParseSexpError(convert_error(input, e))),
+    fn complete<'a, O, F>(mut f: F) -> impl FnMut(&'a str) -> Result<O, ParseError>
+    where
+        F: Parser<&'a str, O, VerboseError<&'a str>>,
+    {
+        move |input| match all_consuming(|s| f.parse(s))(input).finish() {
+            Ok(("", val)) => Ok(val),
+            Err(e) => Err(ParseError(convert_error(input, e))),
             _ => unreachable!(),
         }
+    }
+
+    pub(super) fn parse_sexp(input: &str) -> Result<Sexp<'_>, ParseError> {
+        complete(sexp)(input)
+    }
+
+    pub(super) fn parse_program(input: &str) -> Result<Vec<Sexp<'_>>, ParseError> {
+        complete(program)(input)
     }
 
     #[cfg(test)]
@@ -168,12 +208,30 @@ mod parse {
 
         #[test]
         fn test_program() {
-            assert!(matches!(program(""), Err(_)));
-            assert!(matches!(program("()"), Err(_)));
-            assert!(matches!(program(";foo\n"), Err(_)));
+            assert_eq!(program(""), Ok(("", vec![])));
+
+            assert_eq!(program(";foo\n"), Ok(("", vec![])));
+
+            assert!(matches!(all_consuming(program)("()"), Err(_)));
             assert_eq!(
                 program(";foo\n(abc)\n"),
-                Ok(("", Sexp::List("abc", vec![])))
+                Ok(("", vec![Sexp::List("abc", vec![])]))
+            );
+
+            assert_eq!(
+                program("\n(abc)\n(foo (bar baz)) ;quux"),
+                Ok((
+                    "",
+                    vec![
+                        Sexp::List("abc", vec![]),
+                        Sexp::List("foo", vec![Sexp::List("bar", vec![Sexp::Atom("baz")])])
+                    ]
+                ))
+            );
+
+            assert_eq!(
+                program("a b c"),
+                Ok(("", vec![Sexp::Atom("a"), Sexp::Atom("b"), Sexp::Atom("c")]))
             );
         }
     }
@@ -181,18 +239,17 @@ mod parse {
 
 impl<'a> Debug for Sexp<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Atom(atom) => write!(f, "{:?}", atom),
-            Self::List(op, args) => {
-                f.write_str("(")?;
-                Debug::fmt(op, f)?;
-                for arg in args {
-                    f.write_str(" ")?;
-                    Debug::fmt(arg, f)?;
-                }
-                f.write_str(")")
-            }
-        }
+        f.write_str("`")?;
+        Display::fmt(self, f)?;
+        f.write_str("`")
+    }
+}
+
+impl<'a> Debug for Program<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("```\n")?;
+        Display::fmt(self, f)?;
+        f.write_str("\n```")
     }
 }
 
@@ -209,6 +266,21 @@ impl<'a> Display for Sexp<'a> {
                 }
                 f.write_str(")")
             }
+        }
+    }
+}
+
+impl<'a> Display for Program<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.0.is_empty() {
+            f.write_str("; this program is empty")
+        } else {
+            Display::fmt(&self.0[0], f)?;
+            for sexp in &self.0[1..] {
+                f.write_str("\n")?;
+                Display::fmt(sexp, f)?;
+            }
+            Ok(())
         }
     }
 }
