@@ -1,6 +1,6 @@
 //! Dream&shy;Coder's representation of Hindley-Milner types.
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Display, Formatter, Debug};
 
 use super::util;
 use egg::Symbol;
@@ -15,7 +15,7 @@ struct RawType<'a> {
 }
 
 /// The type of a program.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(from = "RawType<'_>")]
 #[serde(into = "RawType<'_>")]
 pub enum Type {
@@ -114,6 +114,12 @@ impl From<Type> for RawType<'_> {
                 arguments: vec![(*from).into(), (*to).into()],
             },
         }
+    }
+}
+
+impl Debug for Type {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(self, f)
     }
 }
 

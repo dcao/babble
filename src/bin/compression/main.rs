@@ -14,21 +14,17 @@
 
 use babble::{
     ast_node::{AstNode, Expr, Pretty},
+    dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
     runner::Experiments,
 };
 use clap::Clap;
-use dreamcoder::json::CompressionInput;
-use egg::{Language, RecExpr, AstSize, CostFunction};
+use egg::{AstSize, CostFunction, Language, RecExpr};
 // use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fs,
     io::{self, Read},
     path::PathBuf,
 };
-
-use crate::dreamcoder::expr::DreamCoderOp;
-
-pub mod dreamcoder;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Clap)]
@@ -115,7 +111,11 @@ fn main() {
         // Turn res back into a recexpr!
         let initial_expr: RecExpr<_> = res.into();
 
-        println!("Initial expression (limit {}, cost {}):", limit, AstSize.cost_rec(&initial_expr));
+        println!(
+            "Initial expression (limit {}, cost {}):",
+            limit,
+            AstSize.cost_rec(&initial_expr)
+        );
         println!("{}", Pretty(&initial_expr.clone().into()));
         println!();
 
@@ -130,7 +130,6 @@ fn main() {
 
         all.add(exps);
     }
-
 
     println!("running...");
     all.run("target/res_compression.csv");
