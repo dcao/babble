@@ -40,6 +40,11 @@ struct Opts {
     /// Evaluate the input file and output it as an SVG.
     #[clap(long)]
     svg: bool,
+
+    /// Do not use domain-specific rewrites
+    #[clap(long)]
+    no_dsr: bool,
+
     /// The number of programs to anti-unify
     #[clap(long)]
     limit: Vec<usize>,
@@ -91,9 +96,16 @@ fn main() {
         println!("{}", Pretty(&Expr::from(initial_expr.clone())));
         println!();
 
+        let dsrs = if opts.no_dsr {
+            vec![]
+        } else {
+            vec![egg::rewrite!("circle rotate"; "circle" => "(rotate 90 circle)"),
+                 egg::rewrite!("circle scale"; "circle" => "(scale 1 circle)")]
+        };
+
         let exps = Experiments::gen(
             initial_expr,
-            vec![], // TODO
+            dsrs,
             opts.beams.clone(),
             opts.extra_por.clone(),
             opts.timeout.clone(),

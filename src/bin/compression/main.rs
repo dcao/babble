@@ -42,6 +42,10 @@ struct Opts {
     #[clap(long)]
     pretty: bool,
 
+    /// Do not use domain-specific rewrites
+    #[clap(long)]
+    no_dsr: bool,
+
     /// The number of programs to anti-unify
     #[clap(long)]
     limit: Vec<usize>,
@@ -119,9 +123,16 @@ fn main() {
         println!("{}", Pretty(&initial_expr.clone().into()));
         println!();
 
+        let dsrs = if opts.no_dsr {
+            vec![]
+        } else {
+            vec![egg::rewrite!("add commute"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)")]
+            // vec![egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x")]
+        };
+
         let exps = Experiments::gen(
             initial_expr,
-            vec![], // TODO
+            dsrs,
             opts.beams.clone(),
             opts.extra_por.clone(),
             opts.timeout.clone(),
