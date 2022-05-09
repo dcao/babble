@@ -13,7 +13,7 @@ use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     extract::{
         beam::{LibExtractor, PartialLibCost},
-        lift_libs, true_cost,
+        lift_libs,
     },
     learn::LearnedLibrary,
     teachable::Teachable,
@@ -97,7 +97,7 @@ where
     // TODO: How to specify DSRs
     /// Generates a set of experiments from a set of params
     pub fn gen(
-        expr: RecExpr<AstNode<Op>>,
+        exprs: Vec<Expr<Op>>,
         dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
         beams: Vec<usize>,
         mut extra_pors: Vec<bool>,
@@ -114,7 +114,7 @@ where
         for beam in beams {
             for extra_por in &extra_pors {
                 res.push(Experiment::Beam(BeamExperiment {
-                    expr: expr.clone(),
+                    exprs: exprs.clone(),
                     dsrs: dsrs.clone(),
                     final_beams: beam,
                     inter_beams: beam,
@@ -126,7 +126,7 @@ where
 
         for timeout in timeouts {
             res.push(Experiment::ILP(ILPExperiment {
-                expr: expr.clone(),
+                exprs: exprs.clone(),
                 dsrs: dsrs.clone(),
                 timeout,
                 extra_data: extra.clone(),
@@ -153,8 +153,8 @@ pub struct BeamExperiment<Op, Extra>
 where
     Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
 {
-    /// The expression to run the experiment over
-    expr: RecExpr<AstNode<Op>>,
+    /// The expressions to run the experiment over
+    exprs: Vec<Expr<Op>>,
     /// The domain-specific rewrites to apply
     dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
     /// The final beam size to use
@@ -195,7 +195,15 @@ where
         let start_time = Instant::now();
         let timeout = Duration::from_secs(60 * 100000);
 
-        let initial_cost = true_cost(self.expr.clone());
+        // First, let's turn our list of exprs into a list of recexprs
+        let recexprs: Vec<RecExpr<AstNode<Op>>> =
+            self.exprs.into_iter().map(|x| x.into()).collect();
+
+        // Add one to account for root node, not added yet
+        let initial_cost = {
+            let s: usize = recexprs.iter().map(|x| AstSize.cost_rec(x)).sum();
+            s + 1
+        };
 
         println!("Starting cost: {}", initial_cost);
 
@@ -204,7 +212,7 @@ where
             self.inter_beams,
             self.extra_por,
         ));
-        let root = aeg.add_expr(&self.expr);
+        let roots = recexprs.iter().map(|x| aeg.add_expr(x)).collect::<Vec<_>>();
         aeg.rebuild();
 
         print!("Running {} DSRs... ", self.dsrs.len());
@@ -231,7 +239,7 @@ where
         );
 
         let anti_time = Instant::now();
-        print!("Anti-unifying... ");
+        print!("Rewriting egraph... ");
 
         let runner = Runner::<_, _, ()>::new(PartialLibCost::new(
             self.final_beams,
@@ -247,11 +255,18 @@ where
         println!("Finished in {}ms", anti_time.elapsed().as_millis());
         println!("Stop reason: {:?}", runner.stop_reason.unwrap());
 
-        let egraph = runner.egraph;
+        let mut egraph = runner.egraph;
         println!("Number of nodes: {}", egraph.total_size());
+
+        let root_time = Instant::now();
+        print!("Adding root node... ");
+
+        let root = egraph.add(AstNode::new(Op::list(), roots.iter().copied()));
 
         let mut cs = egraph[egraph.find(root)].data.clone();
         cs.set.sort_unstable_by_key(|elem| elem.full_cost);
+
+        println!("Finished in {}ms", root_time.elapsed().as_millis());
 
         debug!("learned libs");
         let all_libs: Vec<_> = learned_lib.libs().collect();
@@ -270,7 +285,7 @@ where
             .take(1)
             .map(|ls| {
                 // Add the root combine node again
-                let fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0, false))
+                let mut fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0, false))
                     .with_egraph(aeg.clone())
                     .with_iter_limit(1)
                     .run(
@@ -281,6 +296,7 @@ where
                             .map(|x| x.1),
                     )
                     .egraph;
+                let root = fin.add(AstNode::new(Op::list(), roots.iter().copied()));
 
                 let mut extractor = LibExtractor::new(&fin);
                 let best = extractor.best(root);
@@ -300,7 +316,12 @@ where
 
         println!("Finished in {}ms", ex_time.elapsed().as_millis());
         println!("{}", Pretty(&Expr::from(lifted)));
-        println!("final cost: {}", final_cost);
+        println!(
+            "cost diff: {} -> {} (compression ratio {})",
+            initial_cost,
+            final_cost,
+            final_cost as f32 / initial_cost as f32
+        );
         println!("final time: {}ms", start_time.elapsed().as_millis());
         println!();
 
@@ -328,7 +349,7 @@ where
     Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
 {
     /// The expression to run the experiment over
-    expr: RecExpr<AstNode<Op>>,
+    exprs: Vec<Expr<Op>>,
     /// The domain-specific rewrites to apply
     dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
     /// The timeout length to use
@@ -354,28 +375,41 @@ where
     Extra: serde::ser::Serialize + std::fmt::Debug,
 {
     fn run(self, wtr: &mut csv::Writer<fs::File>) {
-        println!("ilp | timeout: {}, extra_data: {:?}", self.timeout, self.extra_data);
+        println!(
+            "ilp | timeout: {}, extra_data: {:?}",
+            self.timeout, self.extra_data
+        );
 
         let start_time = Instant::now();
         let timeout = Duration::from_secs(self.timeout);
 
-        let initial_cost = true_cost(self.expr.clone());
+        // First, let's turn our list of exprs into a list of recexprs
+        let recexprs: Vec<RecExpr<AstNode<Op>>> =
+            self.exprs.into_iter().map(|x| x.into()).collect();
+
+        // Add one to account for root node, not added yet
+        let initial_cost = {
+            let s: usize = recexprs.iter().map(|x| AstSize.cost_rec(x)).sum();
+            s + 1
+        };
 
         println!("Starting cost: {}", initial_cost);
 
         let mut aeg = EGraph::new(());
-        let root = aeg.add_expr(&self.expr);
+        let roots = recexprs.iter().map(|x| aeg.add_expr(x)).collect::<Vec<_>>();
         aeg.rebuild();
 
+        // FIXME: Right now we're not running DSRs with the ILP experiment
+        //        This is because of some type weirdness (Rewrites take in an analysis as a param)
+        //        and ideally I'd like to have one list of rewrites, not two sets of rewrites for
+        //        ILP and beam
+        println!("FIXME: no dsrs are bein run rn!");
         print!("Running {} DSRs... ", self.dsrs.len());
 
         let runner = Runner::<_, _, ()>::new(())
             .with_egraph(aeg)
             .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
-            .run(&[
-                // egg::rewrite!("add comm"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)"),
-                // egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x"),
-            ]);
+            .run(&[]);
 
         let aeg = runner.egraph;
 
@@ -394,7 +428,7 @@ where
         );
 
         let anti_time = Instant::now();
-        print!("Anti-unifying... ");
+        print!("Rewriting egraph... ");
 
         let runner = Runner::<_, _, ()>::new(())
             .with_egraph(aeg.clone())
@@ -406,21 +440,33 @@ where
         println!("Finished in {}ms", anti_time.elapsed().as_millis());
         println!("Stop reason: {:?}", runner.stop_reason.unwrap());
 
-        let egraph = runner.egraph;
+        let mut egraph = runner.egraph;
         println!("Number of nodes: {}", egraph.total_size());
+
+        let root_time = Instant::now();
+        print!("Adding root node... ");
+
+        let root = egraph.add(AstNode::new(Op::list(), roots.iter().copied()));
+        println!("Finished in {}ms", root_time.elapsed().as_millis());
+
+        let ex_time = Instant::now();
+        print!("Extracting... ");
 
         let best = LpExtractor::new(&egraph, egg::AstSize)
             .timeout(timeout.saturating_sub(start_time.elapsed()).as_secs_f64())
             .solve(root);
 
-        let ex_time = Instant::now();
-        print!("Extracting... ");
         let lifted = lift_libs(best);
-        let final_cost = true_cost(lifted.clone()) - 1;
+        let final_cost = AstSize.cost_rec(&lifted) - 1;
 
         println!("Finished in {}ms", ex_time.elapsed().as_millis());
         println!("{}", Pretty(&Expr::from(lifted)));
-        println!("final cost: {}", final_cost);
+        println!(
+            "cost diff: {} -> {} (compression ratio {})",
+            initial_cost,
+            final_cost,
+            final_cost as f32 / initial_cost as f32
+        );
         println!("final time: {}ms", start_time.elapsed().as_millis());
         println!();
 

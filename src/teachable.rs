@@ -25,6 +25,11 @@ where
     #[must_use]
     fn as_binding_expr<T>(node: &AstNode<Self, T>) -> Option<BindingExpr<&T>>;
 
+    /// Returns the equivalent of a "list" operation in the language, used internally
+    /// to combine multiple expressions when reporting lib learning results.
+    #[must_use]
+    fn list() -> Self;
+
     /// Creates an AST node representing a de Bruijn-indexed lambda with body `body`.
     #[must_use]
     fn lambda<T>(body: T) -> AstNode<Self, T> {

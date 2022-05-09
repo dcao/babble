@@ -7,13 +7,13 @@
     missing_debug_implementations,
     single_use_lifetimes,
     trivial_casts,
-    unreachable_pub,
+unreachable_pub,
     unused_lifetimes
 )]
 #![allow(clippy::non_ascii_literal)]
 
 use babble::{
-    ast_node::{AstNode, Expr, Pretty},
+    ast_node::{AstNode, Expr, Pretty, combine_exprs},
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
     runner::Experiments,
 };
@@ -89,39 +89,15 @@ fn main() {
             .take(*limit)
             .collect();
 
-        let mut res = Vec::new();
-        let mut roots: Vec<egg::Id> = Vec::new();
+        // For the sake of pretty printing
+        {
+            let initial_expr: RecExpr<_> = combine_exprs(exprs.clone());
+            let initial_cost = AstSize.cost_rec(&initial_expr);
 
-        for expr in exprs {
-            // Turn the expr into a RecExpr
-            let recx: RecExpr<_> = expr.into();
-
-            // Then turn the RecExpr into a Vec
-            let mut vecx: Vec<AstNode<DreamCoderOp>> = recx.as_ref().to_vec();
-
-            // For each node, increment the children by the current size of the accum expr
-            for node in vecx.iter_mut() {
-                node.update_children(|x| (usize::from(x) + res.len()).into());
-            }
-
-            // Then push everything into the accum expr
-            res.extend(vecx);
-            roots.push((res.len() - 1).into());
+            println!("Initial expression (cost {}, limit {}):", initial_cost, limit);
+            println!("{}", Pretty(&Expr::from(initial_expr.clone())));
+            println!();
         }
-
-        // Add the root node
-        res.push(AstNode::new(DreamCoderOp::Combine, roots));
-
-        // Turn res back into a recexpr!
-        let initial_expr: RecExpr<_> = res.into();
-
-        println!(
-            "Initial expression (limit {}, cost {}):",
-            limit,
-            AstSize.cost_rec(&initial_expr)
-        );
-        println!("{}", Pretty(&initial_expr.clone().into()));
-        println!();
 
         let dsrs = if opts.no_dsr {
             vec![]
@@ -131,7 +107,7 @@ fn main() {
         };
 
         let exps = Experiments::gen(
-            initial_expr,
+            exprs,
             dsrs,
             opts.beams.clone(),
             opts.extra_por.clone(),

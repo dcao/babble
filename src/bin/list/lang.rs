@@ -153,6 +153,10 @@ impl Teachable for ListOp {
         };
         Some(binding_expr)
     }
+
+    fn list() -> Self {
+        Self::List
+    }
 }
 
 impl Printable for ListOp {

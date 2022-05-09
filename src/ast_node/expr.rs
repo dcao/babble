@@ -1,6 +1,6 @@
 use super::{Arity, AstNode, ParseNodeError};
-use crate::sexp::Sexp;
-use egg::{Id, RecExpr};
+use crate::{sexp::Sexp, teachable::Teachable};
+use egg::{Id, Language, RecExpr};
 use std::{convert::TryFrom, str::FromStr};
 
 /// An abstract syntax tree with operations `Op`.
@@ -73,6 +73,38 @@ impl<Op: Clone> From<RecExpr<AstNode<Op>>> for Expr<Op> {
 
         build(rec_expr.as_ref())
     }
+}
+
+/// Convert a list of exprs into a single recexpr, combining them using the list node
+pub fn combine_exprs<Op>(exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>>
+where
+    Op: Teachable + std::fmt::Debug + Clone + Arity + std::hash::Hash + Ord,
+{
+    let mut res: Vec<AstNode<Op>> = Vec::new();
+    let mut roots: Vec<egg::Id> = Vec::new();
+
+    for expr in exprs {
+        // Turn the expr into a RecExpr
+        let recx: RecExpr<_> = expr.into();
+
+        // Then turn the RecExpr into a Vec
+        let mut vecx: Vec<AstNode<Op>> = recx.as_ref().to_vec();
+
+        // For each node, increment the children by the current size of the accum expr
+        for node in vecx.iter_mut() {
+            node.update_children(|x| (usize::from(x) + res.len()).into());
+        }
+
+        // Then push everything into the accum expr
+        res.extend(vecx);
+        roots.push((res.len() - 1).into());
+    }
+
+    // Add the root node
+    res.push(AstNode::new(Op::list(), roots));
+
+    // Turn res back into a recexpr!
+    res.into()
 }
 
 impl<Op> From<AstNode<Op, Self>> for Expr<Op> {

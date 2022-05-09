@@ -31,13 +31,15 @@ pub enum SimpleOp {
     Lib(LibId),
     /// A shift
     Shift,
+    /// A list of expressions
+    List,
 }
 
 impl Arity for SimpleOp {
     fn min_arity(&self) -> usize {
         match self {
             Self::Var(_) | Self::Symbol(_) => 0,
-            Self::Lambda | Self::Shift | Self::LibVar(_) => 1,
+            Self::Lambda | Self::Shift | Self::LibVar(_) | Self::List => 1,
             Self::Apply | Self::Lib(_) => 2,
         }
     }
@@ -61,6 +63,7 @@ impl Display for SimpleOp {
             Self::Symbol(sym) => {
                 return write!(f, "{}", sym);
             }
+            Self::List => "list",
         };
         f.write_str(s)
     }
@@ -74,6 +77,7 @@ impl FromStr for SimpleOp {
             "shift" => Self::Shift,
             "apply" | "@" => Self::Apply,
             "lambda" | "λ" => Self::Lambda,
+            "list" => Self::List,
             input => input
                 .parse()
                 .map(Self::Var)
@@ -115,5 +119,9 @@ impl Teachable for SimpleOp {
             _ => return None,
         };
         Some(binding_expr)
+    }
+
+    fn list() -> Self {
+        Self::List
     }
 }

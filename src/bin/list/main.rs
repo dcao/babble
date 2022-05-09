@@ -14,9 +14,9 @@
 
 use crate::lang::ListOp;
 use babble::{
-    ast_node::{AstNode, Expr, Pretty},
+    ast_node::{AstNode, Expr, Pretty, combine_exprs},
     runner::Experiments,
-    sexp::Sexp,
+    sexp::{Sexp, Program},
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -64,20 +64,26 @@ fn main() {
         )
         .expect("Error reading input");
 
-    let initial_expr: Expr<_> = Sexp::parse(&input)
-        .expect("Failed to parse sexp")
-        .try_into()
-        .expect("Input is not a valid expression");
-    let pretty_expr = Pretty(&initial_expr);
-    let initial_expr: RecExpr<AstNode<ListOp>> = initial_expr.clone().into();
-    let initial_cost = AstSize.cost_rec(&initial_expr);
+    // Parse a list of exprs
+    let prog: Vec<Expr<ListOp>> = Program::parse(&input)
+        .expect("Failed to parse program")
+        .0
+        .into_iter()
+        .map(|x| x.try_into().expect("Input is not a valid list of expressions")) // Vec<Sexp> -> Vec<Expr>
+        .collect();
 
-    println!("Initial expression (cost {}):", initial_cost);
-    println!("{}", pretty_expr);
-    println!();
+    // For the sake of pretty printing
+    {
+        let initial_expr: RecExpr<_> = combine_exprs(prog.clone());
+        let initial_cost = AstSize.cost_rec(&initial_expr);
+
+        println!("Initial expression (cost {}):", initial_cost);
+        println!("{}", Pretty(&Expr::from(initial_expr.clone())));
+        println!();
+    }
 
     let exps = Experiments::gen(
-        initial_expr,
+        prog,
         vec![], // TODO
         opts.beams.clone(),
         opts.extra_por.clone(),

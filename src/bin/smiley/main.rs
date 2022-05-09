@@ -13,9 +13,9 @@
 #![allow(clippy::non_ascii_literal)]
 
 use babble::{
-    ast_node::{Expr, Pretty},
+    ast_node::{Expr, Pretty, combine_exprs},
     runner::Experiments,
-    sexp::Sexp,
+    sexp::{Sexp, Program},
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -73,24 +73,31 @@ fn main() {
         )
         .expect("Error reading input");
 
-    let expr: Expr<_> = Sexp::parse(&input)
-        .expect("Failed to parse sexp")
-        .try_into()
-        .expect("Input is not a valid expression");
-
+    // Parse a list of exprs
+    let prog: Vec<Expr<_>> = Program::parse(&input)
+        .expect("Failed to parse program")
+        .0
+        .into_iter()
+        .map(|x| x.try_into().expect("Input is not a valid list of expressions")) // Vec<Sexp> -> Vec<Expr>
+        .collect();
+        
     if opts.svg {
+        let expr: Expr<_> = combine_exprs(prog).into();
         let value = eval::eval(&expr).expect("Failed to evaluate expression");
         let picture = value
             .into_picture()
             .expect("Result of evaluation is not a picture");
         picture.write_svg(io::stdout()).expect("Error writing SVG");
     } else {
-        let initial_expr: RecExpr<_> = expr.into();
-        let initial_cost = AstSize.cost_rec(&initial_expr);
+        // For the sake of pretty printing
+        {
+            let initial_expr: RecExpr<_> = combine_exprs(prog.clone());
+            let initial_cost = AstSize.cost_rec(&initial_expr);
 
-        println!("Initial expression (cost {}):", initial_cost);
-        println!("{}", Pretty(&Expr::from(initial_expr.clone())));
-        println!();
+            println!("Initial expression (cost {}):", initial_cost);
+            println!("{}", Pretty(&Expr::from(initial_expr.clone())));
+            println!();
+        }
 
         let dsrs = if opts.no_dsr {
             vec![]
@@ -100,7 +107,7 @@ fn main() {
         };
 
         let exps = Experiments::gen(
-            initial_expr,
+            prog,
             dsrs,
             opts.beams.clone(),
             opts.extra_por.clone(),
