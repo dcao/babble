@@ -8,18 +8,18 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompressionInput {
-    #[serde(rename = "CPUs")]
-    pub cpus: u32,
-    pub arity: u32,
-    pub verbose: bool,
-    #[serde(rename = "collect_data")]
-    pub collect_data: bool,
-    pub bs: u32, // what is this
-    pub aic: u32,
-    pub structure_penalty: u32,
-    pub top_k: u32,
+    // #[serde(rename = "CPUs")]
+    // pub cpus: u32,
+    // pub arity: u32,
+    // pub verbose: bool,
+    // #[serde(rename = "collect_data")]
+    // pub collect_data: bool,
+    // pub bs: u32,
+    // pub aic: f64,
+    // pub structure_penalty: f64,
+    // pub top_k: u32,
     #[serde(rename = "DSL")]
-    pub dsl: Dsl,
+    pub dsl: Grammar,
     pub frontiers: Vec<Frontier>,
 }
 
@@ -28,7 +28,7 @@ pub struct CompressionInput {
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
 pub struct CompressionOutput {
     #[serde(rename = "DSL")]
-    pub dsl: Dsl,
+    pub dsl: Grammar,
     pub frontiers: Vec<Frontier>,
 }
 
@@ -36,7 +36,7 @@ pub struct CompressionOutput {
 #[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Dsl {
+pub struct Grammar {
     pub log_variable: f64,
     pub productions: Vec<Production>,
 }
@@ -66,4 +66,12 @@ pub struct Frontier {
 pub struct Program {
     pub log_likelihood: f64,
     pub program: DcExpr,
+}
+
+#[allow(missing_docs)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Default, Serialize, Deserialize)]
+pub struct Info {
+    pub iteration: usize,
+    pub num_learned: usize,
+    pub new_grammar: Grammar,
 }
