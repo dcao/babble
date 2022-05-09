@@ -18,6 +18,7 @@
 
 pub mod ast_node;
 mod dfta;
+pub mod dreamcoder;
 pub mod extract;
 pub mod learn;
 pub mod runner;

@@ -1,12 +1,12 @@
 //! The language of Dream&shy;Coder expressions.
 
 use super::{parse, util::parens};
-use babble::{
+use crate::{
     ast_node::{Arity, AstNode, Expr, Precedence, Printable, Printer},
     learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
-use egg::{RecExpr, Symbol};
+use egg::{Analysis, RecExpr, Rewrite, Symbol};
 use internment::ArcIntern;
 use nom::error::convert_error;
 use ref_cast::RefCast;
@@ -109,6 +109,37 @@ pub enum DreamCoderOp {
     /// A utility operation that allows us to do extraction taking into account
     /// all programs.
     Combine,
+}
+
+impl DreamCoderOp {
+    pub fn to_rewrite<A>(self) -> Option<Rewrite<AstNode<Self>, A>>
+    where
+        A: Analysis<AstNode<Self>>,
+    {
+        let body = match self {
+            Self::Inlined(expr) => expr,
+            _ => return None,
+        };
+
+        // We don't know the arity of the lib function DC learned. We know it's
+        // at most the number of leading lambdas, so we could assume the arity
+        // is the max possible? The json file also has an "arity" field, but I
+        // think that's the max arity, not the exact arity. If so, we know the
+        // arity is at most min(nm_leading_lambdas, json_arity_field).
+        let arity = todo!();
+
+        // Now we have to do the reverse process of `reify` in `babble::learn`:
+        // 1. Remove `arity` leading lambdas
+        // 2. Convert all free de Bruijn indices into pattern variables
+
+        // Finally, convert that pattern back into a rewrite. This will end up
+        // reifying the pattern again, which should return the original
+        // expression. Not sure if that's necessarily true though, because we
+        // add extra arguments for every variable in scope?
+        let rewrite = todo!();
+
+        Some(rewrite)
+    }
 }
 
 impl Arity for DreamCoderOp {

@@ -14,21 +14,17 @@
 
 use babble::{
     ast_node::{AstNode, Expr, Pretty},
+    dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
     runner::Experiments,
 };
 use clap::Clap;
-use dreamcoder::json::CompressionInput;
-use egg::{Language, RecExpr, AstSize, CostFunction};
+use egg::{AstSize, CostFunction, Language, RecExpr};
 // use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fs,
     io::{self, Read},
     path::PathBuf,
 };
-
-use crate::dreamcoder::expr::DreamCoderOp;
-
-pub mod dreamcoder;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Clap)]
@@ -41,6 +37,10 @@ struct Opts {
     /// Enables pretty-printing of JSON output.
     #[clap(long)]
     pretty: bool,
+
+    /// Do not use domain-specific rewrites
+    #[clap(long)]
+    no_dsr: bool,
 
     /// The number of programs to anti-unify
     #[clap(long)]
@@ -115,13 +115,24 @@ fn main() {
         // Turn res back into a recexpr!
         let initial_expr: RecExpr<_> = res.into();
 
-        println!("Initial expression (limit {}, cost {}):", limit, AstSize.cost_rec(&initial_expr));
+        println!(
+            "Initial expression (limit {}, cost {}):",
+            limit,
+            AstSize.cost_rec(&initial_expr)
+        );
         println!("{}", Pretty(&initial_expr.clone().into()));
         println!();
 
+        let dsrs = if opts.no_dsr {
+            vec![]
+        } else {
+            vec![egg::rewrite!("add commute"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)")]
+            // vec![egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x")]
+        };
+
         let exps = Experiments::gen(
             initial_expr,
-            vec![], // TODO
+            dsrs,
             opts.beams.clone(),
             opts.extra_por.clone(),
             opts.timeout.clone(),
@@ -130,7 +141,6 @@ fn main() {
 
         all.add(exps);
     }
-
 
     println!("running...");
     all.run("target/res_compression.csv");

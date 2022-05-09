@@ -1,5 +1,5 @@
 use super::expr::DreamCoderOp;
-use babble::ast_node::{AstNode, Expr};
+use crate::ast_node::{AstNode, Expr};
 use egg::Symbol;
 use internment::ArcIntern;
 use std::str::FromStr;
