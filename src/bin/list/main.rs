@@ -36,10 +36,6 @@ struct Opts {
     #[clap(parse(from_os_str))]
     file: Option<PathBuf>,
 
-    /// The number of programs to anti-unify
-    #[clap(long)]
-    limit: Vec<usize>,
-
     /// The beam sizes to use for the beam extractor
     #[clap(long)]
     beams: Vec<usize>,

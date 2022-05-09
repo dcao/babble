@@ -40,9 +40,6 @@ struct Opts {
     /// Evaluate the input file and output it as an SVG.
     #[clap(long)]
     svg: bool,
-    /// The number of programs to anti-unify
-    #[clap(long)]
-    limit: Vec<usize>,
 
     /// The beam sizes to use for the beam extractor
     #[clap(long)]
