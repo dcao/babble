@@ -14,9 +14,9 @@
 
 use crate::lang::ListOp;
 use babble::{
-    ast_node::{AstNode, Expr, Pretty, combine_exprs},
+    ast_node::{Expr, Pretty, combine_exprs},
     runner::Experiments,
-    sexp::{Sexp, Program},
+    sexp::Program, extract::beam::LibsPerSel,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -43,6 +43,14 @@ struct Opts {
     /// The timeouts to use for the ILP extractor
     #[clap(long)]
     timeout: Vec<u64>,
+
+    /// The number of libs to learn at a time
+    #[clap(long)]
+    lps: Vec<LibsPerSel>,
+
+    /// The number of rounds of lib learning to run
+    #[clap(long)]
+    rounds: Vec<usize>,
 
     /// Whether to use the additional partial order reduction step
     #[clap(long)]
@@ -86,6 +94,8 @@ fn main() {
         prog,
         vec![], // TODO
         opts.beams.clone(),
+        opts.lps.clone(),
+        opts.rounds.clone(),
         opts.extra_por.clone(),
         opts.timeout.clone(),
         (),

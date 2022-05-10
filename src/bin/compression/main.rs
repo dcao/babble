@@ -13,12 +13,12 @@ unreachable_pub,
 #![allow(clippy::non_ascii_literal)]
 
 use babble::{
-    ast_node::{AstNode, Expr, Pretty, combine_exprs},
+    ast_node::{Expr, Pretty, combine_exprs},
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
-    runner::Experiments,
+    runner::Experiments, extract::beam::LibsPerSel,
 };
 use clap::Clap;
-use egg::{AstSize, CostFunction, Language, RecExpr};
+use egg::{AstSize, CostFunction, RecExpr};
 // use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fs,
@@ -49,6 +49,14 @@ struct Opts {
     /// The beam sizes to use for the beam extractor
     #[clap(long)]
     beams: Vec<usize>,
+
+    /// The number of libs to learn at a time
+    #[clap(long)]
+    lps: Vec<LibsPerSel>,
+
+    /// The number of rounds of lib learning to run
+    #[clap(long)]
+    rounds: Vec<usize>,
 
     /// The timeouts to use for the ILP extractor
     #[clap(long)]
@@ -110,6 +118,8 @@ fn main() {
             exprs,
             dsrs,
             opts.beams.clone(),
+            opts.lps.clone(),
+            opts.rounds.clone(),
             opts.extra_por.clone(),
             opts.timeout.clone(),
             limit,
