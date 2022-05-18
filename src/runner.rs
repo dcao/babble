@@ -103,6 +103,7 @@ where
         mut extra_pors: Vec<bool>,
         timeouts: Vec<u64>,
         extra: Extra,
+        learn_constants: bool,
     ) -> Self {
         let mut res = Vec::new();
 
@@ -120,6 +121,7 @@ where
                     inter_beams: beam,
                     extra_por: *extra_por,
                     extra_data: extra.clone(),
+                    learn_constants,
                 }));
             }
         }
@@ -130,6 +132,7 @@ where
                 dsrs: dsrs.clone(),
                 timeout,
                 extra_data: extra.clone(),
+                learn_constants,
             }));
         }
 
@@ -165,6 +168,8 @@ where
     extra_por: bool,
     /// Any extra data associated with this experiment
     extra_data: Extra,
+    /// Whether to learn "library functions" with no arguments.
+    learn_constants: bool,
 }
 
 impl<Op, Extra> BeamExperiment<Op, Extra>
@@ -221,7 +226,7 @@ where
 
         let ll_time = Instant::now();
 
-        let learned_lib = LearnedLibrary::from(&aeg);
+        let learned_lib = LearnedLibrary::new(&aeg, self.learn_constants);
         let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
 
         println!(
@@ -335,6 +340,8 @@ where
     timeout: u64,
     /// Any extra data associated with this experiment
     extra_data: Extra,
+    /// Whether to learn "library functions" without any arguments.
+    learn_constants: bool,
 }
 
 #[cfg(feature = "grb")]
@@ -354,7 +361,10 @@ where
     Extra: serde::ser::Serialize + std::fmt::Debug,
 {
     fn run(self, wtr: &mut csv::Writer<fs::File>) {
-        println!("ilp | timeout: {}, extra_data: {:?}", self.timeout, self.extra_data);
+        println!(
+            "ilp | timeout: {}, extra_data: {:?}",
+            self.timeout, self.extra_data
+        );
 
         let start_time = Instant::now();
         let timeout = Duration::from_secs(self.timeout);
@@ -384,7 +394,7 @@ where
 
         let ll_time = Instant::now();
 
-        let learned_lib = LearnedLibrary::from(&aeg);
+        let learned_lib = LearnedLibrary::new(&aeg, self.learn_constants);
         let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
 
         println!(

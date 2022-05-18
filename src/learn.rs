@@ -74,49 +74,27 @@ pub struct LearnedLibrary<Op, T> {
     aus_by_state: BTreeMap<T, BTreeSet<PartialExpr<Op, T>>>,
     /// A set of all the nontrivial antiunifications discovered.
     nontrivial_aus: BTreeSet<PartialExpr<Op, Var>>,
+    /// Whether to also learn "library functions" which take no arguments.
+    learn_constants: bool,
 }
 
-impl<Op, T> Default for LearnedLibrary<Op, T>
-where
-    Op: Ord,
-    T: Ord,
-{
-    /// Create an empty learned library.
-    fn default() -> Self {
-        Self {
-            aus_by_state: BTreeMap::new(),
-            nontrivial_aus: BTreeSet::new(),
-        }
-    }
-}
-
-impl<'a, Op, A> From<&'a EGraph<AstNode<Op>, A>> for LearnedLibrary<Op, (Id, Id)>
+impl<'a, Op> LearnedLibrary<Op, (Id, Id)>
 where
     Op: Arity + Clone + Debug + Ord,
-    A: Analysis<AstNode<Op>>,
     AstNode<Op>: Language,
 {
     /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
     /// enodes to find their common structure.
-    fn from(egraph: &'a EGraph<AstNode<Op>, A>) -> Self {
-        let mut learned_lib = Self::default();
+    pub fn new<A: Analysis<AstNode<Op>>>(
+        egraph: &'a EGraph<AstNode<Op>, A>,
+        learn_constants: bool,
+    ) -> Self {
+        let mut learned_lib = Self {
+            aus_by_state: BTreeMap::new(),
+            nontrivial_aus: BTreeSet::new(),
+            learn_constants,
+        };
         let dfta = Dfta::from(egraph).cross_over();
-        for state in dfta.output_states() {
-            learned_lib.enumerate(&dfta, state);
-        }
-        learned_lib
-    }
-}
-
-impl<Op, T> From<Dfta<Op, T>> for LearnedLibrary<Op, T>
-where
-    Op: Arity + Clone + Debug + Ord,
-    T: Clone + Ord,
-{
-    /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
-    /// enodes to find their common structure.
-    fn from(dfta: Dfta<Op, T>) -> Self {
-        let mut learned_lib = Self::default();
         for state in dfta.output_states() {
             learned_lib.enumerate(&dfta, state);
         }
@@ -230,9 +208,12 @@ where
             // states to pattern variables. The conversion takes
             // alpha-equivalent anti-unifications to the same value, effectively
             // discarding redundant anti-unifications.
+
+            let learn_constants = self.learn_constants;
+
             let nontrivial_aus = aus
                 .iter()
-                .filter(|au| au.has_holes())
+                .filter(|au| learn_constants || au.has_holes())
                 .cloned()
                 .map(normalize)
                 .filter_map(|(au, num_vars)| {

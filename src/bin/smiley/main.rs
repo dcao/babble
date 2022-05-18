@@ -40,6 +40,11 @@ struct Opts {
     /// Evaluate the input file and output it as an SVG.
     #[clap(long)]
     svg: bool,
+
+    /// Whether to learn "library functions" with no arguments.
+    #[clap(long)]
+    learn_constants: bool,
+
     /// The number of programs to anti-unify
     #[clap(long)]
     limit: Vec<usize>,
@@ -98,6 +103,7 @@ fn main() {
             opts.extra_por.clone(),
             opts.timeout.clone(),
             (),
+            opts.learn_constants,
         );
 
         println!("running...");
