@@ -7,18 +7,18 @@
     missing_debug_implementations,
     single_use_lifetimes,
     trivial_casts,
-    unreachable_pub,
+unreachable_pub,
     unused_lifetimes
 )]
 #![allow(clippy::non_ascii_literal)]
 
 use babble::{
-    ast_node::{AstNode, Expr, Pretty},
+    ast_node::{Expr, Pretty, combine_exprs},
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
-    runner::Experiments,
+    runner::Experiments, extract::beam::LibsPerSel,
 };
 use clap::Clap;
-use egg::{AstSize, CostFunction, Language, RecExpr};
+use egg::{AstSize, CostFunction, RecExpr};
 // use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
     fs,
@@ -42,6 +42,10 @@ struct Opts {
     #[clap(long)]
     learn_constants: bool,
 
+    /// Do not use domain-specific rewrites
+    #[clap(long)]
+    no_dsr: bool,
+
     /// The number of programs to anti-unify
     #[clap(long)]
     limit: Vec<usize>,
@@ -49,6 +53,14 @@ struct Opts {
     /// The beam sizes to use for the beam extractor
     #[clap(long)]
     beams: Vec<usize>,
+
+    /// The number of libs to learn at a time
+    #[clap(long)]
+    lps: Vec<LibsPerSel>,
+
+    /// The number of rounds of lib learning to run
+    #[clap(long)]
+    rounds: Vec<usize>,
 
     /// The timeouts to use for the ILP extractor
     #[clap(long)]
@@ -89,44 +101,29 @@ fn main() {
             .take(*limit)
             .collect();
 
-        let mut res = Vec::new();
-        let mut roots: Vec<egg::Id> = Vec::new();
+        // For the sake of pretty printing
+        {
+            let initial_expr: RecExpr<_> = combine_exprs(exprs.clone());
+            let initial_cost = AstSize.cost_rec(&initial_expr);
 
-        for expr in exprs {
-            // Turn the expr into a RecExpr
-            let recx: RecExpr<_> = expr.into();
-
-            // Then turn the RecExpr into a Vec
-            let mut vecx: Vec<AstNode<DreamCoderOp>> = recx.as_ref().to_vec();
-
-            // For each node, increment the children by the current size of the accum expr
-            for node in vecx.iter_mut() {
-                node.update_children(|x| (usize::from(x) + res.len()).into());
-            }
-
-            // Then push everything into the accum expr
-            res.extend(vecx);
-            roots.push((res.len() - 1).into());
+            println!("Initial expression (cost {}, limit {}):", initial_cost, limit);
+            println!("{}", Pretty(&Expr::from(initial_expr.clone())));
+            println!();
         }
 
-        // Add the root node
-        res.push(AstNode::new(DreamCoderOp::Combine, roots));
-
-        // Turn res back into a recexpr!
-        let initial_expr: RecExpr<_> = res.into();
-
-        println!(
-            "Initial expression (limit {}, cost {}):",
-            limit,
-            AstSize.cost_rec(&initial_expr)
-        );
-        println!("{}", Pretty(&initial_expr.clone().into()));
-        println!();
+        let dsrs = if opts.no_dsr {
+            vec![]
+        } else {
+            vec![egg::rewrite!("add commute"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)")]
+            // vec![egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x")]
+        };
 
         let exps = Experiments::gen(
-            initial_expr,
-            vec![], // TODO
+            exprs,
+            dsrs,
             opts.beams.clone(),
+            opts.lps.clone(),
+            opts.rounds.clone(),
             opts.extra_por.clone(),
             opts.timeout.clone(),
             limit,

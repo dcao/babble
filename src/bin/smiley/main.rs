@@ -13,9 +13,9 @@
 #![allow(clippy::non_ascii_literal)]
 
 use babble::{
-    ast_node::{Expr, Pretty},
+    ast_node::{Expr, Pretty, combine_exprs},
     runner::Experiments,
-    sexp::Sexp,
+    sexp::Program, extract::beam::LibsPerSel,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -45,9 +45,9 @@ struct Opts {
     #[clap(long)]
     learn_constants: bool,
 
-    /// The number of programs to anti-unify
+    /// Do not use domain-specific rewrites
     #[clap(long)]
-    limit: Vec<usize>,
+    no_dsr: bool,
 
     /// The beam sizes to use for the beam extractor
     #[clap(long)]
@@ -56,6 +56,14 @@ struct Opts {
     /// The timeouts to use for the ILP extractor
     #[clap(long)]
     timeout: Vec<u64>,
+
+    /// The number of libs to learn at a time
+    #[clap(long)]
+    lps: Vec<LibsPerSel>,
+
+    /// The number of rounds of lib learning to run
+    #[clap(long)]
+    rounds: Vec<usize>,
 
     /// Whether to use the additional partial order reduction step
     #[clap(long)]
@@ -77,29 +85,45 @@ fn main() {
         )
         .expect("Error reading input");
 
-    let expr: Expr<_> = Sexp::parse(&input)
-        .expect("Failed to parse sexp")
-        .try_into()
-        .expect("Input is not a valid expression");
-
+    // Parse a list of exprs
+    let prog: Vec<Expr<_>> = Program::parse(&input)
+        .expect("Failed to parse program")
+        .0
+        .into_iter()
+        .map(|x| x.try_into().expect("Input is not a valid list of expressions")) // Vec<Sexp> -> Vec<Expr>
+        .collect();
+        
     if opts.svg {
+        let expr: Expr<_> = combine_exprs(prog).into();
         let value = eval::eval(&expr).expect("Failed to evaluate expression");
         let picture = value
             .into_picture()
             .expect("Result of evaluation is not a picture");
         picture.write_svg(io::stdout()).expect("Error writing SVG");
     } else {
-        let initial_expr: RecExpr<_> = expr.into();
-        let initial_cost = AstSize.cost_rec(&initial_expr);
+        // For the sake of pretty printing
+        {
+            let initial_expr: RecExpr<_> = combine_exprs(prog.clone());
+            let initial_cost = AstSize.cost_rec(&initial_expr);
 
-        println!("Initial expression (cost {}):", initial_cost);
-        println!("{}", Pretty(&Expr::from(initial_expr.clone())));
-        println!();
+            println!("Initial expression (cost {}):", initial_cost);
+            println!("{}", Pretty(&Expr::from(initial_expr.clone())));
+            println!();
+        }
+
+        let dsrs = if opts.no_dsr {
+            vec![]
+        } else {
+            vec![egg::rewrite!("circle rotate"; "circle" => "(rotate 90 circle)"),
+                 egg::rewrite!("circle scale"; "circle" => "(scale 1 circle)")]
+        };
 
         let exps = Experiments::gen(
-            initial_expr,
-            vec![], // TODO
+            prog,
+            dsrs,
             opts.beams.clone(),
+            opts.lps.clone(),
+            opts.rounds.clone(),
             opts.extra_por.clone(),
             opts.timeout.clone(),
             (),

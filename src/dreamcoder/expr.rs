@@ -212,6 +212,10 @@ impl Teachable for DreamCoderOp {
         };
         Some(binding_expr)
     }
+
+    fn list() -> Self {
+        Self::Combine
+    }
 }
 
 impl Display for DreamCoderOp {

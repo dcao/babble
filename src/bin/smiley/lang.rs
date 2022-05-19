@@ -155,6 +155,10 @@ impl Teachable for Smiley {
         };
         Some(binding_expr)
     }
+
+    fn list() -> Self {
+        Self::Compose
+    }
 }
 
 impl Printable for Smiley {

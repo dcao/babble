@@ -2,6 +2,7 @@
 //! experiments.
 
 use std::{
+    collections::HashMap,
     fs,
     time::{Duration, Instant},
 };
@@ -12,8 +13,8 @@ use log::debug;
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     extract::{
-        beam::{LibExtractor, PartialLibCost},
-        lift_libs, true_cost,
+        beam::{LibExtractor, LibsPerSel, PartialLibCost},
+        lift_libs,
     },
     learn::LearnedLibrary,
     teachable::Teachable,
@@ -49,13 +50,129 @@ where
         + std::hash::Hash
         + Ord
         + 'static,
-    Extra: serde::ser::Serialize + std::fmt::Debug,
+    Extra: serde::ser::Serialize + std::fmt::Debug + Clone,
 {
     /// Runs the experiment
+    /// If the experiment requires multiple rounds, run multiple times.
     pub fn run(self, wtr: &mut csv::Writer<fs::File>) {
-        match self {
-            Experiment::Beam(b) => b.run(wtr),
-            Experiment::ILP(b) => b.run(wtr),
+        // Print starting text for experiment
+        match &self {
+            Experiment::Beam(b) => {
+                if b.final_beams > b.inter_beams {
+                    return;
+                }
+
+                println!(
+                    "beam | final_beams: {}, inter_beams: {}, lps: {:?}, rounds: {}, extra_por: {}, extra_data: {:?}",
+                    b.final_beams, b.inter_beams, b.lps, b.rounds, b.extra_por, b.extra_data
+                );
+            }
+            Experiment::ILP(ilp) => {
+                println!(
+                    "ilp | timeout: {}, extra_data: {:?}",
+                    ilp.timeout, ilp.extra_data
+                );
+            }
+        }
+
+        let start_time = Instant::now();
+
+        // First, let's turn our list of exprs into a list of recexprs
+        let mut exprs = match &self {
+            Experiment::Beam(b) => b.exprs.clone(),
+            Experiment::ILP(ilp) => ilp.exprs.clone(),
+        };
+        let recexprs: Vec<RecExpr<AstNode<Op>>> =
+            exprs.clone().into_iter().map(|x| x.into()).collect();
+
+        // Add one to account for root node, not added yet
+        let initial_cost = {
+            let s: usize = recexprs.iter().map(|x| AstSize.cost_rec(x)).sum();
+            s + 1
+        };
+
+        // Start running our rounds
+        let rounds = match &self {
+            Experiment::Beam(b) => b.rounds,
+            Experiment::ILP(ilp) => ilp.rounds,
+        };
+
+        let mut libs = HashMap::new();
+
+        let mut rc: RecExpr<AstNode<Op>>;
+
+        for r in 0..rounds {
+            println!("round {}/{}", r + 1, rounds);
+
+            rc = match &self {
+                Experiment::Beam(b) => b.run_one(exprs),
+                Experiment::ILP(ilp) => ilp.run(exprs),
+            };
+
+            // If rc is empty, just return early.
+            if rc.as_ref().is_empty() {
+                println!("empty recexpr, returning early");
+                return;
+            }
+
+            let ls = plumbing::libs(rc.as_ref(), libs.len());
+            libs.extend(ls);
+            exprs = plumbing::exprs(rc.as_ref());
+        }
+
+        // Combine back into one big recexpr at the end
+        rc = plumbing::combine(libs, exprs);
+        let final_cost = AstSize.cost_rec(&rc);
+
+        // Print our analysis on this
+        if rounds > 1 {
+            println!("Final beam results");
+            println!("{}", Pretty(&Expr::from(rc)));
+            println!(
+                "cost diff: {} -> {} (compression ratio {})",
+                initial_cost,
+                final_cost,
+                final_cost as f32 / initial_cost as f32
+            );
+            println!("total time: {}ms", start_time.elapsed().as_millis());
+            println!();
+        }
+
+        match &self {
+            Experiment::Beam(b) => {
+                wtr.serialize((
+                    "beam",
+                    0,
+                    b.final_beams,
+                    b.inter_beams,
+                    b.lps,
+                    b.rounds,
+                    b.extra_por,
+                    b.extra_data.clone(),
+                    initial_cost,
+                    final_cost,
+                    start_time.elapsed().as_secs_f64(),
+                ))
+                .unwrap();
+                wtr.flush().unwrap();
+            }
+            Experiment::ILP(ilp) => {
+                wtr.serialize((
+                    "ilp",
+                    ilp.timeout,
+                    0,
+                    0,
+                    "Unlimited",
+                    ilp.rounds,
+                    false,
+                    ilp.extra_data.clone(),
+                    initial_cost,
+                    final_cost,
+                    start_time.elapsed().as_secs_f64(),
+                ))
+                .unwrap();
+                wtr.flush().unwrap();
+            }
         }
     }
 }
@@ -82,7 +199,7 @@ where
         + std::hash::Hash
         + Ord
         + 'static,
-    Extra: serde::ser::Serialize + Clone + std::fmt::Debug,
+    Extra: serde::ser::Serialize + Clone + std::fmt::Debug + Clone,
 {
     /// Creates a new empty set of experiments
     pub fn new() -> Self {
@@ -97,9 +214,11 @@ where
     // TODO: How to specify DSRs
     /// Generates a set of experiments from a set of params
     pub fn gen(
-        expr: RecExpr<AstNode<Op>>,
+        exprs: Vec<Expr<Op>>,
         dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
-        beams: Vec<usize>,
+        mut beams: Vec<usize>,
+        mut lpss: Vec<LibsPerSel>,
+        mut rounds: Vec<usize>,
         mut extra_pors: Vec<bool>,
         timeouts: Vec<u64>,
         extra: Extra,
@@ -108,32 +227,53 @@ where
         let mut res = Vec::new();
 
         // Defaults for if we have empty values
+        if beams.is_empty() {
+            beams.push(25);
+        }
+
+        if rounds.is_empty() {
+            rounds.push(1);
+        }
+
+        if lpss.is_empty() {
+            lpss.push(LibsPerSel::Unlimited);
+        }
+
         if extra_pors.is_empty() {
             extra_pors.push(false);
         }
 
         for beam in beams {
             for extra_por in &extra_pors {
-                res.push(Experiment::Beam(BeamExperiment {
-                    expr: expr.clone(),
-                    dsrs: dsrs.clone(),
-                    final_beams: beam,
-                    inter_beams: beam,
-                    extra_por: *extra_por,
-                    extra_data: extra.clone(),
-                    learn_constants,
-                }));
+                for lps in &lpss {
+                    for rounds in &rounds {
+                        res.push(Experiment::Beam(BeamExperiment {
+                            exprs: exprs.clone(),
+                            dsrs: dsrs.clone(),
+                            final_beams: beam,
+                            inter_beams: beam,
+                            lps: *lps,
+                            rounds: *rounds,
+                            extra_por: *extra_por,
+                            extra_data: extra.clone(),
+                            learn_constants,
+                        }));
+                    }
+                }
             }
         }
 
         for timeout in timeouts {
-            res.push(Experiment::ILP(ILPExperiment {
-                expr: expr.clone(),
-                dsrs: dsrs.clone(),
-                timeout,
-                extra_data: extra.clone(),
-                learn_constants,
-            }));
+            for r in &rounds {
+                res.push(Experiment::ILP(ILPExperiment {
+                    exprs: exprs.clone(),
+                    dsrs: dsrs.clone(),
+                    timeout,
+                    rounds: *r,
+                    extra_data: extra.clone(),
+                    learn_constants,
+                }));
+            }
         }
 
         Self { exps: res }
@@ -156,14 +296,18 @@ pub struct BeamExperiment<Op, Extra>
 where
     Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
 {
-    /// The expression to run the experiment over
-    expr: RecExpr<AstNode<Op>>,
+    /// The expressions to run the experiment over
+    exprs: Vec<Expr<Op>>,
     /// The domain-specific rewrites to apply
     dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
     /// The final beam size to use
     final_beams: usize,
     /// The inter beam size to use
     inter_beams: usize,
+    /// The number of libs to learn at a time
+    lps: LibsPerSel,
+    /// The number of rounds of library learning to do
+    rounds: usize,
     /// Whether to use the extra partial order reduction or not
     extra_por: bool,
     /// Any extra data associated with this experiment
@@ -185,36 +329,110 @@ where
         + std::hash::Hash
         + Ord
         + 'static,
-    Extra: serde::ser::Serialize + std::fmt::Debug,
+    Extra: serde::ser::Serialize + std::fmt::Debug + Clone,
 {
-    fn run(self, wtr: &mut csv::Writer<fs::File>) {
+    // TODO: Generalize this for ILP too
+    fn run(&self, wtr: &mut csv::Writer<fs::File>) {
         if self.final_beams > self.inter_beams {
             return;
         }
 
         println!(
-            "beam | final_beams: {}, inter_beams: {}, extra_por: {}, extra_data: {:?}",
-            self.final_beams, self.inter_beams, self.extra_por, self.extra_data
+            "beam | final_beams: {}, inter_beams: {}, lps: {:?}, rounds: {}, extra_por: {}, extra_data: {:?}",
+            self.final_beams, self.inter_beams, self.lps, self.rounds, self.extra_por, self.extra_data
         );
 
         let start_time = Instant::now();
+
+        // First, let's turn our list of exprs into a list of recexprs
+        let recexprs: Vec<RecExpr<AstNode<Op>>> =
+            self.exprs.clone().into_iter().map(|x| x.into()).collect();
+
+        // Add one to account for root node, not added yet
+        let initial_cost = {
+            let s: usize = recexprs.iter().map(|x| AstSize.cost_rec(x)).sum();
+            s + 1
+        };
+
+        // Start running our rounds
+        let mut libs = HashMap::new();
+        let mut exprs = self.exprs.clone();
+
+        let mut rc: RecExpr<AstNode<Op>>;
+
+        for r in 0..self.rounds {
+            println!("round {}/{}", r + 1, self.rounds);
+
+            rc = self.run_one(exprs);
+
+            let ls = plumbing::libs(rc.as_ref(), libs.len());
+            libs.extend(ls);
+            exprs = plumbing::exprs(rc.as_ref());
+        }
+
+        // Combine back into one big recexpr at the end
+        rc = plumbing::combine(libs, exprs);
+        let final_cost = AstSize.cost_rec(&rc);
+
+        // Print our analysis on this
+        if self.rounds > 1 {
+            println!("Final beam results");
+            println!("{}", Pretty(&Expr::from(rc)));
+            println!(
+                "cost diff: {} -> {} (compression ratio {})",
+                initial_cost,
+                final_cost,
+                final_cost as f32 / initial_cost as f32
+            );
+            println!("round time: {}ms", start_time.elapsed().as_millis());
+            println!();
+        }
+
+        wtr.serialize((
+            "beam",
+            0,
+            self.final_beams,
+            self.inter_beams,
+            self.lps,
+            self.rounds,
+            self.extra_por,
+            self.extra_data.clone(),
+            initial_cost,
+            final_cost,
+            start_time.elapsed().as_secs_f64(),
+        ))
+        .unwrap();
+        wtr.flush().unwrap();
+    }
+
+    fn run_one(&self, exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
+        let start_time = Instant::now();
         let timeout = Duration::from_secs(60 * 100000);
 
-        let initial_cost = true_cost(self.expr.clone());
+        // First, let's turn our list of exprs into a list of recexprs
+        let recexprs: Vec<RecExpr<AstNode<Op>>> =
+            exprs.clone().into_iter().map(|x| x.into()).collect();
+
+        // Add one to account for root node, not added yet
+        let initial_cost = {
+            let s: usize = recexprs.iter().map(|x| AstSize.cost_rec(x)).sum();
+            s + 1
+        };
 
         println!("Starting cost: {}", initial_cost);
 
         let mut aeg = EGraph::new(PartialLibCost::new(
             self.final_beams,
             self.inter_beams,
+            self.lps,
             self.extra_por,
         ));
-        let root = aeg.add_expr(&self.expr);
+        let roots = recexprs.iter().map(|x| aeg.add_expr(x)).collect::<Vec<_>>();
         aeg.rebuild();
 
         print!("Running {} DSRs... ", self.dsrs.len());
 
-        let runner = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0, false))
+        let runner = Runner::<_, _, ()>::new(PartialLibCost::empty())
             .with_egraph(aeg)
             .with_time_limit(timeout)
             .run(&self.dsrs);
@@ -236,11 +454,12 @@ where
         );
 
         let anti_time = Instant::now();
-        print!("Anti-unifying... ");
+        print!("Rewriting egraph... ");
 
         let runner = Runner::<_, _, ()>::new(PartialLibCost::new(
             self.final_beams,
             self.inter_beams,
+            self.lps,
             self.extra_por,
         ))
         .with_egraph(aeg.clone())
@@ -252,11 +471,18 @@ where
         println!("Finished in {}ms", anti_time.elapsed().as_millis());
         println!("Stop reason: {:?}", runner.stop_reason.unwrap());
 
-        let egraph = runner.egraph;
+        let mut egraph = runner.egraph;
         println!("Number of nodes: {}", egraph.total_size());
+
+        let root_time = Instant::now();
+        print!("Adding root node... ");
+
+        let root = egraph.add(AstNode::new(Op::list(), roots.iter().copied()));
 
         let mut cs = egraph[egraph.find(root)].data.clone();
         cs.set.sort_unstable_by_key(|elem| elem.full_cost);
+
+        println!("Finished in {}ms", root_time.elapsed().as_millis());
 
         debug!("learned libs");
         let all_libs: Vec<_> = learned_lib.libs().collect();
@@ -275,7 +501,7 @@ where
             .take(1)
             .map(|ls| {
                 // Add the root combine node again
-                let fin = Runner::<_, _, ()>::new(PartialLibCost::new(0, 0, false))
+                let mut fin = Runner::<_, _, ()>::new(PartialLibCost::empty())
                     .with_egraph(aeg.clone())
                     .with_iter_limit(1)
                     .run(
@@ -286,6 +512,7 @@ where
                             .map(|x| x.1),
                     )
                     .egraph;
+                let root = fin.add(AstNode::new(Op::list(), roots.iter().copied()));
 
                 let mut extractor = LibExtractor::new(&fin);
                 let best = extractor.best(root);
@@ -304,24 +531,17 @@ where
             .unwrap();
 
         println!("Finished in {}ms", ex_time.elapsed().as_millis());
-        println!("{}", Pretty(&Expr::from(lifted)));
-        println!("final cost: {}", final_cost);
-        println!("final time: {}ms", start_time.elapsed().as_millis());
-        println!();
-
-        wtr.serialize((
-            "beam",
-            timeout.as_secs(),
-            self.final_beams,
-            self.inter_beams,
-            self.extra_por,
-            self.extra_data,
+        println!("{}", Pretty(&Expr::from(lifted.clone())));
+        println!(
+            "cost diff: {} -> {} (compression ratio {})",
             initial_cost,
             final_cost,
-            start_time.elapsed().as_secs_f64(),
-        ))
-        .unwrap();
-        wtr.flush().unwrap();
+            final_cost as f32 / initial_cost as f32
+        );
+        println!("round time: {}ms", start_time.elapsed().as_millis());
+        println!();
+
+        return lifted;
     }
 }
 
@@ -333,11 +553,13 @@ where
     Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
 {
     /// The expression to run the experiment over
-    expr: RecExpr<AstNode<Op>>,
+    exprs: Vec<Expr<Op>>,
     /// The domain-specific rewrites to apply
     dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
     /// The timeout length to use
     timeout: u64,
+    /// Number of rounds to do
+    rounds: usize,
     /// Any extra data associated with this experiment
     extra_data: Extra,
     /// Whether to learn "library functions" without any arguments.
@@ -358,34 +580,39 @@ where
         + std::hash::Hash
         + Ord
         + 'static,
-    Extra: serde::ser::Serialize + std::fmt::Debug,
+    Extra: serde::ser::Serialize + std::fmt::Debug + Clone,
 {
-    fn run(self, wtr: &mut csv::Writer<fs::File>) {
-        println!(
-            "ilp | timeout: {}, extra_data: {:?}",
-            self.timeout, self.extra_data
-        );
-
+    fn run(&self, exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
         let start_time = Instant::now();
         let timeout = Duration::from_secs(self.timeout);
 
-        let initial_cost = true_cost(self.expr.clone());
+        // First, let's turn our list of exprs into a list of recexprs
+        let recexprs: Vec<RecExpr<AstNode<Op>>> =
+            exprs.clone().into_iter().map(|x| x.into()).collect();
+
+        // Add one to account for root node, not added yet
+        let initial_cost = {
+            let s: usize = recexprs.iter().map(|x| AstSize.cost_rec(x)).sum();
+            s + 1
+        };
 
         println!("Starting cost: {}", initial_cost);
 
         let mut aeg = EGraph::new(());
-        let root = aeg.add_expr(&self.expr);
+        let roots = recexprs.iter().map(|x| aeg.add_expr(x)).collect::<Vec<_>>();
         aeg.rebuild();
 
+        // FIXME: Right now we're not running DSRs with the ILP experiment
+        //        This is because of some type weirdness (Rewrites take in an analysis as a param)
+        //        and ideally I'd like to have one list of rewrites, not two sets of rewrites for
+        //        ILP and beam
+        println!("FIXME: no dsrs are bein run rn!");
         print!("Running {} DSRs... ", self.dsrs.len());
 
         let runner = Runner::<_, _, ()>::new(())
             .with_egraph(aeg)
             .with_time_limit(timeout.saturating_sub(start_time.elapsed()))
-            .run(&[
-                // egg::rewrite!("add comm"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)"),
-                // egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x"),
-            ]);
+            .run(&[]);
 
         let aeg = runner.egraph;
 
@@ -404,7 +631,7 @@ where
         );
 
         let anti_time = Instant::now();
-        print!("Anti-unifying... ");
+        print!("Rewriting egraph... ");
 
         let runner = Runner::<_, _, ()>::new(())
             .with_egraph(aeg.clone())
@@ -416,36 +643,37 @@ where
         println!("Finished in {}ms", anti_time.elapsed().as_millis());
         println!("Stop reason: {:?}", runner.stop_reason.unwrap());
 
-        let egraph = runner.egraph;
+        let mut egraph = runner.egraph;
         println!("Number of nodes: {}", egraph.total_size());
+
+        let root_time = Instant::now();
+        print!("Adding root node... ");
+
+        let root = egraph.add(AstNode::new(Op::list(), roots.iter().copied()));
+        println!("Finished in {}ms", root_time.elapsed().as_millis());
+
+        let ex_time = Instant::now();
+        print!("Extracting... ");
 
         let best = LpExtractor::new(&egraph, egg::AstSize)
             .timeout(timeout.saturating_sub(start_time.elapsed()).as_secs_f64())
             .solve(root);
 
-        let ex_time = Instant::now();
-        print!("Extracting... ");
         let lifted = lift_libs(best);
-        let final_cost = true_cost(lifted.clone()) - 1;
+        let final_cost = AstSize.cost_rec(&lifted) - 1;
 
         println!("Finished in {}ms", ex_time.elapsed().as_millis());
-        println!("{}", Pretty(&Expr::from(lifted)));
-        println!("final cost: {}", final_cost);
-        println!("final time: {}ms", start_time.elapsed().as_millis());
-        println!();
-
-        wtr.serialize((
-            "ilp",
-            timeout.as_secs(),
-            0,
-            0,
-            self.extra_data,
+        println!("{}", Pretty(&Expr::from(lifted.clone())));
+        println!(
+            "cost diff: {} -> {} (compression ratio {})",
             initial_cost,
             final_cost,
-            start_time.elapsed().as_secs_f64(),
-        ))
-        .unwrap();
-        wtr.flush().unwrap();
+            final_cost as f32 / initial_cost as f32
+        );
+        println!("round time: {}ms", start_time.elapsed().as_millis());
+        println!();
+
+        return lifted;
     }
 }
 
@@ -454,5 +682,138 @@ impl<Op, Extra> ILPExperiment<Op, Extra>
 where
     Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
 {
-    fn run(self, _wtr: &mut csv::Writer<fs::File>) {}
+    fn run(&self, _exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
+        println!("no-op: ilp feature not used");
+        println!();
+
+        RecExpr::default()
+    }
+}
+
+/// Defines some helper functions for finagling with the results of a library learning run.
+/// These runs return a single RecExpr, but when running library learning multiple times in
+/// a row, we need to get the defined libs and individual expressions out from this single RecExpr;
+/// this is what the functions in this module are for.
+mod plumbing {
+    use std::collections::HashMap;
+
+    use egg::{Id, Language, RecExpr};
+
+    use crate::{
+        ast_node::{Arity, AstNode, Expr},
+        learn::LibId,
+        teachable::Teachable,
+    };
+
+    /// The result of running library learning after one pass.
+    type LLRes<'a, Op> = &'a [AstNode<Op>];
+
+    /// At the end of all rounds, combine libs hashmap, and list of exprs back into one big recexpr
+    pub(crate) fn combine<Op>(
+        libs: HashMap<LibId, Vec<AstNode<Op>>>,
+        exprs: Vec<Expr<Op>>,
+    ) -> RecExpr<AstNode<Op>>
+    where
+        Op: Teachable + std::fmt::Debug + std::hash::Hash + Clone + Arity + Ord,
+    {
+        // First, build our root "combine" node
+        let root_list = AstNode::new(Op::list(), std::iter::repeat(Id::from(0)).take(exprs.len()));
+        let mut exprs_iter = exprs.into_iter().map(|x| RecExpr::from(x));
+        let mut res = root_list.join_recexprs(|_id| exprs_iter.next().unwrap());
+
+        // Then, add our libs back in
+        for (libid, body) in libs {
+            let root = Op::lib(libid, Id::from(0), Id::from(0));
+            let mut children = vec![body.into(), res].into_iter();
+
+            res = root.join_recexprs(|_id| children.next().unwrap());
+        }
+
+        // And we're done!
+        res
+    }
+
+    /// Gets all of the libs and their defns out of the result of a lib learning pass.
+    /// We take into account the current number of libs defined so that we don't overwrite existing
+    /// libs from previous runs.
+    pub(crate) fn libs<Op>(llr: LLRes<'_, Op>, cur_libs: usize) -> HashMap<LibId, Vec<AstNode<Op>>>
+    where
+        Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
+    {
+        // For our strategy, we start at the root and walk downwards.
+        // While we see libs, add its body to the hashmap and keep moving
+        // If we don't see a lib, that means we've hit the non-libs section,
+        // so we give up on the spot.
+        let mut res = HashMap::new();
+
+        fn walk<Op>(
+            from: LLRes<'_, Op>,
+            res: &mut HashMap<LibId, Vec<AstNode<Op>>>,
+            cur_libs: usize,
+            ix: Id,
+        ) where
+            Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
+        {
+            // Check what kind of node we're at.
+            match &from[usize::from(ix)].as_binding_expr() {
+                Some(crate::teachable::BindingExpr::Lib(lid, defn, b)) => {
+                    // Extract recursive expression
+                    let rc = (&from[usize::from(**defn)])
+                        .build_recexpr(|x| from[usize::from(x)].clone());
+
+                    // Push to res
+                    res.insert(LibId(lid.0 + cur_libs), rc.as_ref().to_vec());
+                    // Recursively walk in body
+                    walk(from, res, cur_libs, **b);
+                }
+                _ => {} // no-op
+            }
+        }
+
+        // Walk starting from root
+        walk(llr, &mut res, cur_libs, Id::from(llr.len() - 1));
+
+        res
+    }
+
+    /// Returns a list of rewritten expressions from the result of a lib learning pass.
+    pub(crate) fn exprs<Op>(llr: LLRes<'_, Op>) -> Vec<Expr<Op>>
+    where
+        Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
+    {
+        // Start at the root and walk downwards.
+        // We assume the first non-lib node we see is the root "list/combine" node.
+        // For each of the children, extract expressions for those.
+        let mut res = Vec::new();
+
+        fn walk<Op>(from: LLRes<'_, Op>, res: &mut Vec<Expr<Op>>, ix: Id)
+        where
+            Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
+        {
+            // Check what kind of node we're at.
+            match &from[usize::from(ix)].as_binding_expr() {
+                Some(crate::teachable::BindingExpr::Lib(_, _, b)) => {
+                    // Recursively walk in body
+                    walk(from, res, **b);
+                }
+                _ => {
+                    // Get children of current node
+                    from[usize::from(ix)].for_each(|c| {
+                        // Extract recursive expression
+                        let rc =
+                            (&from[usize::from(c)]).build_recexpr(|x| from[usize::from(x)].clone());
+                        // Convert into expr
+                        let e = Expr::from(rc);
+                        // Push to res
+                        res.push(e);
+                    });
+                }
+            }
+        }
+
+        // Walk starting from root
+        walk(llr, &mut res, Id::from(llr.len() - 1));
+
+        res
+    }
 }

@@ -10,6 +10,27 @@ use crate::{
     teachable::{BindingExpr, Teachable},
 };
 
+/// How many libs to use per library selection.
+#[derive(Copy, Clone, Debug, serde::Serialize)]
+pub enum LibsPerSel {
+    /// No limit on the number of libs per selection
+    Unlimited,
+    /// Limited to some number.
+    Limit(usize),
+}
+
+impl std::str::FromStr for LibsPerSel {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "unlimited" {
+            Ok(Self::Unlimited)
+        } else {
+            usize::from_str(s).map(Self::Limit)
+        }
+    }
+}
+
 /// A `CostSet` is a set of pairs; each pair contains a set of library
 /// functions paired with the cost of the current expression/eclass
 /// without the lib fns, and the cost of the lib fns themselves.
@@ -124,16 +145,22 @@ impl CostSet {
         CostSet { set }
     }
 
-    pub fn prune(&mut self, n: usize, extra_por: bool) {
+    pub fn prune(&mut self, n: usize, lps: LibsPerSel, extra_por: bool) {
         // println!("prune");
         // Only preserve the n best `LibSel`s in the set.
         if self.set.len() > n {
             self.set.sort_unstable_by_key(|elem| elem.full_cost);
+
             if extra_por {
                 self.unify2();
-                if self.set.len() <= n {
-                    return;
-                }
+            }
+
+            if let LibsPerSel::Limit(lps) = lps {
+                self.set.retain(|x| x.libs.len() <= lps);
+            }
+
+            if self.set.len() <= n {
+                return;
             }
 
             self.set.drain(n..);
@@ -297,16 +324,24 @@ pub struct PartialLibCost {
     /// The number of `LibSel`s to keep per EClass.
     beam_size: usize,
     inter_beam: usize,
+    /// The maximum number of libs per lib selection. Any lib selections with a larger amount will
+    /// be pruned.
+    lps: LibsPerSel,
     extra_por: bool,
 }
 
 impl PartialLibCost {
-    pub fn new(beam_size: usize, inter_beam: usize, extra_por: bool) -> PartialLibCost {
+    pub fn new(beam_size: usize, inter_beam: usize, lps: LibsPerSel, extra_por: bool) -> PartialLibCost {
         PartialLibCost {
             beam_size,
             inter_beam,
+            lps,
             extra_por,
         }
+    }
+
+    pub fn empty() -> PartialLibCost {
+        PartialLibCost { beam_size: 0, inter_beam: 0, lps: LibsPerSel::Unlimited, extra_por: false }
     }
 }
 
@@ -326,7 +361,7 @@ where
         // pruning.
         to.combine(from.clone());
         to.unify();
-        to.prune(self.beam_size, self.extra_por);
+        to.prune(self.beam_size, self.lps, self.extra_por);
 
         // println!("{:?}", to);
         // println!("{} {}", &a0 != to, to != &from);
@@ -345,7 +380,7 @@ where
                 // cross e1, e2 and introduce a lib!
                 let mut e = x(b).add_lib(id, x(f));
                 e.unify();
-                e.prune(self.beam_size, self.extra_por);
+                e.prune(self.beam_size, self.lps, self.extra_por);
                 e
             }
             Some(_) | None => {
@@ -368,13 +403,11 @@ where
                         e = e.cross(x(cs));
                         // Intermediate prune.
                         e.unify();
-                        e.prune(self.inter_beam, self.extra_por);
+                        e.prune(self.inter_beam, self.lps, self.extra_por);
                     }
 
-                    // TODO: intermediate unify/beam size reduction for each crossing step?
-                    // do perf testing on this
                     e.unify();
-                    e.prune(self.beam_size, self.extra_por);
+                    e.prune(self.beam_size, self.lps, self.extra_por);
                     e.inc_cost();
                     e
                 }

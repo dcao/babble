@@ -20,7 +20,7 @@ pub struct AstNode<Op, T = Id> {
     args: Vec<T>,
 }
 
-pub use expr::Expr;
+pub use expr::{Expr, combine_exprs};
 pub use partial_expr::PartialExpr;
 pub use pretty::{Precedence, Pretty, Printable, Printer};
 
