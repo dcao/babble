@@ -309,7 +309,7 @@ impl FromStr for DcExpr {
 
 #[cfg(test)]
 mod tests {
-    use babble::ast_node::AstNode;
+    use crate::ast_node::AstNode;
     use internment::ArcIntern;
 
     use super::{DcExpr, DeBruijnIndex, DreamCoderOp};
