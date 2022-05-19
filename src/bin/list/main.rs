@@ -14,9 +14,10 @@
 
 use crate::lang::ListOp;
 use babble::{
-    ast_node::{Expr, Pretty, combine_exprs},
+    ast_node::{combine_exprs, Expr, Pretty},
+    extract::beam::LibsPerSel,
     runner::Experiments,
-    sexp::Program, extract::beam::LibsPerSel,
+    sexp::Program,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -85,7 +86,10 @@ fn main() {
         .expect("Failed to parse program")
         .0
         .into_iter()
-        .map(|x| x.try_into().expect("Input is not a valid list of expressions")) // Vec<Sexp> -> Vec<Expr>
+        .map(|x| {
+            x.try_into()
+                .expect("Input is not a valid list of expressions")
+        }) // Vec<Sexp> -> Vec<Expr>
         .collect();
 
     // For the sake of pretty printing

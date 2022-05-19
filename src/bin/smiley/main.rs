@@ -13,9 +13,10 @@
 #![allow(clippy::non_ascii_literal)]
 
 use babble::{
-    ast_node::{Expr, Pretty, combine_exprs},
+    ast_node::{combine_exprs, Expr, Pretty},
+    extract::beam::LibsPerSel,
     runner::Experiments,
-    sexp::Program, extract::beam::LibsPerSel,
+    sexp::Program,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -90,9 +91,12 @@ fn main() {
         .expect("Failed to parse program")
         .0
         .into_iter()
-        .map(|x| x.try_into().expect("Input is not a valid list of expressions")) // Vec<Sexp> -> Vec<Expr>
+        .map(|x| {
+            x.try_into()
+                .expect("Input is not a valid list of expressions")
+        }) // Vec<Sexp> -> Vec<Expr>
         .collect();
-        
+
     if opts.svg {
         let expr: Expr<_> = combine_exprs(prog).into();
         let value = eval::eval(&expr).expect("Failed to evaluate expression");
@@ -114,8 +118,10 @@ fn main() {
         let dsrs = if opts.no_dsr {
             vec![]
         } else {
-            vec![egg::rewrite!("circle rotate"; "circle" => "(rotate 90 circle)"),
-                 egg::rewrite!("circle scale"; "circle" => "(scale 1 circle)")]
+            vec![
+                egg::rewrite!("circle rotate"; "circle" => "(rotate 90 circle)"),
+                egg::rewrite!("circle scale"; "circle" => "(scale 1 circle)"),
+            ]
         };
 
         let exps = Experiments::gen(

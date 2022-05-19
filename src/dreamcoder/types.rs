@@ -1,6 +1,6 @@
 //! Dream&shy;Coder's representation of Hindley-Milner types.
 
-use std::fmt::{self, Display, Formatter, Debug};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use super::util;
 use egg::Symbol;

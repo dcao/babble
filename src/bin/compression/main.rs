@@ -7,15 +7,16 @@
     missing_debug_implementations,
     single_use_lifetimes,
     trivial_casts,
-unreachable_pub,
+    unreachable_pub,
     unused_lifetimes
 )]
 #![allow(clippy::non_ascii_literal)]
 
 use babble::{
-    ast_node::{Expr, Pretty, combine_exprs},
+    ast_node::{combine_exprs, Expr, Pretty},
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
-    runner::Experiments, extract::beam::LibsPerSel,
+    extract::beam::LibsPerSel,
+    runner::Experiments,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -106,7 +107,10 @@ fn main() {
             let initial_expr: RecExpr<_> = combine_exprs(exprs.clone());
             let initial_cost = AstSize.cost_rec(&initial_expr);
 
-            println!("Initial expression (cost {}, limit {}):", initial_cost, limit);
+            println!(
+                "Initial expression (cost {}, limit {}):",
+                initial_cost, limit
+            );
             println!("{}", Pretty(&Expr::from(initial_expr.clone())));
             println!();
         }
