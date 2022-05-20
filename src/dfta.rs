@@ -57,15 +57,20 @@ where
     /// states `(s1, s2)` where `s1 != s2`) represent potential antiunifications
     /// of the enodes in the equivalent egraph of this DFTA.
     #[must_use]
-    pub(crate) fn cross_over(&self) -> Dfta<Op, (S, S)> {
+    pub(crate) fn cross_over(&self) -> Dfta<(Op, Op), (S, S)> {
         let mut new_dfta = Dfta::new();
-        for (op, rules) in &self.by_operation {
-            for rule1 in rules {
-                for (inputs2, output2) in rules {
-                    let (inputs1, output1) = rule1;
-                    let new_inputs = inputs1.iter().cloned().zip(inputs2.iter().cloned());
-                    let new_output = (output1.clone(), output2.clone());
-                    new_dfta.add_rule(op.clone(), new_inputs, new_output);
+        for (op1, rules1) in &self.by_operation {
+            for (inputs1, output1) in rules1 {
+                for (op2, rules2) in &self.by_operation {
+                    for (inputs2, output2) in rules2 {
+                        let new_output = (output1.clone(), output2.clone());
+                        if op1 == op2 {
+                            let new_inputs = inputs1.iter().cloned().zip(inputs2.iter().cloned());
+                            new_dfta.add_rule((op1.clone(), op2.clone()), new_inputs, new_output);
+                        } else if output1 == output2 {
+                            new_dfta.add_rule((op1.clone(), op2.clone()), [], new_output);
+                        }
+                    }
                 }
             }
         }

@@ -156,7 +156,7 @@ where
     T: Clone + Ord,
 {
     /// Computes the antiunifications of `state` in the DFTA `dfta`.
-    fn enumerate(&mut self, dfta: &Dfta<Op, T>, state: &T) {
+    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), T>, state: &T) {
         if self.aus_by_state.contains_key(state) {
             // We've already enumerated this state, so there's nothing to do.
             return;
@@ -173,31 +173,43 @@ where
         self.aus_by_state.insert(state.clone(), BTreeSet::new());
         let mut aus: BTreeSet<PartialExpr<Op, T>> = BTreeSet::new();
 
+        let mut same = false;
+        let mut different = false;
+
         if let Some(rules) = dfta.get_by_output(state) {
-            for (operation, inputs) in rules {
-                if inputs.is_empty() {
-                    aus.insert(AstNode::leaf(operation.clone()).into());
-                } else {
-                    // Recursively enumerate the inputs to this rule.
-                    for input in inputs {
-                        self.enumerate(dfta, input);
+            for ((op1, op2), inputs) in rules {
+                if op1 == op2 {
+                    same = true;
+                    if inputs.is_empty() {
+                        aus.insert(AstNode::leaf(op1.clone()).into());
+                    } else {
+                        // Recursively enumerate the inputs to this rule.
+                        for input in inputs {
+                            self.enumerate(dfta, input);
+                        }
+
+                        // For a rule `op(s1, ..., sn) -> state`, we add an
+                        // antiunification of the form `(op a1 ... an)` for every
+                        // combination `a1, ..., an` of antiunifications of the
+                        // input states `s1, ..., sn`, i.e., for every `(a1, ..., an)`
+                        // in the cartesian product
+                        // `antiunifications_by_state[s1] × ... × antiunifications_by_state[sn]`
+                        let new_aus = inputs
+                            .iter()
+                            .map(|input| self.aus_by_state[input].iter().cloned())
+                            .multi_cartesian_product()
+                            .map(|inputs| AstNode::new(op1.clone(), inputs).into());
+
+                        aus.extend(new_aus);
                     }
-
-                    // For a rule `op(s1, ..., sn) -> state`, we add an
-                    // antiunification of the form `(op a1 ... an)` for every
-                    // combination `a1, ..., an` of antiunifications of the
-                    // input states `s1, ..., sn`, i.e., for every `(a1, ..., an)`
-                    // in the cartesian product
-                    // `antiunifications_by_state[s1] × ... × antiunifications_by_state[sn]`
-                    let new_aus = inputs
-                        .iter()
-                        .map(|input| self.aus_by_state[input].iter().cloned())
-                        .multi_cartesian_product()
-                        .map(|inputs| AstNode::new(operation.clone(), inputs).into());
-
-                    aus.extend(new_aus);
+                } else {
+                    different = true;
                 }
             }
+        }
+
+        if same && different {
+            aus.insert(PartialExpr::Hole(state.clone()));
         }
 
         if aus.is_empty() {
