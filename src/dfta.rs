@@ -100,7 +100,7 @@ where
                         if op1 == op2 {
                             let new_inputs = inputs1.iter().cloned().zip(inputs2.iter().cloned());
                             new_dfta.add_rule((op1.clone(), op2.clone()), new_inputs, new_output);
-                        } else if output1 == output2 {
+                        } else {
                             new_dfta.add_rule((op1.clone(), op2.clone()), [], new_output);
                         }
                     }
