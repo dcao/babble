@@ -80,7 +80,7 @@ pub struct LearnedLibrary<Op, T> {
 
 impl<'a, Op> LearnedLibrary<Op, (Id, Id)>
 where
-    Op: Arity + Clone + Debug + Ord,
+    Op: Arity + Clone + Debug + Ord + Sync + Send + Display + 'static,
     AstNode<Op>: Language,
 {
     /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
@@ -94,10 +94,25 @@ where
             nontrivial_aus: BTreeSet::new(),
             learn_constants,
         };
-        let dfta = Dfta::from(egraph).cross_over();
+        let dfta = Dfta::from(egraph);
+        println!("Initial DFTA:");
+        println!("{:?}", dfta);
+
+        let dfta = dfta.cross_over();
+        println!("Crossed-over DFTA:");
+        println!("{:?}", dfta);
+
         for state in dfta.output_states() {
             learned_lib.enumerate(&dfta, state);
         }
+
+        for (state, aus) in &learned_lib.aus_by_state {
+            println!("{:?}", state);
+            for au in aus {
+                println!("    {}", patternize(au));
+            }
+        }
+
         learned_lib
     }
 }
@@ -290,6 +305,21 @@ fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> (PartialExpr<Op, Var>, usize)
     };
     let normalized = au.fill(to_var);
     (normalized, metavars.len())
+}
+
+fn patternize<Op>(au: &PartialExpr<Op, (Id, Id)>) -> Pattern<AstNode<Op>>
+where
+    Op: Arity + Clone + Display + Ord + Send + Sync + 'static,
+    AstNode<Op>: Language,
+{
+    let au = au.clone();
+    au.fill(|(s1, s2)| {
+        let var = format!("?s_{}_{}", s1, s2)
+            .parse()
+            .unwrap_or_else(|_| unreachable!());
+        PartialExpr::Hole(var)
+    })
+    .into()
 }
 
 /// Converts an anti-unification into a partial expression which defines a new
