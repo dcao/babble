@@ -14,9 +14,10 @@
 
 use crate::lang::ListOp;
 use babble::{
-    ast_node::{Expr, Pretty, combine_exprs},
+    ast_node::{combine_exprs, Expr, Pretty},
+    extract::beam::LibsPerSel,
     runner::Experiments,
-    sexp::Program, extract::beam::LibsPerSel,
+    sexp::Program,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -35,6 +36,14 @@ struct Opts {
     /// The input file. If no file is specified, reads from stdin.
     #[clap(parse(from_os_str))]
     file: Option<PathBuf>,
+
+    /// Whether to learn "library functions" with no arguments.
+    #[clap(long)]
+    learn_constants: bool,
+
+    /// The number of programs to anti-unify
+    #[clap(long)]
+    limit: Vec<usize>,
 
     /// The beam sizes to use for the beam extractor
     #[clap(long)]
@@ -77,7 +86,10 @@ fn main() {
         .expect("Failed to parse program")
         .0
         .into_iter()
-        .map(|x| x.try_into().expect("Input is not a valid list of expressions")) // Vec<Sexp> -> Vec<Expr>
+        .map(|x| {
+            x.try_into()
+                .expect("Input is not a valid list of expressions")
+        }) // Vec<Sexp> -> Vec<Expr>
         .collect();
 
     // For the sake of pretty printing
@@ -99,6 +111,7 @@ fn main() {
         opts.extra_por.clone(),
         opts.timeout.clone(),
         (),
+        opts.learn_constants,
     );
 
     println!("running...");

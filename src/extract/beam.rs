@@ -63,7 +63,7 @@ impl CostSet {
                 let ls = ls1.combine(ls2);
 
                 match set.binary_search(&ls) {
-                    Ok(_) => {}, // Nadia: Why insert it again?
+                    Ok(_) => {} // Nadia: Why insert it again?
                     Err(pos) => set.insert(pos, ls),
                 }
             }
@@ -331,7 +331,12 @@ pub struct PartialLibCost {
 }
 
 impl PartialLibCost {
-    pub fn new(beam_size: usize, inter_beam: usize, lps: LibsPerSel, extra_por: bool) -> PartialLibCost {
+    pub fn new(
+        beam_size: usize,
+        inter_beam: usize,
+        lps: LibsPerSel,
+        extra_por: bool,
+    ) -> PartialLibCost {
         PartialLibCost {
             beam_size,
             inter_beam,
@@ -341,7 +346,12 @@ impl PartialLibCost {
     }
 
     pub fn empty() -> PartialLibCost {
-        PartialLibCost { beam_size: 0, inter_beam: 0, lps: LibsPerSel::Unlimited, extra_por: false }
+        PartialLibCost {
+            beam_size: 0,
+            inter_beam: 0,
+            lps: LibsPerSel::Unlimited,
+            extra_por: false,
+        }
     }
 }
 

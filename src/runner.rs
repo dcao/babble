@@ -229,6 +229,7 @@ where
         mut extra_pors: Vec<bool>,
         timeouts: Vec<u64>,
         extra: Extra,
+        learn_constants: bool,
     ) -> Self {
         let mut res = Vec::new();
 
@@ -262,6 +263,7 @@ where
                             rounds: *rounds,
                             extra_por: *extra_por,
                             extra_data: extra.clone(),
+                            learn_constants,
                         }));
                     }
                 }
@@ -275,8 +277,8 @@ where
                     dsrs: dsrs.clone(),
                     timeout,
                     rounds: *r,
-                    
                     extra_data: extra.clone(),
+                    learn_constants,
                 }));
             }
         }
@@ -317,6 +319,8 @@ where
     extra_por: bool,
     /// Any extra data associated with this experiment
     extra_data: Extra,
+    /// Whether to learn "library functions" with no arguments.
+    learn_constants: bool,
 }
 
 impl<Op, Extra> BeamExperiment<Op, Extra>
@@ -373,7 +377,7 @@ where
 
         let ll_time = Instant::now();
 
-        let learned_lib = LearnedLibrary::from(&aeg);
+        let learned_lib = LearnedLibrary::new(&aeg, self.learn_constants);
         let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
 
         println!(
@@ -497,6 +501,8 @@ where
     rounds: usize,
     /// Any extra data associated with this experiment
     extra_data: Extra,
+    /// Whether to learn "library functions" without any arguments.
+    learn_constants: bool,
 }
 
 #[cfg(feature = "grb")]
@@ -554,7 +560,7 @@ where
 
         let ll_time = Instant::now();
 
-        let learned_lib = LearnedLibrary::from(&aeg);
+        let learned_lib = LearnedLibrary::new(&aeg, self.learn_constants);
         let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
 
         println!(
