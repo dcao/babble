@@ -103,11 +103,12 @@ where
 
         for r in 0..rounds {
             println!("round {}/{}", r + 1, rounds);
-
-            rc = match &self {
+            let rcont = match &self {
                 Experiment::Beam(b) => b.run_one(exprs),
                 Experiment::ILP(ilp) => ilp.run(exprs),
             };
+
+            rc = rcont.0;
 
             // If rc is empty, just return early.
             if rc.as_ref().is_empty() {
@@ -118,6 +119,12 @@ where
             let ls = plumbing::libs(rc.as_ref(), libs.len());
             libs.extend(ls);
             exprs = plumbing::exprs(rc.as_ref());
+
+            // Otherwise, if we've reached saturation, break
+            if !rcont.1 {
+                println!("reached saturation after {} rounds", r + 1);
+                break;
+            }
         }
 
         // Combine back into one big recexpr at the end
@@ -327,81 +334,7 @@ where
         + 'static,
     Extra: serde::ser::Serialize + std::fmt::Debug + Clone,
 {
-    // TODO: Generalize this for ILP too
-    fn run(&self, wtr: &mut csv::Writer<fs::File>) {
-        if self.final_beams > self.inter_beams {
-            return;
-        }
-
-        println!(
-            "beam | final_beams: {}, inter_beams: {}, lps: {:?}, rounds: {}, extra_por: {}, extra_data: {:?}",
-            self.final_beams, self.inter_beams, self.lps, self.rounds, self.extra_por, self.extra_data
-        );
-
-        let start_time = Instant::now();
-
-        // First, let's turn our list of exprs into a list of recexprs
-        let recexprs: Vec<RecExpr<AstNode<Op>>> =
-            self.exprs.clone().into_iter().map(|x| x.into()).collect();
-
-        // Add one to account for root node, not added yet
-        let initial_cost = {
-            let s: usize = recexprs.iter().map(|x| AstSize.cost_rec(x)).sum();
-            s + 1
-        };
-
-        // Start running our rounds
-        let mut libs = HashMap::new();
-        let mut exprs = self.exprs.clone();
-
-        let mut rc: RecExpr<AstNode<Op>>;
-
-        for r in 0..self.rounds {
-            println!("round {}/{}", r + 1, self.rounds);
-
-            rc = self.run_one(exprs);
-
-            let ls = plumbing::libs(rc.as_ref(), libs.len());
-            libs.extend(ls);
-            exprs = plumbing::exprs(rc.as_ref());
-        }
-
-        // Combine back into one big recexpr at the end
-        rc = plumbing::combine(libs, exprs);
-        let final_cost = AstSize.cost_rec(&rc);
-
-        // Print our analysis on this
-        if self.rounds > 1 {
-            println!("Final beam results");
-            println!("{}", Pretty(&Expr::from(rc)));
-            println!(
-                "cost diff: {} -> {} (compression ratio {})",
-                initial_cost,
-                final_cost,
-                final_cost as f32 / initial_cost as f32
-            );
-            println!("round time: {}ms", start_time.elapsed().as_millis());
-            println!();
-        }
-
-        wtr.serialize((
-            "beam",
-            0,
-            self.final_beams,
-            self.inter_beams,
-            self.lps,
-            self.rounds,
-            self.extra_por,
-            self.extra_data.clone(),
-            initial_cost,
-            final_cost,
-            start_time.elapsed().as_secs_f64(),
-        ))
-        .unwrap();
-        wtr.flush().unwrap();
-    }
-
-    fn run_one(&self, exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
+    fn run_one(&self, exprs: Vec<Expr<Op>>) -> (RecExpr<AstNode<Op>>, bool) {
         let start_time = Instant::now();
         let timeout = Duration::from_secs(60 * 100000);
 
@@ -480,6 +413,12 @@ where
 
         println!("Finished in {}ms", root_time.elapsed().as_millis());
 
+        if cs.set.is_empty() {
+            println!("empty costset! terminating early");
+            println!();
+            return (RecExpr::default(), false);
+        }
+
         debug!("learned libs");
         let all_libs: Vec<_> = learned_lib.libs().collect();
         for lib in &cs.set[0].libs {
@@ -537,7 +476,7 @@ where
         println!("round time: {}ms", start_time.elapsed().as_millis());
         println!();
 
-        return lifted;
+        return (lifted, initial_cost != final_cost);
     }
 }
 
@@ -576,7 +515,7 @@ where
         + 'static,
     Extra: serde::ser::Serialize + std::fmt::Debug + Clone,
 {
-    fn run(&self, exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
+    fn run(&self, exprs: Vec<Expr<Op>>) -> (RecExpr<AstNode<Op>>, bool) {
         let start_time = Instant::now();
         let timeout = Duration::from_secs(self.timeout);
 
@@ -667,7 +606,7 @@ where
         println!("round time: {}ms", start_time.elapsed().as_millis());
         println!();
 
-        return lifted;
+        return (lifted, initial_cost != final_cost);
     }
 }
 
@@ -676,11 +615,11 @@ impl<Op, Extra> ILPExperiment<Op, Extra>
 where
     Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
 {
-    fn run(&self, _exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
+    fn run(&self, _exprs: Vec<Expr<Op>>) -> (RecExpr<AstNode<Op>>, bool) {
         println!("no-op: ilp feature not used");
         println!();
 
-        RecExpr::default()
+        (RecExpr::default(), false)
     }
 }
 

@@ -110,8 +110,11 @@ fn main() {
         let dsrs = if opts.no_dsr {
             vec![]
         } else {
-            vec![egg::rewrite!("add commute"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)")]
-            // vec![egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x")]
+            vec![
+                egg::rewrite!("add commute"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)"),
+                egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x")
+            ]
+            // vec![]
         };
 
         let exps = Experiments::gen(
