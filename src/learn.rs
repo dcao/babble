@@ -95,23 +95,23 @@ where
             learn_constants,
         };
         let dfta = Dfta::from(egraph);
-        println!("Initial DFTA:");
-        println!("{:?}", dfta);
+        // println!("Initial DFTA:");
+        // println!("{:?}", dfta);
 
         let dfta = dfta.cross_over();
-        println!("Crossed-over DFTA:");
-        println!("{:?}", dfta);
+        // println!("Crossed-over DFTA:");
+        // println!("{:?}", dfta);
 
         for state in dfta.output_states() {
             learned_lib.enumerate(&dfta, state);
         }
 
-        for (state, aus) in &learned_lib.aus_by_state {
-            println!("{:?}", state);
-            for au in aus {
-                println!("    {}", patternize(au));
-            }
-        }
+        // for (state, aus) in &learned_lib.aus_by_state {
+        //     println!("{:?}", state);
+        //     for au in aus {
+        //         println!("    {}", patternize(au));
+        //     }
+        // }
 
         learned_lib
     }
@@ -165,13 +165,13 @@ where
     }
 }
 
-impl<Op, T> LearnedLibrary<Op, T>
+impl<Op, T> LearnedLibrary<Op, (T, T)>
 where
     Op: Arity + Clone + Debug + Ord,
     T: Clone + Ord,
 {
     /// Computes the antiunifications of `state` in the DFTA `dfta`.
-    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), T>, state: &T) {
+    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), (T, T)>, state: &(T, T)) {
         if self.aus_by_state.contains_key(state) {
             // We've already enumerated this state, so there's nothing to do.
             return;
@@ -186,7 +186,7 @@ where
         // exclude any antiunifications that would come from looping sequences
         // of rules.
         self.aus_by_state.insert(state.clone(), BTreeSet::new());
-        let mut aus: BTreeSet<PartialExpr<Op, T>> = BTreeSet::new();
+        let mut aus: BTreeSet<PartialExpr<Op, (T, T)>> = BTreeSet::new();
 
         let mut same = false;
         let mut different = false;
@@ -229,7 +229,9 @@ where
 
         if aus.is_empty() {
             aus.insert(PartialExpr::Hole(state.clone()));
-        } else {
+        } else if state.0 != state.1 {
+            // Non-trivial AUs exclude self-AUs (i.e. AUs of an e-class with itself);
+            // TODO: this is actually incomplete, right?
             // We filter out the anti-unifications which are just concrete
             // expressions with no variables, and then convert the contained
             // states to pattern variables. The conversion takes

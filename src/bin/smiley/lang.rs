@@ -9,7 +9,7 @@ use egg::Rewrite;
 use lazy_static::lazy_static;
 use ordered_float::NotNan;
 use std::{
-    fmt::{self, Display, Formatter, Write, Debug},
+    fmt::{self, Debug, Display, Formatter, Write},
     num::ParseIntError,
     str::FromStr,
 };
