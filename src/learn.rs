@@ -15,6 +15,7 @@
 //! If the set AU(a, b) is empty, we add to it the partial expression (a, b).
 use crate::{
     ast_node::{Arity, AstNode, PartialExpr},
+    co_occurrence::CoOccurrences,
     dfta::Dfta,
     teachable::{BindingExpr, Teachable},
 };
@@ -76,11 +77,12 @@ pub struct LearnedLibrary<Op, T> {
     nontrivial_aus: BTreeSet<PartialExpr<Op, Var>>,
     /// Whether to also learn "library functions" which take no arguments.
     learn_constants: bool,
+    co_occurrences: CoOccurrences,
 }
 
 impl<'a, Op> LearnedLibrary<Op, (Id, Id)>
 where
-    Op: Arity + Clone + Debug + Ord,
+    Op: Arity + Clone + Debug + Ord + Sync + Send + Display + 'static,
     AstNode<Op>: Language,
 {
     /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
@@ -88,16 +90,33 @@ where
     pub fn new<A: Analysis<AstNode<Op>>>(
         egraph: &'a EGraph<AstNode<Op>, A>,
         learn_constants: bool,
+        co_occurrences: CoOccurrences,
     ) -> Self {
         let mut learned_lib = Self {
             aus_by_state: BTreeMap::new(),
             nontrivial_aus: BTreeSet::new(),
             learn_constants,
+            co_occurrences,
         };
-        let dfta = Dfta::from(egraph).cross_over();
+        let dfta = Dfta::from(egraph);
+        // println!("Initial DFTA:");
+        // println!("{:?}", dfta);
+
+        let dfta = dfta.cross_over();
+        // println!("Crossed-over DFTA:");
+        // println!("{:?}", dfta);
+
         for state in dfta.output_states() {
             learned_lib.enumerate(&dfta, state);
         }
+
+        // for (state, aus) in &learned_lib.aus_by_state {
+        //     println!("{:?}", state);
+        //     for au in aus {
+        //         println!("    {}", patternize(au));
+        //     }
+        // }
+
         learned_lib
     }
 }
@@ -150,13 +169,13 @@ where
     }
 }
 
-impl<Op, T> LearnedLibrary<Op, T>
+impl<Op> LearnedLibrary<Op, (Id, Id)>
 where
     Op: Arity + Clone + Debug + Ord,
-    T: Clone + Ord,
+    // T: Clone + Ord,
 {
     /// Computes the antiunifications of `state` in the DFTA `dfta`.
-    fn enumerate(&mut self, dfta: &Dfta<Op, T>, state: &T) {
+    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), (Id, Id)>, state: &(Id, Id)) {
         if self.aus_by_state.contains_key(state) {
             // We've already enumerated this state, so there's nothing to do.
             return;
@@ -170,39 +189,52 @@ where
         // By initially setting the antiunifications of this state to empty, we
         // exclude any antiunifications that would come from looping sequences
         // of rules.
-        self.aus_by_state.insert(state.clone(), BTreeSet::new());
-        let mut aus: BTreeSet<PartialExpr<Op, T>> = BTreeSet::new();
+        self.aus_by_state.insert(*state, BTreeSet::new());
+        let mut aus: BTreeSet<PartialExpr<Op, (Id, Id)>> = BTreeSet::new();
+
+        let mut same = false;
+        let mut different = false;
 
         if let Some(rules) = dfta.get_by_output(state) {
-            for (operation, inputs) in rules {
-                if inputs.is_empty() {
-                    aus.insert(AstNode::leaf(operation.clone()).into());
-                } else {
-                    // Recursively enumerate the inputs to this rule.
-                    for input in inputs {
-                        self.enumerate(dfta, input);
+            for ((op1, op2), inputs) in rules {
+                if op1 == op2 {
+                    same = true;
+                    if inputs.is_empty() {
+                        aus.insert(AstNode::leaf(op1.clone()).into());
+                    } else {
+                        // Recursively enumerate the inputs to this rule.
+                        for input in inputs {
+                            self.enumerate(dfta, input);
+                        }
+
+                        // For a rule `op(s1, ..., sn) -> state`, we add an
+                        // antiunification of the form `(op a1 ... an)` for every
+                        // combination `a1, ..., an` of antiunifications of the
+                        // input states `s1, ..., sn`, i.e., for every `(a1, ..., an)`
+                        // in the cartesian product
+                        // `antiunifications_by_state[s1] × ... × antiunifications_by_state[sn]`
+                        let new_aus = inputs
+                            .iter()
+                            .map(|input| self.aus_by_state[input].iter().cloned())
+                            .multi_cartesian_product()
+                            .map(|inputs| AstNode::new(op1.clone(), inputs).into());
+
+                        aus.extend(new_aus);
                     }
-
-                    // For a rule `op(s1, ..., sn) -> state`, we add an
-                    // antiunification of the form `(op a1 ... an)` for every
-                    // combination `a1, ..., an` of antiunifications of the
-                    // input states `s1, ..., sn`, i.e., for every `(a1, ..., an)`
-                    // in the cartesian product
-                    // `antiunifications_by_state[s1] × ... × antiunifications_by_state[sn]`
-                    let new_aus = inputs
-                        .iter()
-                        .map(|input| self.aus_by_state[input].iter().cloned())
-                        .multi_cartesian_product()
-                        .map(|inputs| AstNode::new(operation.clone(), inputs).into());
-
-                    aus.extend(new_aus);
+                } else {
+                    different = true;
                 }
             }
         }
 
+        if same && different {
+            aus.insert(PartialExpr::Hole(state.clone()));
+        }
+
         if aus.is_empty() {
             aus.insert(PartialExpr::Hole(state.clone()));
-        } else {
+        } else if self.co_occurrences.may_co_occur(state.0, state.1) {
+            // If the two e-classes cannot co-occur in the same program, do not produce an AU for them!
             // We filter out the anti-unifications which are just concrete
             // expressions with no variables, and then convert the contained
             // states to pattern variables. The conversion takes
@@ -278,6 +310,21 @@ fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> (PartialExpr<Op, Var>, usize)
     };
     let normalized = au.fill(to_var);
     (normalized, metavars.len())
+}
+
+fn patternize<Op>(au: &PartialExpr<Op, (Id, Id)>) -> Pattern<AstNode<Op>>
+where
+    Op: Arity + Clone + Display + Ord + Send + Sync + 'static,
+    AstNode<Op>: Language,
+{
+    let au = au.clone();
+    au.fill(|(s1, s2)| {
+        let var = format!("?s_{}_{}", s1, s2)
+            .parse()
+            .unwrap_or_else(|_| unreachable!());
+        PartialExpr::Hole(var)
+    })
+    .into()
 }
 
 /// Converts an anti-unification into a partial expression which defines a new

@@ -9,13 +9,13 @@ use egg::Rewrite;
 use lazy_static::lazy_static;
 use ordered_float::NotNan;
 use std::{
-    fmt::{self, Display, Formatter, Write},
+    fmt::{self, Debug, Display, Formatter, Write},
     num::ParseIntError,
     str::FromStr,
 };
 
 /// The operations/AST nodes of the "Smiley" language.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum Smiley {
     /// A signed integer constant.
     Int(i32),
@@ -47,6 +47,13 @@ pub(crate) enum Smiley {
     /// Shift indices.
     Shift,
 }
+
+impl Debug for Smiley {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 impl Arity for Smiley {
     fn min_arity(&self) -> usize {
         match self {
@@ -73,8 +80,8 @@ impl Arity for Smiley {
 impl Display for Smiley {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Int(n) => n.fmt(f),
-            Self::Float(g) => g.fmt(f),
+            Self::Int(n) => Display::fmt(n, f),
+            Self::Float(g) => Display::fmt(g, f),
             Self::Var(i) => write!(f, "{}", i),
             Self::Circle => f.write_str("circle"),
             Self::Line => f.write_str("line"),

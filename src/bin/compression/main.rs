@@ -120,9 +120,9 @@ fn main() {
         } else {
             vec![
                 egg::rewrite!("add commute"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)"),
-                egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x")
+                egg::rewrite!("add assoc"; "(@ (@ + (@ (@ + ?x) ?y)) ?z)" => "(@ (@ + ?x) (@ (@ + ?y) ?z))"),
+                egg::rewrite!("len range"; "(@ length (@ range ?x))" => "?x"),
             ]
-            // vec![]
         };
 
         let exps = Experiments::gen(

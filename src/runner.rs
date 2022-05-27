@@ -12,6 +12,7 @@ use log::debug;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
+    co_occurrence::{COBuilder, CoOccurrences},
     extract::{
         beam::{LibExtractor, LibsPerSel, PartialLibCost},
         lift_libs,
@@ -371,13 +372,19 @@ where
             .run(&self.dsrs);
 
         let aeg = runner.egraph;
-
         println!("Finished in {}ms", start_time.elapsed().as_millis());
+
+        print!("Running co-occurrence analysis... ");
+        let co_time = Instant::now();
+        let mut co_ext = COBuilder::new(&aeg, &roots);
+        let co_occurs = co_ext.run();
+        println!("Finished in {}ms", co_time.elapsed().as_millis());
+
         print!("Running anti-unification... ");
 
         let ll_time = Instant::now();
 
-        let learned_lib = LearnedLibrary::new(&aeg, self.learn_constants);
+        let learned_lib = LearnedLibrary::new(&aeg, self.learn_constants, co_occurs);
         let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
 
         println!(

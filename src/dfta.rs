@@ -4,16 +4,49 @@ use crate::ast_node::AstNode;
 use egg::{Analysis, EGraph, Id, Language};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt::{self, Debug, Formatter},
     iter::FromIterator,
 };
 
 /// A deterministic finite tree automaton (DFTA) is a set of transition rules of
 /// the form `op(s1, ..., sn) -> s0` where `op` is an operation of type `Op` and
 /// `s0, ..., sn` are states of type `S`.
-#[derive(Debug)]
 pub(crate) struct Dfta<Op, S> {
     by_operation: BTreeMap<Op, BTreeSet<(Vec<S>, S)>>,
     by_output: BTreeMap<S, BTreeSet<(Op, Vec<S>)>>,
+}
+
+impl<Op: Debug, S: Debug> Debug for Dfta<Op, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        fn fmt_rule<Op: Debug, S: Debug>(
+            (op, args): &(Op, Vec<S>),
+            f: &mut Formatter<'_>,
+        ) -> fmt::Result {
+            if args.is_empty() {
+                writeln!(f, "{:?}", op)
+            } else {
+                writeln!(f, "{:?}{:?}", op, args)
+            }
+        }
+
+        for (state, rules) in &self.by_output {
+            write!(f, "{:?}", state)?;
+
+            let mut rules = rules.iter();
+            if let Some(rule) = rules.next() {
+                f.write_str(" <- ")?;
+                fmt_rule(rule, f)?;
+            } else {
+                writeln!(f, "")?;
+            }
+
+            for rule in rules {
+                f.write_str("    | ")?;
+                fmt_rule(rule, f)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 impl<Op, S> Dfta<Op, S>
@@ -57,15 +90,20 @@ where
     /// states `(s1, s2)` where `s1 != s2`) represent potential antiunifications
     /// of the enodes in the equivalent egraph of this DFTA.
     #[must_use]
-    pub(crate) fn cross_over(&self) -> Dfta<Op, (S, S)> {
+    pub(crate) fn cross_over(&self) -> Dfta<(Op, Op), (S, S)> {
         let mut new_dfta = Dfta::new();
-        for (op, rules) in &self.by_operation {
-            for rule1 in rules {
-                for (inputs2, output2) in rules {
-                    let (inputs1, output1) = rule1;
-                    let new_inputs = inputs1.iter().cloned().zip(inputs2.iter().cloned());
-                    let new_output = (output1.clone(), output2.clone());
-                    new_dfta.add_rule(op.clone(), new_inputs, new_output);
+        for (op1, rules1) in &self.by_operation {
+            for (inputs1, output1) in rules1 {
+                for (op2, rules2) in &self.by_operation {
+                    for (inputs2, output2) in rules2 {
+                        let new_output = (output1.clone(), output2.clone());
+                        if op1 == op2 {
+                            let new_inputs = inputs1.iter().cloned().zip(inputs2.iter().cloned());
+                            new_dfta.add_rule((op1.clone(), op2.clone()), new_inputs, new_output);
+                        } else {
+                            new_dfta.add_rule((op1.clone(), op2.clone()), [], new_output);
+                        }
+                    }
                 }
             }
         }
