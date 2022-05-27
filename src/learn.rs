@@ -15,6 +15,7 @@
 //! If the set AU(a, b) is empty, we add to it the partial expression (a, b).
 use crate::{
     ast_node::{Arity, AstNode, PartialExpr},
+    co_occurrence::CoOccurrences,
     dfta::Dfta,
     teachable::{BindingExpr, Teachable},
 };
@@ -76,6 +77,7 @@ pub struct LearnedLibrary<Op, T> {
     nontrivial_aus: BTreeSet<PartialExpr<Op, Var>>,
     /// Whether to also learn "library functions" which take no arguments.
     learn_constants: bool,
+    co_occurrences: CoOccurrences,
 }
 
 impl<'a, Op> LearnedLibrary<Op, (Id, Id)>
@@ -88,11 +90,13 @@ where
     pub fn new<A: Analysis<AstNode<Op>>>(
         egraph: &'a EGraph<AstNode<Op>, A>,
         learn_constants: bool,
+        co_occurrences: CoOccurrences,
     ) -> Self {
         let mut learned_lib = Self {
             aus_by_state: BTreeMap::new(),
             nontrivial_aus: BTreeSet::new(),
             learn_constants,
+            co_occurrences,
         };
         let dfta = Dfta::from(egraph);
         // println!("Initial DFTA:");
@@ -165,13 +169,13 @@ where
     }
 }
 
-impl<Op, T> LearnedLibrary<Op, (T, T)>
+impl<Op> LearnedLibrary<Op, (Id, Id)>
 where
     Op: Arity + Clone + Debug + Ord,
-    T: Clone + Ord,
+    // T: Clone + Ord,
 {
     /// Computes the antiunifications of `state` in the DFTA `dfta`.
-    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), (T, T)>, state: &(T, T)) {
+    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), (Id, Id)>, state: &(Id, Id)) {
         if self.aus_by_state.contains_key(state) {
             // We've already enumerated this state, so there's nothing to do.
             return;
@@ -185,8 +189,8 @@ where
         // By initially setting the antiunifications of this state to empty, we
         // exclude any antiunifications that would come from looping sequences
         // of rules.
-        self.aus_by_state.insert(state.clone(), BTreeSet::new());
-        let mut aus: BTreeSet<PartialExpr<Op, (T, T)>> = BTreeSet::new();
+        self.aus_by_state.insert(*state, BTreeSet::new());
+        let mut aus: BTreeSet<PartialExpr<Op, (Id, Id)>> = BTreeSet::new();
 
         let mut same = false;
         let mut different = false;
@@ -229,9 +233,8 @@ where
 
         if aus.is_empty() {
             aus.insert(PartialExpr::Hole(state.clone()));
-        } else if state.0 != state.1 {
-            // Non-trivial AUs exclude self-AUs (i.e. AUs of an e-class with itself);
-            // TODO: this is actually incomplete, right?
+        } else if self.co_occurrences.may_co_occur(state.0, state.1) {
+            // If the two e-classes cannot co-occur in the same program, do not produce an AU for them!
             // We filter out the anti-unifications which are just concrete
             // expressions with no variables, and then convert the contained
             // states to pattern variables. The conversion takes
