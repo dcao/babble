@@ -19,7 +19,7 @@ use crate::{
     dfta::Dfta,
     teachable::{BindingExpr, Teachable},
 };
-use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Var};
+use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Searcher, Var};
 use itertools::Itertools;
 use log::debug;
 use std::{
@@ -61,6 +61,24 @@ impl FromStr for LibId {
         } else {
             Err(ParseLibIdError::NoLeadingL)
         }
+    }
+}
+
+/// Signature of a pattern match in an e-graph.
+/// Used to deduplicate equivalent patterns.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+struct Match {
+    /// The e-class that the match is found in.
+    class: Id,
+    /// The range of the match's substitution
+    /// (a multiset of class ids, stores as a sorted vector).
+    actuals: Vec<Id>,
+}
+
+impl Match {
+    fn new(class: Id, mut actuals: Vec<Id>) -> Self {
+        actuals.sort();
+        Self { class, actuals }
     }
 }
 
@@ -123,7 +141,7 @@ where
 
 impl<Op, T> LearnedLibrary<Op, T>
 where
-    Op: Arity + Clone + Display + Ord + Send + Sync + Teachable + 'static,
+    Op: Arity + Clone + Debug + Display + Ord + Send + Sync + Teachable + 'static,
     AstNode<Op>: Language,
 {
     /// Returns an iterator over rewrite rules that replace expressions with
@@ -161,11 +179,61 @@ where
         })
     }
 
+    /// Right-hand sides of library rewrites.
     pub fn libs(&self) -> impl Iterator<Item = Pattern<AstNode<Op>>> + '_ {
         self.nontrivial_aus.iter().enumerate().map(|(i, au)| {
             let applier: Pattern<_> = reify(LibId(i), au.clone()).into();
             applier
         })
+    }
+
+    /// Number of patterns learned.
+    pub fn size(&self) -> usize {
+        self.nontrivial_aus.len()
+    }
+
+    /// If two candidate patterns (stored in `nontrivial_aus`) have the same set of matches,
+    /// only preserve the smaller one of them.
+    /// Here a match is a pair of the e-class where the match was found
+    /// and the range of its substitution
+    /// (as a multiset of e-classes; which variables matched which e-classes is irrelevant).
+    /// The reason two such patterns are equivalent is because their corresponding library functions
+    /// can be used in exactly the same places and will have the same multiset (and hence size) of actual arguments.
+    ///
+    /// For example, after running a DSR (+ ?x ?y) => (+ ?y ?x),
+    /// for any learned pattern containing (+ ?x0 ?x1), there will be an equivalent pattern containing (+ ?x1 ?x0),
+    /// which will be eliminated here.
+    pub fn deduplicate<A: Analysis<AstNode<Op>>>(&mut self, egraph: &EGraph<AstNode<Op>, A>) {
+        // The algorithm is simply to iterate over all patterns,
+        // and save their matches in a dictionary indexed by the match set.
+        let mut cache: BTreeMap<Vec<Match>, PartialExpr<Op, Var>> = BTreeMap::new();
+        for au in &self.nontrivial_aus {
+            let pattern: Pattern<_> = au.clone().into();
+            // A key in `cache` is a set of matches
+            // represented as a sorted vector.
+            let mut key = vec![];
+            for m in pattern.search(egraph) {
+                for sub in m.substs {
+                    let actuals: Vec<_> = pattern.vars().iter().map(|v| sub[*v]).collect();
+                    let match_signature = Match::new(m.eclass, actuals);
+                    key.push(match_signature);
+                }
+            }
+            key.sort();
+            match cache.get(&key) {
+                Some(cached) if cached.size() <= au.size() => {
+                    debug!(
+                        "Pruning pattern {}\n as a duplicate of {}",
+                        pattern,
+                        Pattern::from(cached.clone())
+                    );
+                }
+                _ => {
+                    cache.insert(key, au.clone());
+                }
+            }
+        }
+        self.nontrivial_aus = cache.values().cloned().collect();
     }
 }
 

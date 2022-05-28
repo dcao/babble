@@ -4,6 +4,7 @@
 use std::{
     collections::HashMap,
     fs,
+    io::{self, Write},
     time::{Duration, Instant},
 };
 
@@ -12,7 +13,7 @@ use log::debug;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
-    co_occurrence::{COBuilder, CoOccurrences},
+    co_occurrence::COBuilder,
     extract::{
         beam::{LibExtractor, LibsPerSel, PartialLibCost},
         lift_libs,
@@ -365,6 +366,7 @@ where
         aeg.rebuild();
 
         print!("Running {} DSRs... ", self.dsrs.len());
+        io::stdout().flush().unwrap();
 
         let runner = Runner::<_, _, ()>::new(PartialLibCost::empty())
             .with_egraph(aeg)
@@ -375,27 +377,36 @@ where
         println!("Finished in {}ms", start_time.elapsed().as_millis());
 
         print!("Running co-occurrence analysis... ");
+        io::stdout().flush().unwrap();
         let co_time = Instant::now();
         let mut co_ext = COBuilder::new(&aeg, &roots);
         let co_occurs = co_ext.run();
         println!("Finished in {}ms", co_time.elapsed().as_millis());
 
         print!("Running anti-unification... ");
-
-        let ll_time = Instant::now();
-
-        let learned_lib = LearnedLibrary::new(&aeg, self.learn_constants, co_occurs);
-        let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
-
+        io::stdout().flush().unwrap();
+        let au_time = Instant::now();
+        let mut learned_lib = LearnedLibrary::new(&aeg, self.learn_constants, co_occurs);
         println!(
-            "Found {} antiunifications in {}ms",
-            lib_rewrites.len(),
-            ll_time.elapsed().as_millis()
+            "Found {} patterns in {}ms",
+            learned_lib.size(),
+            au_time.elapsed().as_millis()
         );
 
-        let anti_time = Instant::now();
-        print!("Rewriting egraph... ");
+        print!("Deduplicating patterns... ");
+        io::stdout().flush().unwrap();
+        let dedup_time = Instant::now();
+        learned_lib.deduplicate(&aeg);
+        let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
+        println!(
+            "Reduced to {} patterns in {}ms",
+            learned_lib.size(),
+            dedup_time.elapsed().as_millis()
+        );
 
+        print!("Adding libs and running beam search... ");
+        io::stdout().flush().unwrap();
+        let lib_rewrite_time = Instant::now();
         let runner = Runner::<_, _, ()>::new(PartialLibCost::new(
             self.final_beams,
             self.inter_beams,
@@ -408,21 +419,14 @@ where
         .with_node_limit(1_000_000)
         .run(lib_rewrites.iter());
 
-        println!("Finished in {}ms", anti_time.elapsed().as_millis());
-        println!("Stop reason: {:?}", runner.stop_reason.unwrap());
-
         let mut egraph = runner.egraph;
-        println!("Number of nodes: {}", egraph.total_size());
-
-        let root_time = Instant::now();
-        print!("Adding root node... ");
-
         let root = egraph.add(AstNode::new(Op::list(), roots.iter().copied()));
-
         let mut cs = egraph[egraph.find(root)].data.clone();
         cs.set.sort_unstable_by_key(|elem| elem.full_cost);
 
-        println!("Finished in {}ms", root_time.elapsed().as_millis());
+        println!("Finished in {}ms", lib_rewrite_time.elapsed().as_millis());
+        println!("Stop reason: {:?}", runner.stop_reason.unwrap());
+        println!("Number of nodes: {}", egraph.total_size());
 
         if cs.set.is_empty() {
             println!("empty costset! terminating early");
@@ -440,6 +444,7 @@ where
 
         let ex_time = Instant::now();
         print!("Extracting... ");
+        io::stdout().flush().unwrap();
         let (lifted, final_cost) = cs
             .set
             // .par_iter()
