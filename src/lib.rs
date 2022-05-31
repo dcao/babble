@@ -21,7 +21,7 @@ mod dfta;
 pub mod dreamcoder;
 pub mod extract;
 pub mod learn;
-pub mod runner;
 pub mod sexp;
 pub mod simple_lang;
 pub mod teachable;
+pub mod experiments;

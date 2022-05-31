@@ -16,7 +16,7 @@ use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
     extract::beam::LibsPerSel,
-    runner::Experiments,
+    experiments::Experiments,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -92,14 +92,14 @@ fn main() {
 
     let mut all = Experiments::new();
 
-    for limit in &opts.limit {
+    for &limit in &opts.limit {
         let exprs: Vec<Expr<DreamCoderOp>> = input
             .clone()
             .frontiers
             .into_iter()
             .flat_map(|frontier| frontier.programs)
             .map(|program| program.program.into())
-            .take(*limit)
+            .take(limit)
             .collect();
 
         // For the sake of pretty printing
