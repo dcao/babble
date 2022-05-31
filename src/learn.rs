@@ -95,22 +95,10 @@ where
             learn_constants,
         };
         let dfta = Dfta::from(egraph);
-        println!("Initial DFTA:");
-        println!("{:?}", dfta);
-
         let dfta = dfta.cross_over();
-        println!("Crossed-over DFTA:");
-        println!("{:?}", dfta);
 
         for state in dfta.output_states() {
             learned_lib.enumerate(&dfta, state);
-        }
-
-        for (state, aus) in &learned_lib.aus_by_state {
-            println!("{:?}", state);
-            for au in aus {
-                println!("    {}", patternize(au));
-            }
         }
 
         learned_lib
