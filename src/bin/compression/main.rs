@@ -15,8 +15,8 @@
 use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
-    extract::beam::LibsPerSel,
     experiments::Experiments,
+    extract::beam::LibsPerSel,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};

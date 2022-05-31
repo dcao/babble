@@ -14,8 +14,8 @@
 
 use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
+    experiments::Experiments,
     extract::beam::LibsPerSel,
-    runner::Experiments,
     sexp::Program,
 };
 use clap::Clap;

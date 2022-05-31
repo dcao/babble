@@ -19,9 +19,9 @@
 pub mod ast_node;
 mod dfta;
 pub mod dreamcoder;
+pub mod experiments;
 pub mod extract;
 pub mod learn;
 pub mod sexp;
 pub mod simple_lang;
 pub mod teachable;
-pub mod experiments;
