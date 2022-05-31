@@ -3,7 +3,11 @@
 
 use std::{
     collections::HashMap,
+    fmt::{self, Debug, Display, Formatter},
     fs,
+    hash::Hash,
+    io::Write,
+    marker::PhantomData,
     time::{Duration, Instant},
 };
 
@@ -11,7 +15,7 @@ use egg::{AstSize, CostFunction, EGraph, RecExpr, Rewrite, Runner};
 use log::debug;
 
 use crate::{
-    ast_node::{Arity, AstNode, Expr, Pretty, Printable},
+    ast_node::{self, Arity, AstNode, Expr, Pretty, Printable},
     extract::{
         beam::{LibExtractor, LibsPerSel, PartialLibCost},
         lift_libs,
@@ -23,65 +27,54 @@ use crate::{
 #[cfg(feature = "grb")]
 use crate::extract::ilp::*;
 
-/// When running experiments in babble, there are two types of experiments
-/// we want to run: ILP-based experiments and beam-based experiments.
-/// All library learning experiments fall into these two categories
-#[derive(Debug)]
-pub enum Experiment<Op, Extra>
+struct ExperimentTitle<
+    'a,
+    Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord,
+    T: Experiment<Op> + ?Sized,
+> {
+    experiment: &'a T,
+    phantom: PhantomData<Op>,
+}
+impl<'a, Op, T: Experiment<Op> + ?Sized> Display for ExperimentTitle<'a, Op, T>
 where
-    Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
+    Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord,
 {
-    /// A beam experiment
-    Beam(BeamExperiment<Op, Extra>),
-    /// An ILP experiment
-    ILP(ILPExperiment<Op, Extra>),
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.experiment.fmt_title(f)
+    }
 }
 
-impl<Op, Extra> Experiment<Op, Extra>
+pub trait Experiment<Op>
 where
-    Op: Teachable
-        + Printable
-        + Arity
-        + Clone
-        + Send
-        + Sync
-        + std::fmt::Debug
-        + std::fmt::Display
-        + std::hash::Hash
-        + Ord
-        + 'static,
-    Extra: serde::ser::Serialize + std::fmt::Debug + Clone,
+    Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord,
 {
-    /// Runs the experiment
-    /// If the experiment requires multiple rounds, run multiple times.
-    pub fn run(self, wtr: &mut csv::Writer<fs::File>) {
-        // Print starting text for experiment
-        match &self {
-            Experiment::Beam(b) => {
-                if b.final_beams > b.inter_beams {
-                    return;
-                }
+    // Ideally exprs would have type `I: IntoIterator<Item = Expr<Op>>` but that's not object-safe.
+    fn run(&self, exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>>;
 
-                println!(
-                    "beam | final_beams: {}, inter_beams: {}, lps: {:?}, rounds: {}, extra_por: {}, extra_data: {:?}",
-                    b.final_beams, b.inter_beams, b.lps, b.rounds, b.extra_por, b.extra_data
-                );
+    fn rounds(&self) -> usize;
+
+    fn write_to_csv(
+        &self,
+        writer: &mut csv::Writer<fs::File>,
+        initial_cost: usize,
+        final_cost: usize,
+        time_elapsed: Duration,
+    );
+
+    fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result;
+
+    fn run_csv(&self, mut exprs: Vec<Expr<Op>>, writer: &mut csv::Writer<fs::File>)
+    {
+        println!(
+            "{}",
+            ExperimentTitle {
+                experiment: self,
+                phantom: PhantomData
             }
-            Experiment::ILP(ilp) => {
-                println!(
-                    "ilp | timeout: {}, extra_data: {:?}",
-                    ilp.timeout, ilp.extra_data
-                );
-            }
-        }
+        );
 
         let start_time = Instant::now();
 
-        // First, let's turn our list of exprs into a list of recexprs
-        let mut exprs = match &self {
-            Experiment::Beam(b) => b.exprs.clone(),
-            Experiment::ILP(ilp) => ilp.exprs.clone(),
-        };
         let recexprs: Vec<RecExpr<AstNode<Op>>> =
             exprs.clone().into_iter().map(|x| x.into()).collect();
 
@@ -92,10 +85,7 @@ where
         };
 
         // Start running our rounds
-        let rounds = match &self {
-            Experiment::Beam(b) => b.rounds,
-            Experiment::ILP(ilp) => ilp.rounds,
-        };
+        let rounds = self.rounds();
 
         let mut libs = HashMap::new();
 
@@ -104,10 +94,7 @@ where
         for r in 0..rounds {
             println!("round {}/{}", r + 1, rounds);
 
-            rc = match &self {
-                Experiment::Beam(b) => b.run_one(exprs),
-                Experiment::ILP(ilp) => ilp.run(exprs),
-            };
+            rc = self.run(exprs);
 
             // If rc is empty, just return early.
             if rc.as_ref().is_empty() {
@@ -123,6 +110,7 @@ where
         // Combine back into one big recexpr at the end
         rc = plumbing::combine(libs, exprs);
         let final_cost = AstSize.cost_rec(&rc);
+        let time_elapsed = start_time.elapsed();
 
         // Print our analysis on this
         if rounds > 1 {
@@ -132,61 +120,56 @@ where
                 "cost diff: {} -> {} (compression ratio {})",
                 initial_cost,
                 final_cost,
-                final_cost as f32 / initial_cost as f32
+                final_cost as f64 / initial_cost as f64
             );
-            println!("total time: {}ms", start_time.elapsed().as_millis());
+            println!("total time: {}ms", time_elapsed.as_millis());
             println!();
         }
 
-        match &self {
-            Experiment::Beam(b) => {
-                wtr.serialize((
-                    "beam",
-                    0,
-                    b.final_beams,
-                    b.inter_beams,
-                    b.lps,
-                    b.rounds,
-                    b.extra_por,
-                    b.extra_data.clone(),
-                    initial_cost,
-                    final_cost,
-                    start_time.elapsed().as_secs_f64(),
-                ))
-                .unwrap();
-                wtr.flush().unwrap();
-            }
-            Experiment::ILP(ilp) => {
-                wtr.serialize((
-                    "ilp",
-                    ilp.timeout,
-                    0,
-                    0,
-                    "Unlimited",
-                    ilp.rounds,
-                    false,
-                    ilp.extra_data.clone(),
-                    initial_cost,
-                    final_cost,
-                    start_time.elapsed().as_secs_f64(),
-                ))
-                .unwrap();
-                wtr.flush().unwrap();
-            }
-        }
+        self.write_to_csv(writer, initial_cost, final_cost, time_elapsed)
     }
 }
 
+// /// When running experiments in babble, there are two types of experiments
+// /// we want to run: ILP-based experiments and beam-based experiments.
+// /// All library learning experiments fall into these two categories
+// #[derive(Debug)]
+// pub enum Experiment<Op, Extra>
+// where
+//     Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
+// {
+//     /// A beam experiment
+//     Beam(BeamExperiment<Op, Extra>),
+//     /// An ILP experiment
+//     ILP(ILPExperiment<Op, Extra>),
+// }
+
+// impl<Op, Extra> Experiment<Op, Extra>
+// where
+//     Op: Teachable
+//         + Printable
+//         + Arity
+//         + Clone
+//         + Send
+//         + Sync
+//         + std::fmt::Debug
+//         + std::fmt::Display
+//         + std::hash::Hash
+//         + Ord
+//         + 'static,
+//     Extra: serde::ser::Serialize + std::fmt::Debug + Clone,
+// {
+/// Runs the experiment
+/// If the experiment requires multiple rounds, run multiple times.
+// }
+
 /// A set of Experiments is just a list of individual Experiment structs
-#[derive(Debug)]
-pub struct Experiments<Op, Extra>
-where
-    Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
-{
-    exps: Vec<Experiment<Op, Extra>>,
+pub struct Experiments<Op> {
+    experiments: Vec<Box<dyn Experiment<Op>>>,
+    exprs: Vec<Expr<Op>>,
 }
 
-impl<Op, Extra> Experiments<Op, Extra>
+impl<Op> Experiments<Op>
 where
     Op: Teachable
         + Printable
@@ -194,26 +177,28 @@ where
         + Clone
         + Send
         + Sync
-        + std::fmt::Debug
-        + std::fmt::Display
+        + fmt::Debug
+        + fmt::Display
         + std::hash::Hash
         + Ord
         + 'static,
-    Extra: serde::ser::Serialize + Clone + std::fmt::Debug + Clone,
 {
     /// Creates a new empty set of experiments
     pub fn new() -> Self {
-        Self { exps: Vec::new() }
+        Self {
+            experiments: Vec::new(),
+            exprs: Vec::new(),
+        }
     }
 
     /// Adds all the experiments from another experiment set into this one
     pub fn add(&mut self, other: Self) {
-        self.exps.extend(other.exps);
+        self.experiments.extend(other.experiments);
     }
 
     // TODO: How to specify DSRs
     /// Generates a set of experiments from a set of params
-    pub fn gen(
+    pub fn gen<Extra>(
         exprs: Vec<Expr<Op>>,
         dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
         mut beams: Vec<usize>,
@@ -223,8 +208,11 @@ where
         timeouts: Vec<u64>,
         extra: Extra,
         learn_constants: bool,
-    ) -> Self {
-        let mut res = Vec::new();
+    ) -> Self
+    where
+        Extra: serde::ser::Serialize + Clone + fmt::Debug + Clone + 'static,
+    {
+        let mut res: Vec<Box<dyn Experiment<Op>>> = Vec::new();
 
         // Defaults for if we have empty values
         if beams.is_empty() {
@@ -247,7 +235,7 @@ where
             for extra_por in &extra_pors {
                 for lps in &lpss {
                     for rounds in &rounds {
-                        res.push(Experiment::Beam(BeamExperiment {
+                        res.push(Box::new(BeamExperiment {
                             exprs: exprs.clone(),
                             dsrs: dsrs.clone(),
                             final_beams: beam,
@@ -265,7 +253,7 @@ where
 
         for timeout in timeouts {
             for r in &rounds {
-                res.push(Experiment::ILP(ILPExperiment {
+                res.push(Box::new(ILPExperiment {
                     exprs: exprs.clone(),
                     dsrs: dsrs.clone(),
                     timeout,
@@ -276,15 +264,18 @@ where
             }
         }
 
-        Self { exps: res }
+        Self {
+            exprs,
+            experiments: res,
+        }
     }
 
     /// Runs all experiments in this set
     pub fn run(self, csv_path: &str) {
-        let mut wtr = csv::Writer::from_path(csv_path).unwrap();
+        let mut writer = csv::Writer::from_path(csv_path).unwrap();
 
-        for exp in self.exps {
-            exp.run(&mut wtr);
+        for experiment in self.experiments {
+            experiment.run_csv(self.exprs.clone(), &mut writer);
         }
     }
 }
@@ -294,7 +285,7 @@ where
 #[derive(Debug)]
 pub struct BeamExperiment<Op, Extra>
 where
-    Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
+    Op: fmt::Display + std::hash::Hash + Clone + Ord + 'static,
 {
     /// The expressions to run the experiment over
     exprs: Vec<Expr<Op>>,
@@ -316,7 +307,7 @@ where
     learn_constants: bool,
 }
 
-impl<Op, Extra> BeamExperiment<Op, Extra>
+impl<Op, Extra> Experiment<Op> for BeamExperiment<Op, Extra>
 where
     Op: Teachable
         + Printable
@@ -324,88 +315,88 @@ where
         + Clone
         + Send
         + Sync
-        + std::fmt::Debug
-        + std::fmt::Display
+        + fmt::Debug
+        + fmt::Display
         + std::hash::Hash
         + Ord
         + 'static,
-    Extra: serde::ser::Serialize + std::fmt::Debug + Clone,
+    Extra: serde::ser::Serialize + fmt::Debug + Clone,
 {
-    // TODO: Generalize this for ILP too
-    fn run(&self, wtr: &mut csv::Writer<fs::File>) {
-        if self.final_beams > self.inter_beams {
-            return;
-        }
+    // // TODO: Generalize this for ILP too
+    // fn run_csv(&self, wtr: &mut csv::Writer<fs::File>) {
+    //     if self.final_beams > self.inter_beams {
+    //         return;
+    //     }
 
-        println!(
-            "beam | final_beams: {}, inter_beams: {}, lps: {:?}, rounds: {}, extra_por: {}, extra_data: {:?}",
-            self.final_beams, self.inter_beams, self.lps, self.rounds, self.extra_por, self.extra_data
-        );
+    //     println!(
+    //         "beam | final_beams: {}, inter_beams: {}, lps: {:?}, rounds: {}, extra_por: {}, extra_data: {:?}",
+    //         self.final_beams, self.inter_beams, self.lps, self.rounds, self.extra_por, self.extra_data
+    //     );
 
-        let start_time = Instant::now();
+    //     let start_time = Instant::now();
 
-        // First, let's turn our list of exprs into a list of recexprs
-        let recexprs: Vec<RecExpr<AstNode<Op>>> =
-            self.exprs.clone().into_iter().map(|x| x.into()).collect();
+    //     // First, let's turn our list of exprs into a list of recexprs
+    //     let recexprs: Vec<RecExpr<AstNode<Op>>> =
+    //         self.exprs.clone().into_iter().map(|x| x.into()).collect();
 
-        // Add one to account for root node, not added yet
-        let initial_cost = {
-            let s: usize = recexprs.iter().map(|x| AstSize.cost_rec(x)).sum();
-            s + 1
-        };
+    //     // Add one to account for root node, not added yet
+    //     let initial_cost = {
+    //         let s: usize = recexprs.iter().map(|x| AstSize.cost_rec(x)).sum();
+    //         s + 1
+    //     };
 
-        // Start running our rounds
-        let mut libs = HashMap::new();
-        let mut exprs = self.exprs.clone();
+    //     // Start running our rounds
+    //     let mut libs = HashMap::new();
+    //     let mut exprs = self.exprs.clone();
 
-        let mut rc: RecExpr<AstNode<Op>>;
+    //     let mut rc: RecExpr<AstNode<Op>>;
 
-        for r in 0..self.rounds {
-            println!("round {}/{}", r + 1, self.rounds);
+    //     for r in 0..self.rounds {
+    //         println!("round {}/{}", r + 1, self.rounds);
 
-            rc = self.run_one(exprs);
+    //         rc = self.run_one(exprs);
 
-            let ls = plumbing::libs(rc.as_ref(), libs.len());
-            libs.extend(ls);
-            exprs = plumbing::exprs(rc.as_ref());
-        }
+    //         let ls = plumbing::libs(rc.as_ref(), libs.len());
+    //         libs.extend(ls);
+    //         exprs = plumbing::exprs(rc.as_ref());
+    //     }
 
-        // Combine back into one big recexpr at the end
-        rc = plumbing::combine(libs, exprs);
-        let final_cost = AstSize.cost_rec(&rc);
+    //     // Combine back into one big recexpr at the end
+    //     rc = plumbing::combine(libs, exprs);
+    //     let final_cost = AstSize.cost_rec(&rc);
 
-        // Print our analysis on this
-        if self.rounds > 1 {
-            println!("Final beam results");
-            println!("{}", Pretty(&Expr::from(rc)));
-            println!(
-                "cost diff: {} -> {} (compression ratio {})",
-                initial_cost,
-                final_cost,
-                final_cost as f32 / initial_cost as f32
-            );
-            println!("round time: {}ms", start_time.elapsed().as_millis());
-            println!();
-        }
+    //     // Print our analysis on this
+    //     if self.rounds > 1 {
+    //         println!("Final beam results");
+    //         println!("{}", Pretty(&Expr::from(rc)));
+    //         println!(
+    //             "cost diff: {} -> {} (compression ratio {})",
+    //             initial_cost,
+    //             final_cost,
+    //             final_cost as f32 / initial_cost as f32
+    //         );
+    //         println!("round time: {}ms", start_time.elapsed().as_millis());
+    //         println!();
+    //     }
 
-        wtr.serialize((
-            "beam",
-            0,
-            self.final_beams,
-            self.inter_beams,
-            self.lps,
-            self.rounds,
-            self.extra_por,
-            self.extra_data.clone(),
-            initial_cost,
-            final_cost,
-            start_time.elapsed().as_secs_f64(),
-        ))
-        .unwrap();
-        wtr.flush().unwrap();
-    }
+    //     wtr.serialize((
+    //         "beam",
+    //         0,
+    //         self.final_beams,
+    //         self.inter_beams,
+    //         self.lps,
+    //         self.rounds,
+    //         self.extra_por,
+    //         self.extra_data.clone(),
+    //         initial_cost,
+    //         final_cost,
+    //         start_time.elapsed().as_secs_f64(),
+    //     ))
+    //     .unwrap();
+    //     wtr.flush().unwrap();
+    // }
 
-    fn run_one(&self, exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
+    fn run(&self, exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
         let start_time = Instant::now();
         let timeout = Duration::from_secs(60 * 100000);
 
@@ -543,6 +534,40 @@ where
 
         return lifted;
     }
+
+    fn rounds(&self) -> usize {
+        self.rounds
+    }
+
+    fn write_to_csv(
+        &self,
+        writer: &mut csv::Writer<fs::File>,
+        initial_cost: usize,
+        final_cost: usize,
+        time_elapsed: Duration,
+    ) {
+        writer
+            .serialize((
+                "beam",
+                0,
+                self.final_beams,
+                self.inter_beams,
+                self.lps,
+                self.rounds,
+                self.extra_por,
+                self.extra_data.clone(),
+                initial_cost,
+                final_cost,
+                time_elapsed.as_secs_f64(),
+            ))
+            .unwrap();
+        writer.flush().unwrap();
+    }
+
+    fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "beam | final_beams: {}, inter_beams: {}, lps: {:?}, rounds: {}, extra_por: {}, extra_data: {:?}",
+               self.final_beams, self.inter_beams, self.lps, self.rounds, self.extra_por, self.extra_data)
+    }
 }
 
 /// An ILPExperiment contains all of the info needed to run a library
@@ -550,7 +575,7 @@ where
 #[derive(Debug)]
 pub struct ILPExperiment<Op, Extra>
 where
-    Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
+    Op: fmt::Display + std::hash::Hash + Clone + Ord + 'static,
 {
     /// The expression to run the experiment over
     exprs: Vec<Expr<Op>>,
@@ -566,8 +591,8 @@ where
     learn_constants: bool,
 }
 
-#[cfg(feature = "grb")]
-impl<Op, Extra> ILPExperiment<Op, Extra>
+//#[cfg(feature = "grb")]
+impl<Op, Extra> Experiment<Op> for ILPExperiment<Op, Extra>
 where
     Op: Teachable
         + Printable
@@ -575,13 +600,19 @@ where
         + Clone
         + Send
         + Sync
-        + std::fmt::Debug
-        + std::fmt::Display
+        + fmt::Debug
+        + fmt::Display
         + std::hash::Hash
         + Ord
         + 'static,
-    Extra: serde::ser::Serialize + std::fmt::Debug + Clone,
+    Extra: serde::ser::Serialize + fmt::Debug + Clone,
 {
+    #[cfg(not(feature = "grb"))]
+    fn run(&self, exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
+        unimplemented!("feature `grb` not enabled");
+    }
+
+    #[cfg(feature = "grb")]
     fn run(&self, exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
         let start_time = Instant::now();
         let timeout = Duration::from_secs(self.timeout);
@@ -675,18 +706,42 @@ where
 
         return lifted;
     }
-}
 
-#[cfg(not(feature = "grb"))]
-impl<Op, Extra> ILPExperiment<Op, Extra>
-where
-    Op: std::fmt::Display + std::hash::Hash + Clone + Ord + 'static,
-{
-    fn run(&self, _exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>> {
-        println!("no-op: ilp feature not used");
-        println!();
+    fn rounds(&self) -> usize {
+        self.rounds
+    }
 
-        RecExpr::default()
+    fn write_to_csv(
+        &self,
+        writer: &mut csv::Writer<fs::File>,
+        initial_cost: usize,
+        final_cost: usize,
+        time_elapsed: Duration,
+    ) {
+        writer
+            .serialize((
+                "ilp",
+                self.timeout,
+                0,
+                0,
+                "Unlimited",
+                self.rounds,
+                false,
+                self.extra_data.clone(),
+                initial_cost,
+                final_cost,
+                time_elapsed.as_secs_f64(),
+            ))
+            .unwrap();
+        writer.flush().unwrap();
+    }
+
+    fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "ilp | timeout: {}, extra_data: {:?}",
+            self.timeout, self.extra_data
+        )
     }
 }
 
