@@ -28,12 +28,22 @@ pub struct Summary {
 }
 
 impl Summary {
+
+    /// The [compression ratio][wiki] achieved on this example.
+    ///
+    /// [wiki]: https://en.wikipedia.org/wiki/Data_compression_ratio
     pub fn compression_ratio(&self) -> f64 {
-        (self.final_cost as f64) / (self.initial_cost as f64)
+        (self.initial_cost as f64) / (self.final_cost as f64)
     }
 
-    pub fn percent_reduction(&self) -> f64 {
-        100.0 * (1.0 - self.compression_ratio())
+
+    /// The [space saving][wiki] achieved on this example, reported as a number
+    /// between 0 and 100.
+    ///
+    /// [wiki]: https://en.wikipedia.org/wiki/Data_compression_ratio
+    pub fn space_saving_percentage(&self) -> f64 {
+        let space_saving = 1.0 - ((self.final_cost as f64) / (self.initial_cost as f64));
+        space_saving * 100.0
     }
 }
 
