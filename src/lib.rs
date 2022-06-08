@@ -17,6 +17,7 @@
 #![allow(clippy::non_ascii_literal)]
 
 pub mod ast_node;
+pub mod co_occurrence;
 mod dfta;
 pub mod dreamcoder;
 pub mod experiments;

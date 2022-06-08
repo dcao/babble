@@ -15,10 +15,11 @@
 //! If the set AU(a, b) is empty, we add to it the partial expression (a, b).
 use crate::{
     ast_node::{Arity, AstNode, PartialExpr},
+    co_occurrence::CoOccurrences,
     dfta::Dfta,
     teachable::{BindingExpr, Teachable},
 };
-use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Var};
+use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Searcher, Var};
 use itertools::Itertools;
 use log::debug;
 use std::{
@@ -63,6 +64,24 @@ impl FromStr for LibId {
     }
 }
 
+/// Signature of a pattern match in an e-graph.
+/// Used to deduplicate equivalent patterns.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]
+struct Match {
+    /// The e-class that the match is found in.
+    class: Id,
+    /// The range of the match's substitution
+    /// (a multiset of class ids, stores as a sorted vector).
+    actuals: Vec<Id>,
+}
+
+impl Match {
+    fn new(class: Id, mut actuals: Vec<Id>) -> Self {
+        actuals.sort();
+        Self { class, actuals }
+    }
+}
+
 /// A `LearnedLibrary<Op>` is a collection of functions learned from an
 /// [`EGraph<AstNode<Op>, _>`] by antiunifying pairs of enodes to find their
 /// common structure.
@@ -76,6 +95,7 @@ pub struct LearnedLibrary<Op, T> {
     nontrivial_aus: BTreeSet<PartialExpr<Op, Var>>,
     /// Whether to also learn "library functions" which take no arguments.
     learn_constants: bool,
+    co_occurrences: CoOccurrences,
 }
 
 impl<'a, Op> LearnedLibrary<Op, (Id, Id)>
@@ -88,11 +108,13 @@ where
     pub fn new<A: Analysis<AstNode<Op>>>(
         egraph: &'a EGraph<AstNode<Op>, A>,
         learn_constants: bool,
+        co_occurrences: CoOccurrences,
     ) -> Self {
         let mut learned_lib = Self {
             aus_by_state: BTreeMap::new(),
             nontrivial_aus: BTreeSet::new(),
             learn_constants,
+            co_occurrences,
         };
         let dfta = Dfta::from(egraph);
         let dfta = dfta.cross_over();
@@ -100,14 +122,13 @@ where
         for state in dfta.output_states() {
             learned_lib.enumerate(&dfta, state);
         }
-
         learned_lib
     }
 }
 
 impl<Op, T> LearnedLibrary<Op, T>
 where
-    Op: Arity + Clone + Display + Ord + Send + Sync + Teachable + 'static,
+    Op: Arity + Clone + Debug + Display + Ord + Send + Sync + Teachable + 'static,
     AstNode<Op>: Language,
 {
     /// Returns an iterator over rewrite rules that replace expressions with
@@ -145,21 +166,71 @@ where
         })
     }
 
+    /// Right-hand sides of library rewrites.
     pub fn libs(&self) -> impl Iterator<Item = Pattern<AstNode<Op>>> + '_ {
         self.nontrivial_aus.iter().enumerate().map(|(i, au)| {
             let applier: Pattern<_> = reify(LibId(i), au.clone()).into();
             applier
         })
     }
+
+    /// Number of patterns learned.
+    pub fn size(&self) -> usize {
+        self.nontrivial_aus.len()
+    }
+
+    /// If two candidate patterns (stored in `nontrivial_aus`) have the same set of matches,
+    /// only preserve the smaller one of them.
+    /// Here a match is a pair of the e-class where the match was found
+    /// and the range of its substitution
+    /// (as a multiset of e-classes; which variables matched which e-classes is irrelevant).
+    /// The reason two such patterns are equivalent is because their corresponding library functions
+    /// can be used in exactly the same places and will have the same multiset (and hence size) of actual arguments.
+    ///
+    /// For example, after running a DSR (+ ?x ?y) => (+ ?y ?x),
+    /// for any learned pattern containing (+ ?x0 ?x1), there will be an equivalent pattern containing (+ ?x1 ?x0),
+    /// which will be eliminated here.
+    pub fn deduplicate<A: Analysis<AstNode<Op>>>(&mut self, egraph: &EGraph<AstNode<Op>, A>) {
+        // The algorithm is simply to iterate over all patterns,
+        // and save their matches in a dictionary indexed by the match set.
+        let mut cache: BTreeMap<Vec<Match>, PartialExpr<Op, Var>> = BTreeMap::new();
+        for au in &self.nontrivial_aus {
+            let pattern: Pattern<_> = au.clone().into();
+            // A key in `cache` is a set of matches
+            // represented as a sorted vector.
+            let mut key = vec![];
+            for m in pattern.search(egraph) {
+                for sub in m.substs {
+                    let actuals: Vec<_> = pattern.vars().iter().map(|v| sub[*v]).collect();
+                    let match_signature = Match::new(m.eclass, actuals);
+                    key.push(match_signature);
+                }
+            }
+            key.sort();
+            match cache.get(&key) {
+                Some(cached) if cached.size() <= au.size() => {
+                    debug!(
+                        "Pruning pattern {}\n as a duplicate of {}",
+                        pattern,
+                        Pattern::from(cached.clone())
+                    );
+                }
+                _ => {
+                    cache.insert(key, au.clone());
+                }
+            }
+        }
+        self.nontrivial_aus = cache.values().cloned().collect();
+    }
 }
 
-impl<Op, T> LearnedLibrary<Op, T>
+impl<Op> LearnedLibrary<Op, (Id, Id)>
 where
     Op: Arity + Clone + Debug + Ord,
-    T: Clone + Ord,
+    // T: Clone + Ord,
 {
     /// Computes the antiunifications of `state` in the DFTA `dfta`.
-    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), T>, state: &T) {
+    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), (Id, Id)>, state: &(Id, Id)) {
         if self.aus_by_state.contains_key(state) {
             // We've already enumerated this state, so there's nothing to do.
             return;
@@ -173,8 +244,8 @@ where
         // By initially setting the antiunifications of this state to empty, we
         // exclude any antiunifications that would come from looping sequences
         // of rules.
-        self.aus_by_state.insert(state.clone(), BTreeSet::new());
-        let mut aus: BTreeSet<PartialExpr<Op, T>> = BTreeSet::new();
+        self.aus_by_state.insert(*state, BTreeSet::new());
+        let mut aus: BTreeSet<PartialExpr<Op, (Id, Id)>> = BTreeSet::new();
 
         let mut same = false;
         let mut different = false;
@@ -217,7 +288,8 @@ where
 
         if aus.is_empty() {
             aus.insert(PartialExpr::Hole(state.clone()));
-        } else {
+        } else if self.co_occurrences.may_co_occur(state.0, state.1) {
+            // If the two e-classes cannot co-occur in the same program, do not produce an AU for them!
             // We filter out the anti-unifications which are just concrete
             // expressions with no variables, and then convert the contained
             // states to pattern variables. The conversion takes

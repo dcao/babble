@@ -88,6 +88,15 @@ impl<Op, T> PartialExpr<Op, T> {
         matches!(self, Self::Node(_))
     }
 
+    /// Total number of nodes in the partial expression.
+    #[must_use]
+    pub fn size(&self) -> usize {
+        match self {
+            PartialExpr::Node(node) => 1 + node.iter().map(Self::size).sum::<usize>(),
+            PartialExpr::Hole(_) => 1,
+        }
+    }
+
     /// Returns the number of nodes in the partial expression, not including holes.
     #[must_use]
     pub fn num_nodes(&self) -> usize {
