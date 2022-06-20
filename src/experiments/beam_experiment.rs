@@ -11,12 +11,13 @@ use serde::ser::Serialize;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
+    co_occurrence::COBuilder,
     extract::{
         beam::{LibExtractor, LibsPerSel, PartialLibCost},
         lift_libs,
     },
     learn::LearnedLibrary,
-    teachable::Teachable, co_occurrence::COBuilder,
+    teachable::Teachable,
 };
 
 use super::Experiment;
@@ -214,7 +215,6 @@ where
 
                 let mut extractor = LibExtractor::new(&fin);
                 let best = extractor.best(root);
-
 
                 let lifted = lift_libs(best);
                 let final_cost = AstSize.cost_rec(&lifted);

@@ -4,11 +4,13 @@ pub use self::ilp_experiment::IlpExperiment;
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     extract::beam::{LibsPerSel, PartialLibCost},
+    learn::LibId,
     teachable::Teachable,
 };
 use egg::{RecExpr, Rewrite};
+use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     fmt::{self, Debug, Display, Formatter},
     fs,
     hash::Hash,
@@ -19,23 +21,23 @@ use std::{
 mod beam_experiment;
 mod ilp_experiment;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Summary {
-    pub num_exprs: usize,
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Summary<Op> {
+    pub initial_exprs: Vec<Expr<Op>>,
     pub initial_cost: usize,
+    pub learned_libs: BTreeMap<LibId, Expr<Op>>,
+    pub final_expr: Expr<Op>,
     pub final_cost: usize,
-    pub duration: Duration,
+    pub run_time: Duration,
 }
 
-impl Summary {
-
+impl<Op> Summary<Op> {
     /// The [compression ratio][wiki] achieved on this example.
     ///
     /// [wiki]: https://en.wikipedia.org/wiki/Data_compression_ratio
     pub fn compression_ratio(&self) -> f64 {
         (self.initial_cost as f64) / (self.final_cost as f64)
     }
-
 
     /// The [space saving][wiki] achieved on this example, reported as a number
     /// between 0 and 100.
@@ -44,6 +46,13 @@ impl Summary {
     pub fn space_saving_percentage(&self) -> f64 {
         let space_saving = 1.0 - ((self.final_cost as f64) / (self.initial_cost as f64));
         space_saving * 100.0
+    }
+
+    pub fn percent_improved(&self, old: &Self) -> f64 {
+        assert_eq!(self.initial_cost, old.initial_cost);
+        let improvement = (old.final_cost as f64) - (self.final_cost as f64);
+        let relative_improvement = improvement / (self.initial_cost as f64);
+        relative_improvement * 100.0
     }
 }
 
@@ -81,18 +90,22 @@ where
 
     fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result;
 
-    fn run_summary(&self, exprs: Vec<Expr<Op>>) -> Summary {
-        let num_exprs = exprs.len();
-        let initial_cost = exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
+    fn run_summary(&self, initial_exprs: Vec<Expr<Op>>) -> Summary<Op> {
+        let initial_cost = initial_exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
         let start_time = Instant::now();
-        let final_expr = self.run(exprs);
-        let duration = start_time.elapsed();
+        let final_expr = self.run(initial_exprs.clone());
+        let run_time = start_time.elapsed();
         let final_cost = final_expr.len();
+
+        // TODO: Actually record the libs
+        let learned_libs = BTreeMap::default();
         Summary {
-            num_exprs,
+            initial_exprs,
             initial_cost,
+            learned_libs,
+            final_expr,
             final_cost,
-            duration,
+            run_time,
         }
     }
 
@@ -156,9 +169,9 @@ where
         + Clone
         + Send
         + Sync
-        + fmt::Debug
-        + fmt::Display
-        + std::hash::Hash
+        + Debug
+        + Display
+        + Hash
         + Ord
         + 'static,
 {

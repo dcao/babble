@@ -1,10 +1,11 @@
 use super::{Arity, AstNode, ParseNodeError};
 use crate::{sexp::Sexp, teachable::Teachable};
 use egg::{Id, Language, RecExpr};
+use serde::{Serialize, Deserialize};
 use std::{convert::TryFrom, str::FromStr};
 
 /// An abstract syntax tree with operations `Op`.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Expr<Op>(pub AstNode<Op, Self>);
 
 impl<Op> Expr<Op> {

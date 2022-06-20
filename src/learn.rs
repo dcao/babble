@@ -22,6 +22,7 @@ use crate::{
 use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Searcher, Var};
 use itertools::Itertools;
 use log::debug;
+use serde::{Serialize, Deserialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::{Debug, Display},
@@ -31,7 +32,7 @@ use std::{
 use thiserror::Error;
 
 /// A library function's name.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct LibId(pub usize);
 
 impl Display for LibId {

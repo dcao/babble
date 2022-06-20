@@ -1,5 +1,6 @@
 //! Abstract syntax trees.
 use egg::{FromOp, Id, Language};
+use serde::{Serialize, Deserialize};
 use std::{
     error::Error,
     fmt::{self, Debug, Display, Formatter},
@@ -14,7 +15,7 @@ use thiserror::Error;
 /// to arguments of type `T`.
 ///
 /// This type implements [`Language`] for arguments of type [`Id`].
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AstNode<Op, T = Id> {
     operation: Op,
     args: Vec<T>,

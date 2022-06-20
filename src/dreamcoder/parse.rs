@@ -1,7 +1,6 @@
 use super::expr::DreamCoderOp;
 use crate::ast_node::{AstNode, Expr};
 use egg::Symbol;
-use internment::ArcIntern;
 use std::str::FromStr;
 
 use nom::{
@@ -61,7 +60,7 @@ fn inlined(s: &str) -> ParseResult<'_, Expr<DreamCoderOp>> {
     context(
         "inlined",
         map(preceded(char('#'), cut(expr)), |expr| {
-            AstNode::leaf(DreamCoderOp::Inlined(ArcIntern::new(expr.into()))).into()
+            AstNode::leaf(DreamCoderOp::Inlined(Box::new(expr.into()))).into()
         }),
     )(s)
 }

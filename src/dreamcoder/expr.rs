@@ -7,7 +7,6 @@ use crate::{
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
 use egg::{Analysis, RecExpr, Rewrite, Symbol};
-use internment::ArcIntern;
 use nom::error::convert_error;
 use ref_cast::RefCast;
 use serde::{Deserialize, Serialize};
@@ -80,7 +79,7 @@ impl<'a> TryFrom<RawStr<'a>> for DcExpr {
 }
 
 /// An AST node in the DreamCoder language.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum DreamCoderOp {
     /// A variable.
     Var(usize),
@@ -90,7 +89,7 @@ pub enum DreamCoderOp {
 
     /// An "inlined" expression. This is how Dream&shy;Coder represents learned
     /// functions.
-    Inlined(ArcIntern<Expr<Self>>),
+    Inlined(Box<Expr<Self>>),
 
     /// An anonymous function.
     Lambda,
@@ -336,7 +335,7 @@ mod tests {
         }
 
         fn inlined(expr: Self) -> Self {
-            Self(AstNode::leaf(DreamCoderOp::Inlined(ArcIntern::new(expr.0))).into())
+            Self(AstNode::leaf(DreamCoderOp::Inlined(expr.0)).into())
         }
     }
 
