@@ -117,7 +117,7 @@ impl<'a> Context<'a> {
                 let context = self.clone().shift();
                 context.eval(body)?
             }
-            unreach => unreachable!("{:?}", unreach)
+            unreach => unreachable!("{:?}", unreach),
         };
         Ok(result)
     }

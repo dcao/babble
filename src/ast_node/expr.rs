@@ -1,7 +1,7 @@
 use super::{Arity, AstNode, ParseNodeError};
 use crate::{sexp::Sexp, teachable::Teachable};
 use egg::{Id, Language, RecExpr};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, str::FromStr};
 
 /// An abstract syntax tree with operations `Op`.
