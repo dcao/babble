@@ -45,6 +45,8 @@ where
     extra_data: Extra,
     /// Whether to learn "library functions" with no arguments.
     learn_constants: bool,
+    /// Maximum arity of a library function.
+    max_arity: Option<usize>
 }
 
 impl<Op, Extra> BeamExperiment<Op, Extra>
@@ -60,6 +62,7 @@ where
         extra_por: bool,
         extra_data: Extra,
         learn_constants: bool,
+        max_arity: Option<usize>
     ) -> Self
     where
         I: IntoIterator<Item = Rewrite<AstNode<Op>, PartialLibCost>>,
@@ -73,6 +76,7 @@ where
             extra_por,
             extra_data,
             learn_constants,
+            max_arity
         }
     }
 }
@@ -136,7 +140,7 @@ where
 
         debug!("Running anti-unification... ");
         let au_time = Instant::now();
-        let mut learned_lib = LearnedLibrary::new(&aeg, self.learn_constants, co_occurs);
+        let mut learned_lib = LearnedLibrary::new(&aeg, self.learn_constants, self.max_arity, co_occurs);
         debug!(
             "Found {} patterns in {}ms",
             learned_lib.size(),
@@ -202,7 +206,7 @@ where
                 // Add the root combine node again
                 let mut fin = Runner::<_, _, ()>::new(PartialLibCost::empty())
                     .with_egraph(aeg.clone())
-                    .with_iter_limit(1)
+                    // .with_iter_limit(1)
                     .run(
                         lib_rewrites
                             .iter()

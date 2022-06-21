@@ -258,7 +258,6 @@ where
         inputs.sort_unstable();
 
         for input in &inputs {
-
             let file_name = input
                 .file_name()
                 .and_then(|f| f.to_str())
@@ -271,7 +270,10 @@ where
 
             print!("    file: {}", file_name);
 
-            if use_cache && cache.contains(&experiment_dsrs_id) && cache.contains(&experiment_no_dsrs_id) {
+            if use_cache
+                && cache.contains(&experiment_dsrs_id)
+                && cache.contains(&experiment_no_dsrs_id)
+            {
                 println!(" [cached]")
             } else {
                 println!()
@@ -282,7 +284,6 @@ where
 
             let mut programs = Vec::new();
             for frontier in input.frontiers {
-
                 // TODO: Put these in the same eclass
                 for program in frontier.programs {
                     programs.push(program.program.into());
@@ -298,6 +299,7 @@ where
                 false,
                 (),
                 true,
+                None
             );
 
             let experiment_no_dsrs = BeamExperiment::new(
@@ -309,6 +311,7 @@ where
                 false,
                 (),
                 true,
+                None
             );
 
             let summary_dsrs = if use_cache {

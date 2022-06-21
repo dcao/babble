@@ -12,6 +12,7 @@
 )]
 #![allow(clippy::non_ascii_literal)]
 
+use crate::lang::Drawing;
 use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     experiments::Experiments,
@@ -50,17 +51,13 @@ struct Opts {
     #[clap(long)]
     max_arity: Option<usize>,
 
-    /// Do not use domain-specific rewrites
+    /// The number of programs to anti-unify
     #[clap(long)]
-    no_dsr: bool,
+    limit: usize,
 
     /// The beam sizes to use for the beam extractor
     #[clap(long)]
     beams: Vec<usize>,
-
-    /// The timeouts to use for the ILP extractor
-    #[clap(long)]
-    timeout: Vec<u64>,
 
     /// The number of libs to learn at a time
     #[clap(long)]
@@ -91,7 +88,7 @@ fn main() {
         .expect("Error reading input");
 
     // Parse a list of exprs
-    let prog: Vec<Expr<_>> = Program::parse(&input)
+    let prog: Vec<Expr<Drawing>> = Program::parse(&input)
         .expect("Failed to parse program")
         .0
         .into_iter()
@@ -99,6 +96,7 @@ fn main() {
             x.try_into()
                 .expect("Input is not a valid list of expressions")
         }) // Vec<Sexp> -> Vec<Expr>
+        .take(opts.limit)
         .collect();
 
     if opts.svg {
@@ -119,29 +117,20 @@ fn main() {
             println!();
         }
 
-        let dsrs = if opts.no_dsr {
-            vec![]
-        } else {
-            vec![
-                egg::rewrite!("circle rotate"; "circle" => "(rotate 90 circle)"),
-                egg::rewrite!("circle scale"; "circle" => "(scale 1 circle)"),
-            ]
-        };
-
         let exps = Experiments::gen(
             prog,
-            dsrs,
+            vec![],
             opts.beams.clone(),
             opts.lps.clone(),
             opts.rounds.clone(),
             opts.extra_por.clone(),
-            opts.timeout.clone(),
+            vec![],
             (),
             opts.learn_constants,
             opts.max_arity
         );
 
         println!("running...");
-        exps.run("target/res_smiley.csv");
+        exps.run("target/res_drawing.csv");
     }
 }
