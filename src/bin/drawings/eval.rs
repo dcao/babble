@@ -58,7 +58,7 @@ impl<'a> Context<'a> {
             (Drawing::Lambda, [body]) => Value::Lambda(body),
             (Drawing::Transform, [expr, mat]) => {
                 let val = self.eval(expr)?;
-                let (tx, ty, sc, rot) = match self.eval(mat) {
+                let (tx, ty, rot, sc) = match self.eval(mat) {
                     Ok(Value::Matrix(entries)) => (
                         entries.translate_x,
                         entries.translate_y,
@@ -117,7 +117,7 @@ impl<'a> Context<'a> {
                 let context = self.clone().shift();
                 context.eval(body)?
             }
-            anything_else => unreachable!("{:?}", anything_else),
+            unreach => unreachable!("{:?}", unreach)
         };
         Ok(result)
     }

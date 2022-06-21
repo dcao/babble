@@ -163,7 +163,7 @@ impl Teachable for Drawing {
     }
 
     fn list() -> Self {
-        Self::List
+        Self::Connect
     }
 }
 
