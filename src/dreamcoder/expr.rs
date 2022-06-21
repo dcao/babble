@@ -313,9 +313,8 @@ impl FromStr for DcExpr {
 #[cfg(test)]
 mod tests {
     use crate::ast_node::AstNode;
-    use internment::ArcIntern;
 
-    use super::{DcExpr, DeBruijnIndex, DreamCoderOp};
+    use super::{DcExpr, DreamCoderOp};
 
     impl DcExpr {
         fn lambda(body: Self) -> Self {
@@ -335,7 +334,7 @@ mod tests {
         }
 
         fn inlined(expr: Self) -> Self {
-            Self(AstNode::leaf(DreamCoderOp::Inlined(expr.0)).into())
+            Self(AstNode::leaf(DreamCoderOp::Inlined(Box::new(expr.0))).into())
         }
     }
 
