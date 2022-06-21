@@ -117,6 +117,19 @@ impl<'a> Context<'a> {
                 let context = self.clone().shift();
                 context.eval(body)?
             }
+            (Drawing::List, exprs) => {
+                let mut shapes = Vec::with_capacity(exprs.len());
+                for (index, expr) in exprs.iter().enumerate() {
+                    let value = self.eval(expr)?;
+                    // TODO: instead of using 10 we should compute the size of the drawing and translate by that amount
+                    shapes.extend(
+                        value
+                            .map_shapes(|shape| shape.translate(0.0, (index as f64) * 10.0))
+                            .into_shapes()?,
+                    );
+                }
+                Value::Shapes(shapes)
+            }
             unreach => unreachable!("{:?}", unreach),
         };
         Ok(result)

@@ -1,4 +1,4 @@
-//! The AST defining the drawings language from CogSci dataset.
+//! The AST defining the drawings language from [CogSci dataset](https://sites.google.com/view/language-abstraction/home).
 
 use babble::{
     ast_node::{Arity, AstNode, Expr, Precedence, Printable, Printer},
@@ -15,34 +15,46 @@ use std::{
 /// The operations/AST nodes of the "drawings" language.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum Drawing {
-    /// A floating-point constant.
-    Float(NotNan<f64>),
+    /// Common lambda calculus constructs:
     /// A de Bruijn-indexed variable.
     Var(DeBruijnIndex),
+    /// Create an anonymous, de Bruijn-indexed function.
+    Lambda,
     /// A reference to a lib fn
     LibVar(LibId),
-    /// A transformation matrix.
-    Matrix,
+    /// Bind a lib fn within an expression.
+    Lib(LibId),
+    /// Apply a function to an argument.
+    Apply,
+    /// Shift indices.
+    Shift,
+    /// A top-level list of programs.
+    List,
+    /// Drawing-specific constructs:
+    /// Number pi:
+    Pi,
+    /// A floating-point constant.
+    Float(NotNan<f64>),
+    /// Arithmetic operations:    
+    Add,
+    Sub,
     Mul,
     Div,
+    Sin,
+    Cos,
     Tan,
     /// A unit circle.
     Circle,
-    /// A unit line.
+    /// A unit-length horizontal line.
     Line,
-    /// Transform a picture.
+    // A unit-length square.
+    Square,
+    /// A transformation matrix parametrized by scale, rotation, x-shift and y-shift.
+    Matrix,
+    /// Apply transformation matrix to a shape.
     Transform,
-    /// Scale a picture.
+    /// connect two shapes.
     Connect,
-    List,
-    /// Apply a function to an argument.
-    Apply,
-    /// Create an anonymous, de Bruijn-indexed function.
-    Lambda,
-    /// Bind a lib fn within an expression.
-    Lib(LibId),
-    /// Shift indices.
-    Shift,
 }
 
 impl Debug for Drawing {
@@ -54,14 +66,22 @@ impl Debug for Drawing {
 impl Arity for Drawing {
     fn min_arity(&self) -> usize {
         match self {
-            Self::Float(_) | Self::Var(_) | Self::Circle | Self::Line | Self::LibVar(_) => 0,
-            Self::Lambda | Self::Shift | Self::Tan | Self::List => 1,
-            Self::Mul
+            Self::Var(_)
+            | Self::LibVar(_)
+            | Self::Pi
+            | Self::Float(_)
+            | Self::Circle
+            | Self::Line
+            | Self::Square => 0,
+            Self::Lambda | Self::Shift | Self::List | Self::Sin | Self::Cos | Self::Tan => 1,
+            Self::Apply
+            | Self::Lib(_)
+            | Self::Add
+            | Self::Sub
+            | Self::Mul
             | Self::Div
             | Self::Transform
-            | Self::Apply
-            | Self::Connect
-            | Self::Lib(_) => 2,
+            | Self::Connect => 2,
             Self::Matrix => 4,
         }
     }
@@ -77,22 +97,28 @@ impl Arity for Drawing {
 impl Display for Drawing {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Float(g) => Display::fmt(g, f),
             Self::Var(i) => write!(f, "{}", i),
-            Self::Circle => f.write_str("c"),
-            Self::Line => f.write_str("l"),
-            Self::Connect => f.write_str("C"),
-            Self::Apply => f.write_str("@"),
             Self::Lambda => f.write_str("λ"),
-            Self::Lib(ix) => write!(f, "lib {}", ix),
             Self::LibVar(ix) => write!(f, "{}", ix),
+            Self::Lib(ix) => write!(f, "lib {}", ix),
+            Self::Apply => f.write_str("@"),
+            Self::Shift => f.write_str("shift"),
+            Self::List => f.write_str(":"),
+            Self::Pi => f.write_str("π"),
+            Self::Float(g) => Display::fmt(g, f),
+            Self::Add => f.write_str("+"),
+            Self::Sub => f.write_str("-"),
             Self::Mul => f.write_str("*"),
             Self::Div => f.write_str("/"),
+            Self::Sin => f.write_str("sin"),
+            Self::Cos => f.write_str("cos"),
             Self::Tan => f.write_str("tan"),
-            Self::Transform => f.write_str("T"),
+            Self::Circle => f.write_str("c"),
+            Self::Line => f.write_str("l"),
+            Self::Square => f.write_str("r"),
             Self::Matrix => f.write_str("M"),
-            Self::List => f.write_str(":"),
-            Self::Shift => f.write_str("shift"),
+            Self::Transform => f.write_str("T"),
+            Self::Connect => f.write_str("C"),
         }
     }
 }
@@ -102,16 +128,22 @@ impl FromStr for Drawing {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let kind = match s {
-            "c" => Self::Circle,
-            "l" => Self::Line,
-            "/" => Self::Div,
-            "*" => Self::Mul,
-            "tan" => Self::Tan,
             "lambda" | "λ" => Self::Lambda,
             "apply" | "@" => Self::Apply,
             "shift" => Self::Shift,
-            "T" => Self::Transform,
+            "pi" | "π" => Self::Pi,
+            "+" => Self::Add,
+            "-" => Self::Sub,
+            "/" => Self::Div,
+            "*" => Self::Mul,
+            "sin" => Self::Sin,
+            "cos" => Self::Cos,
+            "tan" => Self::Tan,
+            "c" => Self::Circle,
+            "l" => Self::Line,
+            "r" => Self::Square,
             "M" => Self::Matrix,
+            "T" => Self::Transform,
             "C" => Self::Connect,
             _ => {
                 if let Ok(index) = s.parse::<DeBruijnIndex>() {
@@ -163,52 +195,75 @@ impl Teachable for Drawing {
     }
 
     fn list() -> Self {
-        Self::Connect
+        Self::List
     }
 }
 
 impl Printable for Drawing {
     fn precedence(&self) -> Precedence {
         match self {
-            Self::Float(_) | Self::Var(_) | Self::LibVar(_) | Self::Circle | Self::Line => 60,
+            Self::Var(_)
+            | Self::LibVar(_)
+            | Self::Pi
+            | Self::Float(_)
+            | Self::Circle
+            | Self::Line
+            | Self::Square => 60,
             Self::List => 50,
-            Self::Tan
+            Self::Apply
+            | Self::Shift
+            | Self::Sin
+            | Self::Cos
+            | Self::Tan
             | Self::Matrix
             | Self::Transform
-            | Self::Connect
-            | Self::Apply
-            | Self::Shift => 40,
+            | Self::Connect => 40,
             Self::Mul | Self::Div => 30,
+            Self::Add | Self::Sub => 20,
             Self::Lambda | Self::Lib(_) => 10,
         }
     }
 
     fn print_naked<W: Write>(expr: &Expr<Self>, printer: &mut Printer<W>) -> fmt::Result {
         match (expr.0.operation(), expr.0.args()) {
+            (&Self::Pi, []) => printer.writer.write_str("π"),
             (&Self::Float(f), []) => {
                 write!(printer.writer, "{}", f)
             }
             (&Self::Circle, []) => printer.writer.write_str("c"),
             (&Self::Line, []) => printer.writer.write_str("l"),
-            (&Self::Mul, [x, y]) => {
-                printer.print(x)?;
-                printer.writer.write_str(" * ")?;
-                printer.print(y)
+            (&Self::Square, []) => printer.writer.write_str("r"),
+            (&Self::Add, [l, r]) => {
+                printer.print(l)?;
+                printer.writer.write_str(" + ")?;
+                printer.print(r)
             }
-            (&Self::Div, [x, y]) => {
-                printer.print(x)?;
+            (&Self::Sub, [l, r]) => {
+                printer.print(l)?;
+                printer.writer.write_str(" - ")?;
+                printer.print(r)
+            }
+            (&Self::Mul, [l, r]) => {
+                printer.print(l)?;
+                printer.writer.write_str(" * ")?;
+                printer.print(r)
+            }
+            (&Self::Div, [l, r]) => {
+                printer.print(l)?;
                 printer.writer.write_str(" / ")?;
-                printer.print(y)
+                printer.print(r)
+            }
+            (&Self::Sin, [x]) => {
+                printer.writer.write_str("sin ")?;
+                printer.print(x)
+            }
+            (&Self::Cos, [x]) => {
+                printer.writer.write_str("sin ")?;
+                printer.print(x)
             }
             (&Self::Tan, [x]) => {
                 printer.writer.write_str("tan ")?;
                 printer.print(x)
-            }
-            (&Self::Transform, [x, m]) => {
-                printer.writer.write_str("T ")?;
-                printer.print(x)?;
-                printer.writer.write_str(" ")?;
-                printer.print(m)
             }
             (&Self::Matrix, [scale, rot, x, y]) => {
                 printer.writer.write_str("M ")?;
@@ -219,6 +274,12 @@ impl Printable for Drawing {
                 printer.print(x)?;
                 printer.writer.write_str(" ")?;
                 printer.print(y)
+            }
+            (&Self::Transform, [x, m]) => {
+                printer.writer.write_str("T ")?;
+                printer.print(x)?;
+                printer.writer.write_str(" ")?;
+                printer.print(m)
             }
             (&Self::Connect, [x, y]) => {
                 printer.writer.write_str("C ")?;
