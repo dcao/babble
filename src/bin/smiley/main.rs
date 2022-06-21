@@ -46,6 +46,10 @@ struct Opts {
     #[clap(long)]
     learn_constants: bool,
 
+    /// Maximum arity of functions to learn.
+    #[clap(long)]
+    max_arity: Option<usize>,
+
     /// Do not use domain-specific rewrites
     #[clap(long)]
     no_dsr: bool,
@@ -134,6 +138,7 @@ fn main() {
             opts.timeout.clone(),
             (),
             opts.learn_constants,
+            opts.max_arity
         );
 
         println!("running...");

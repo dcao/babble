@@ -299,6 +299,7 @@ where
                 false,
                 (),
                 true,
+                None
             );
 
             let experiment_no_dsrs = BeamExperiment::new(
@@ -310,6 +311,7 @@ where
                 false,
                 (),
                 true,
+                None
             );
 
             let summary_dsrs = if use_cache {

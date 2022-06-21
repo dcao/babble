@@ -201,6 +201,7 @@ where
         timeouts: Vec<u64>,
         extra: Extra,
         learn_constants: bool,
+        max_arity: Option<usize>
     ) -> Self
     where
         Extra: serde::ser::Serialize + Clone + Debug + Clone + 'static,
@@ -237,6 +238,7 @@ where
                             extra_por,
                             extra.clone(),
                             learn_constants,
+                            max_arity
                         );
                         if rounds > 1 {
                             res.push(Box::new(Rounds::new(rounds, beam_experiment)));

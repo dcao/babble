@@ -41,6 +41,10 @@ struct Opts {
     #[clap(long)]
     learn_constants: bool,
 
+    /// Whether to learn "library functions" with no arguments.
+    #[clap(long)]
+    max_arity: Option<usize>,
+
     /// The number of programs to anti-unify
     #[clap(long)]
     limit: Vec<usize>,
@@ -112,6 +116,7 @@ fn main() {
         opts.timeout.clone(),
         (),
         opts.learn_constants,
+        opts.max_arity
     );
 
     println!("running...");

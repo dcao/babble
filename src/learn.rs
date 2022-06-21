@@ -96,6 +96,9 @@ pub struct LearnedLibrary<Op, T> {
     nontrivial_aus: BTreeSet<PartialExpr<Op, Var>>,
     /// Whether to also learn "library functions" which take no arguments.
     learn_constants: bool,
+    /// Maximum arity of functions to learn.
+    max_arity: Option<usize>,
+    /// Data about which e-classes can co-occur.
     co_occurrences: CoOccurrences,
 }
 
@@ -109,12 +112,14 @@ where
     pub fn new<A: Analysis<AstNode<Op>>>(
         egraph: &'a EGraph<AstNode<Op>, A>,
         learn_constants: bool,
+        max_arity: Option<usize>,
         co_occurrences: CoOccurrences,
     ) -> Self {
         let mut learned_lib = Self {
             aus_by_state: BTreeMap::new(),
             nontrivial_aus: BTreeSet::new(),
             learn_constants,
+            max_arity,
             co_occurrences,
         };
         let dfta = Dfta::from(egraph);
@@ -298,6 +303,7 @@ where
             // discarding redundant anti-unifications.
 
             let learn_constants = self.learn_constants;
+            let max_arity = self.max_arity;
 
             let nontrivial_aus = aus
                 .iter()
@@ -329,7 +335,10 @@ where
                     // if size(e[x_1/e_1, ..., x_n/e_n]) > 2n + 1. This
                     // corresponds to an anti-unification containing at least n
                     // + 1 nodes.
-                    if num_vars < au.num_holes() || au.num_nodes() > num_vars + 1 {
+                    // In addition, if max_arity is set, we only want to learn patterns with a maximum arity.
+                    if max_arity.is_some() && num_vars > max_arity.unwrap() { // TODO: this should be done to all AUs
+                        None
+                    } else if num_vars < au.num_holes() || au.num_nodes() > num_vars + 1 {
                         Some(au)
                     } else {
                         None
