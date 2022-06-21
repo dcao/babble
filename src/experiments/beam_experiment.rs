@@ -202,7 +202,7 @@ where
                 // Add the root combine node again
                 let mut fin = Runner::<_, _, ()>::new(PartialLibCost::empty())
                     .with_egraph(aeg.clone())
-                    .with_iter_limit(1)
+                    // .with_iter_limit(1)
                     .run(
                         lib_rewrites
                             .iter()
