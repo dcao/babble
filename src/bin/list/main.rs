@@ -41,7 +41,7 @@ struct Opts {
     #[clap(long)]
     learn_constants: bool,
 
-    /// Whether to learn "library functions" with no arguments.
+    /// Maximum arity of functions to learn.
     #[clap(long)]
     max_arity: Option<usize>,
 
