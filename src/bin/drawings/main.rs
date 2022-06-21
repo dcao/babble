@@ -47,6 +47,10 @@ struct Opts {
     #[clap(long)]
     learn_constants: bool,
 
+    /// The number of programs to anti-unify
+    #[clap(long)]
+    limit: usize,
+
     /// The beam sizes to use for the beam extractor
     #[clap(long)]
     beams: Vec<usize>,
@@ -88,6 +92,7 @@ fn main() {
             x.try_into()
                 .expect("Input is not a valid list of expressions")
         }) // Vec<Sexp> -> Vec<Expr>
+        .take(opts.limit)
         .collect();
 
     if opts.svg {

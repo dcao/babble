@@ -53,6 +53,8 @@ pub(crate) enum Drawing {
     Matrix,
     /// Apply transformation matrix to a shape.
     Transform,
+    /// Repeat a shape a number of times, applying a transform in between.
+    Repeat,
     /// connect two shapes.
     Connect,
 }
@@ -82,6 +84,7 @@ impl Arity for Drawing {
             | Self::Div
             | Self::Transform
             | Self::Connect => 2,
+            Self::Repeat => 3,
             Self::Matrix => 4,
         }
     }
@@ -118,6 +121,7 @@ impl Display for Drawing {
             Self::Square => f.write_str("r"),
             Self::Matrix => f.write_str("M"),
             Self::Transform => f.write_str("T"),
+            Self::Repeat => f.write_str("repeat"),
             Self::Connect => f.write_str("C"),
         }
     }
@@ -144,6 +148,7 @@ impl FromStr for Drawing {
             "r" => Self::Square,
             "M" => Self::Matrix,
             "T" => Self::Transform,
+            "repeat" => Self::Repeat,
             "C" => Self::Connect,
             _ => {
                 if let Ok(index) = s.parse::<DeBruijnIndex>() {
@@ -217,6 +222,7 @@ impl Printable for Drawing {
             | Self::Tan
             | Self::Matrix
             | Self::Transform
+            | Self::Repeat
             | Self::Connect => 40,
             Self::Mul | Self::Div => 30,
             Self::Add | Self::Sub => 20,
@@ -258,7 +264,7 @@ impl Printable for Drawing {
                 printer.print(x)
             }
             (&Self::Cos, [x]) => {
-                printer.writer.write_str("sin ")?;
+                printer.writer.write_str("cos ")?;
                 printer.print(x)
             }
             (&Self::Tan, [x]) => {
@@ -280,6 +286,14 @@ impl Printable for Drawing {
                 printer.print(x)?;
                 printer.writer.write_str(" ")?;
                 printer.print(m)
+            }
+            (&Self::Repeat, [x, n, t]) => {
+                printer.writer.write_str("repeat ")?;
+                printer.print(x)?;
+                printer.writer.write_str(" ")?;
+                printer.print(n)?;
+                printer.writer.write_str(" ")?;
+                printer.print(t)
             }
             (&Self::Connect, [x, y]) => {
                 printer.writer.write_str("C ")?;
