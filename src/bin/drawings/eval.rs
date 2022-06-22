@@ -45,6 +45,7 @@ impl<'a> Context<'a> {
     fn eval(&self, expr: &'a Expr<Drawing>) -> Result<Value<'a>, TypeError> {
         let result = match (expr.0.operation(), expr.0.args()) {
             (&Drawing::Float(f), []) => Value::Num(f.into()),
+            (&Drawing::Pi, []) => Value::Num(std::f64::consts::PI),
             (Drawing::Circle, []) => Value::Shapes(vec![Shape::Circle {
                 center: (0.0, 0.0),
                 radius: 1.0,
@@ -53,6 +54,24 @@ impl<'a> Context<'a> {
                 start: (-0.5, 0.0),
                 end: (0.5, 0.0),
             }]),
+            (Drawing::Square, []) => Value::Shapes(vec![
+                Shape::Line {
+                    start: (-0.5, -0.5),
+                    end: (0.5, -0.5),
+                },
+                Shape::Line {
+                    start: (0.5, -0.5),
+                    end: (0.5, 0.5),
+                },
+                Shape::Line {
+                    start: (0.5, 0.5),
+                    end: (-0.5, 0.5),
+                },
+                Shape::Line {
+                    start: (-0.5, 0.5),
+                    end: (-0.5, -0.5),
+                },
+            ]),
             (&Drawing::Var(index), []) => self.get_index(index.0).clone(),
             (&Drawing::LibVar(name), []) => self.get_lib(name).clone(),
             (Drawing::Lambda, [body]) => Value::Lambda(body),
@@ -81,6 +100,16 @@ impl<'a> Context<'a> {
                     translate_y: tran_y,
                 })
             }
+            (Drawing::Add, [x, y]) => {
+                let ax = self.eval(x)?.to_float()?;
+                let ay = self.eval(y)?.to_float()?;
+                Value::Num(ax + ay)
+            }
+            (Drawing::Sub, [x, y]) => {
+                let sx = self.eval(x)?.to_float()?;
+                let sy = self.eval(y)?.to_float()?;
+                Value::Num(sx - sy)
+            }
             (Drawing::Mul, [x, y]) => {
                 let mx = self.eval(x)?.to_float()?;
                 let my = self.eval(y)?.to_float()?;
@@ -90,6 +119,14 @@ impl<'a> Context<'a> {
                 let mx = self.eval(x)?.to_float()?;
                 let my = self.eval(y)?.to_float()?;
                 Value::Num(mx / my)
+            }
+            (Drawing::Sin, [th]) => {
+                let theta = self.eval(th)?.to_float()?;
+                Value::Num(theta.sin())
+            }
+            (Drawing::Cos, [th]) => {
+                let theta = self.eval(th)?.to_float()?;
+                Value::Num(theta.cos())
             }
             (Drawing::Tan, [th]) => {
                 let theta = self.eval(th)?.to_float()?;
@@ -116,6 +153,31 @@ impl<'a> Context<'a> {
             (Drawing::Shift, [body]) => {
                 let context = self.clone().shift();
                 context.eval(body)?
+            }
+            (Drawing::Repeat, [expr, times, mat]) => {
+                let val = self.eval(expr)?;
+                let t = match self.eval(times) {
+                    Ok(Value::Num(f)) => f as usize,
+                    _ => panic!("Second argument to repeat must be a number"),
+                };
+                let (tx, ty, rot, sc) = match self.eval(mat) {
+                    Ok(Value::Matrix(entries)) => (
+                        entries.translate_x,
+                        entries.translate_y,
+                        entries.rotate,
+                        entries.scale,
+                    ),
+                    _ => panic!("second argument to Transform must be matrix"),
+                };
+
+                let mut shapes = Vec::with_capacity(t);
+                let mut prev = val;
+                for _i in 0..t {
+                    shapes.extend(prev.clone().into_shapes().ok().unwrap());
+                    prev = prev.map_shapes(|shape| shape.translate(tx, ty).rotate(rot).scale(sc)); 
+                }
+
+                Value::Shapes(shapes)
             }
             (Drawing::List, exprs) => {
                 let mut shapes = Vec::with_capacity(exprs.len());
