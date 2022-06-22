@@ -26,3 +26,4 @@ pub mod learn;
 pub mod sexp;
 pub mod simple_lang;
 pub mod teachable;
+pub mod rewrites;

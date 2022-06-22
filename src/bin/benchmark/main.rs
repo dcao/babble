@@ -14,16 +14,15 @@
 
 use babble::{
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
-    experiments::{BeamExperiment, Experiment, Summary},
+    experiments::{cache::ExperimentCache, BeamExperiment, Experiment, Summary},
     extract::beam::LibsPerSel,
+    rewrites,
 };
 use clap::Clap;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
-    error::Error,
     fs,
-    marker::PhantomData,
     path::{Path, PathBuf},
 };
 
@@ -56,88 +55,6 @@ struct Benchmark<'a> {
     path: &'a Path,
 }
 
-#[derive(Clone, Debug)]
-pub struct ExperimentCache<'a, Op> {
-    path: &'a Path,
-    index: BTreeMap<String, PathBuf>,
-    phantom: PhantomData<Op>,
-}
-
-// This lint gives false positives for higher-rank trait bounds.
-#[allow(single_use_lifetimes)]
-impl<'a, Op> ExperimentCache<'a, Op>
-where
-    Op: Serialize + for<'b> Deserialize<'b>,
-{
-    pub fn new<P: AsRef<Path>>(path: &'a P) -> Result<Self, Box<dyn Error>> {
-        let mut cache = Self {
-            path: path.as_ref(),
-            index: BTreeMap::new(),
-            phantom: PhantomData,
-        };
-
-        let index_file = cache.index_file();
-        if !index_file.exists() {
-            cache.flush()?;
-        } else {
-            let index_str = fs::read_to_string(&index_file)?;
-            cache.index = ron::from_str(&index_str)?
-        };
-
-        Ok(cache)
-    }
-
-    fn index_file(&self) -> PathBuf {
-        self.path.join("index.ron")
-    }
-
-    fn flush(&self) -> Result<(), Box<dyn Error>> {
-        let serialized_index = ron::to_string(&self.index)?;
-        fs::write(self.index_file(), serialized_index)?;
-        Ok(())
-    }
-
-    pub fn contains(&self, experiment: &str) -> bool {
-        self.index.contains_key(experiment)
-    }
-
-    pub fn insert<S: Into<String>>(
-        &mut self,
-        experiment: S,
-        result: &Summary<Op>,
-    ) -> Result<(), Box<dyn Error>> {
-        let experiment = experiment.into();
-        let experiment_file = self.path.join(format!("experiment-{}.ron", &experiment));
-        let serialized_result = ron::to_string(&result)?;
-        fs::write(&experiment_file, serialized_result)?;
-        self.index.insert(experiment, experiment_file);
-        self.flush()
-    }
-
-    pub fn get(&self, experiment: &str) -> Result<Option<Summary<Op>>, Box<dyn Error>> {
-        if let Some(file) = self.index.get(experiment) {
-            let experiment_str = fs::read_to_string(file)?;
-            Ok(Some(ron::from_str(&experiment_str)?))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub fn get_or_insert_with<F: FnOnce() -> Summary<Op>>(
-        &mut self,
-        experiment: &str,
-        default: F,
-    ) -> Result<Summary<Op>, Box<dyn Error>> {
-        if let Some(summary) = self.get(experiment)? {
-            Ok(summary)
-        } else {
-            let summary = default();
-            self.insert(experiment, &summary)?;
-            Ok(summary)
-        }
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct DsrResults {
     domain: String,
@@ -147,32 +64,7 @@ struct DsrResults {
     summary_dsrs: Summary<DreamCoderOp>,
 }
 
-mod rewrites {
-    use egg::{Analysis, FromOp, Language, Pattern, Rewrite};
-
-    pub(crate) fn parse_dsrs<L: Language + FromOp + Sync + Send + 'static, A: Analysis<L>>(
-        file: &str,
-    ) -> Vec<Rewrite<L, A>> {
-        let mut rewrites = Vec::new();
-        for line in file
-            .lines()
-            .map(|line| line.trim())
-            .filter(|line| !line.is_empty())
-        {
-            let (name, rewrite) = line.split_once(':').unwrap();
-            let (lhs, rhs) = rewrite.split_once("=>").unwrap();
-            let name = name.trim();
-            let lhs = lhs.trim();
-            let rhs = rhs.trim();
-            let lhs: Pattern<L> = lhs.parse().unwrap();
-            let rhs: Pattern<L> = rhs.parse().unwrap();
-            rewrites.push(Rewrite::new(name, lhs, rhs).unwrap());
-        }
-        rewrites
-    }
-}
-
-fn main() -> Result<(), Box<dyn Error + 'static>> {
+fn main() -> anyhow::Result<()> {
     let opts: Opts = Opts::parse();
 
     let benchmark_path = opts.file.unwrap_or(PathBuf::from(BENCHMARK_PATH));
@@ -226,7 +118,7 @@ fn run_domain<'a, I>(
     benchmarks: I,
     cache: &mut ExperimentCache<'_, DreamCoderOp>,
     use_cache: bool,
-) -> Result<(), Box<dyn Error>>
+) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = &'a Benchmark<'a>>,
 {
@@ -235,12 +127,7 @@ where
     println!("domain: {}", domain);
 
     let dsr_file = PathBuf::from(DSR_PATH).join(format!("{}.rewrites", domain));
-    let rewrites = if dsr_file.exists() {
-        let contents = fs::read_to_string(dsr_file)?;
-        rewrites::parse_dsrs(&contents)
-    } else {
-        Vec::new()
-    };
+    let rewrites = rewrites::try_from_file(dsr_file)?.unwrap_or_default();
 
     println!("  found {} domain-specific rewrites", rewrites.len());
 
@@ -351,7 +238,7 @@ where
     Ok(())
 }
 
-fn plot_dsr_impact<I>(results: I) -> Result<(), Box<dyn Error + 'static>>
+fn plot_dsr_impact<I>(results: I) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = DsrResults>,
 {

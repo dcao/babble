@@ -19,6 +19,7 @@ use std::{
 };
 
 mod beam_experiment;
+pub mod cache;
 mod ilp_experiment;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -48,6 +49,8 @@ impl<Op> Summary<Op> {
         space_saving * 100.0
     }
 
+    /// Returns the reduction in cost between `old` and `self` as a percentage
+    /// of the initial cost.
     pub fn percent_improved(&self, old: &Self) -> f64 {
         assert_eq!(self.initial_cost, old.initial_cost);
         let improvement = (old.final_cost as f64) - (self.final_cost as f64);
