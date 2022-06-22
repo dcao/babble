@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use crate::lang::Drawing;
 use babble::{ast_node::Expr, learn::LibId};
-use nom::error;
 use thiserror::Error;
 
 #[derive(Clone, Debug)]
@@ -181,15 +180,28 @@ impl<'a> Context<'a> {
                 Value::Shapes(shapes)
             }
             (Drawing::List, exprs) => {
+                // Places the result of evaluating each of the `exprs` one under the other.
+                let margin = 1.0;
+                // We will put all the resulting shapes into this vector:
                 let mut shapes = Vec::with_capacity(exprs.len());
-                for (index, expr) in exprs.iter().enumerate() {
+                // The bounding box of the already placed shapes:
+                let mut bbox = BoundingBox::EMPTY;
+                for (i, expr) in exprs.iter().enumerate() {
                     let value = self.eval(expr)?;
-                    // TODO: instead of using 10 we should compute the size of the drawing and translate by that amount
-                    shapes.extend(
-                        value
-                            .map_shapes(|shape| shape.translate(0.0, (index as f64) * 10.0))
-                            .into_shapes()?,
-                    );
+                    // The bounding box of the current value, at the origin:
+                    let new_box = Shape::shapes_bounding_box(&value.clone().into_shapes()?);
+                    // Vertical shift to place the current value (sufficient to separate the bottom `bbox` from the new value by `margin`):
+                    let shift = if i == 0 {
+                        0.0
+                    } else {
+                        bbox.lower_left.1 - new_box.upper_right.1 - margin
+                    };
+                    let new_shapes = value
+                        .map_shapes(|shape| shape.translate(0.0, shift))
+                        .into_shapes()?;
+                    // Update the global bounding box by a *shifted* bounding box of the new shapes:
+                    bbox = bbox.union(&new_box.translate(0.0, shift));
+                    shapes.extend(new_shapes);
                 }
                 Value::Shapes(shapes)
             }
@@ -255,6 +267,43 @@ pub(crate) struct Picture {
 #[error("type mismatch")]
 pub(crate) struct TypeError {
     expected: String,
+}
+
+/// A bounding box defined by its two corners.
+#[derive(Clone, Debug)]
+pub(crate) struct BoundingBox {
+    pub(crate) lower_left: (f64, f64),
+    pub(crate) upper_right: (f64, f64),
+}
+
+impl BoundingBox {
+    /// Empty bounding box.
+    const EMPTY: Self = Self {
+        lower_left: (std::f64::MAX, std::f64::MAX),
+        upper_right: (std::f64::MIN, std::f64::MIN),
+    };
+
+    /// Unions this bounding box with another.
+    fn union(&self, other: &BoundingBox) -> BoundingBox {
+        BoundingBox {
+            lower_left: (
+                self.lower_left.0.min(other.lower_left.0),
+                self.lower_left.1.min(other.lower_left.1),
+            ),
+            upper_right: (
+                self.upper_right.0.max(other.upper_right.0),
+                self.upper_right.1.max(other.upper_right.1),
+            ),
+        }
+    }
+
+    /// Translates this bounding box by the given amount.
+    fn translate(&self, x: f64, y: f64) -> BoundingBox {
+        BoundingBox {
+            lower_left: (self.lower_left.0 + x, self.lower_left.1 + y),
+            upper_right: (self.upper_right.0 + x, self.upper_right.1 + y),
+        }
+    }
 }
 
 impl<'a> Value<'a> {
@@ -335,13 +384,45 @@ impl Shape {
         self.similarity_transform(|x, y| (x + x_offset, y + y_offset))
     }
 
-    fn rotate(self, degrees: f64) -> Self {
-        let (sin, cos) = degrees.to_radians().sin_cos();
+    fn rotate(self, radians: f64) -> Self {
+        let (sin, cos) = radians.sin_cos();
         self.similarity_transform(|x, y| (x * cos - y * sin, x * sin + y * cos))
     }
 
     fn scale(self, factor: f64) -> Self {
         self.similarity_transform(|x, y| (x * factor, y * factor))
+    }
+
+    fn bounding_box(&self) -> BoundingBox {
+        match self {
+            Self::Circle {
+                center: (x, y),
+                radius,
+            } => BoundingBox {
+                lower_left: (x - radius, y - radius),
+                upper_right: (x + radius, y + radius),
+            },
+            Self::Line {
+                start: (x1, y1),
+                end: (x2, y2),
+            } => BoundingBox {
+                lower_left: (x1.min(*x2), y1.min(*y2)),
+                upper_right: (x1.max(*x2), y1.max(*y2)),
+            },
+        }
+    }
+
+    fn shapes_bounding_box(shapes: &[Shape]) -> BoundingBox {
+        shapes.iter().fold(BoundingBox::EMPTY, |bbox, shape| {
+            bbox.union(&shape.bounding_box())
+        })
+    }
+}
+
+impl Picture {
+    /// Returns the bounding box of this picture.
+    pub(crate) fn bounding_box(&self) -> BoundingBox {
+        Shape::shapes_bounding_box(&self.shapes)
     }
 }
 
