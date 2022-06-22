@@ -16,7 +16,6 @@ use crate::lang::Drawing;
 use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     experiments::Experiments,
-    extract::beam::LibsPerSel,
     sexp::Program,
 };
 use clap::Clap;
@@ -61,7 +60,7 @@ struct Opts {
 
     /// The number of libs to learn at a time
     #[clap(long)]
-    lps: Vec<LibsPerSel>,
+    lps: Vec<usize>,
 
     /// The number of rounds of lib learning to run
     #[clap(long)]

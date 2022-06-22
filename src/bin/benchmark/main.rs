@@ -15,7 +15,6 @@
 use babble::{
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
     experiments::{cache::ExperimentCache, BeamExperiment, Experiment, Summary},
-    extract::beam::LibsPerSel,
     rewrites,
 };
 use clap::Clap;
@@ -47,7 +46,8 @@ struct Opts {
 const BENCHMARK_PATH: &str = "data/dreamcoder-benchmarks/benches";
 const DSR_PATH: &str = "data/benchmark-dsrs";
 const CACHE_DIR: &str = "cache";
-const BEAM_SIZE: usize = 50;
+const BEAM_SIZE: usize = 100;
+const LPS: usize = 20;
 
 #[derive(Debug)]
 struct Benchmark<'a> {

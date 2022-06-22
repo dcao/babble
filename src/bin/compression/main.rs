@@ -16,7 +16,6 @@ use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
     experiments::Experiments,
-    extract::beam::LibsPerSel,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -61,7 +60,7 @@ struct Opts {
 
     /// The number of libs to learn at a time
     #[clap(long)]
-    lps: Vec<LibsPerSel>,
+    lps: Vec<usize>,
 
     /// The number of rounds of lib learning to run
     #[clap(long)]

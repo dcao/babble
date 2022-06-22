@@ -3,7 +3,7 @@ pub use self::ilp_experiment::IlpExperiment;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
-    extract::beam::{LibsPerSel, PartialLibCost},
+    extract::beam::PartialLibCost,
     learn::LibId,
     teachable::Teachable,
 };
@@ -198,7 +198,7 @@ where
         exprs: Vec<Expr<Op>>,
         dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
         mut beams: Vec<usize>,
-        mut lpss: Vec<LibsPerSel>,
+        mut lpss: Vec<usize>,
         mut rounds_list: Vec<usize>,
         mut extra_pors: Vec<bool>,
         timeouts: Vec<u64>,
@@ -213,7 +213,8 @@ where
 
         // Defaults for if we have empty values
         if beams.is_empty() {
-            beams.push(25);
+            // TODO: be more graceful about this
+            panic!("error: beams not specified");
         }
 
         if rounds_list.is_empty() {
@@ -221,7 +222,8 @@ where
         }
 
         if lpss.is_empty() {
-            lpss.push(LibsPerSel::Unlimited);
+            // TODO: be more graceful about this
+            panic!("error: lps not specified");
         }
 
         if extra_pors.is_empty() {
@@ -231,6 +233,11 @@ where
         for beam in beams {
             for &extra_por in &extra_pors {
                 for &lps in &lpss {
+                    if lps > beam {
+                        // TODO: be more graceful about this too
+                        panic!("lps {} greater than beam {}", lps, beam);
+                    }
+
                     for &rounds in &rounds_list {
                         let beam_experiment = BeamExperiment::new(
                             dsrs.clone(),
@@ -342,11 +349,8 @@ mod plumbing {
         // so we give up on the spot.
         let mut res = HashMap::new();
 
-        fn walk<Op>(
-            from: LLRes<'_, Op>,
-            res: &mut HashMap<LibId, Vec<AstNode<Op>>>,
-            ix: Id,
-        ) where
+        fn walk<Op>(from: LLRes<'_, Op>, res: &mut HashMap<LibId, Vec<AstNode<Op>>>, ix: Id)
+        where
             Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
         {
             // Check what kind of node we're at.

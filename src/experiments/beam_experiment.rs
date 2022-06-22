@@ -13,7 +13,7 @@ use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     co_occurrence::COBuilder,
     extract::{
-        beam::{LibExtractor, LibsPerSel, PartialLibCost},
+        beam::{LibExtractor, PartialLibCost},
         lift_libs,
     },
     learn::LearnedLibrary,
@@ -36,7 +36,7 @@ where
     /// The inter beam size to use
     inter_beams: usize,
     /// The number of libs to learn at a time
-    lps: LibsPerSel,
+    lps: usize,
     /// The number of rounds of library learning to do
     rounds: usize,
     /// Whether to use the extra partial order reduction or not
@@ -57,7 +57,7 @@ where
         dsrs: I,
         final_beams: usize,
         inter_beams: usize,
-        lps: LibsPerSel,
+        lps: usize,
         rounds: usize,
         extra_por: bool,
         extra_data: Extra,
