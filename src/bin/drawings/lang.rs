@@ -40,6 +40,8 @@ pub(crate) enum Drawing {
     Sub,
     Mul,
     Div,
+    Pow,
+    Max,
     Sin,
     Cos,
     Tan,
@@ -49,6 +51,10 @@ pub(crate) enum Drawing {
     Line,
     // A unit-length square.
     Square,
+    // A scaled rectangle.
+    Rect,
+    /// An empty shape???
+    Empty,
     /// A transformation matrix parametrized by scale, rotation, x-shift and y-shift.
     Matrix,
     /// Apply transformation matrix to a shape.
@@ -72,6 +78,7 @@ impl Arity for Drawing {
             | Self::LibVar(_)
             | Self::Pi
             | Self::Float(_)
+            | Self::Empty
             | Self::Circle
             | Self::Line
             | Self::Square => 0,
@@ -82,6 +89,9 @@ impl Arity for Drawing {
             | Self::Sub
             | Self::Mul
             | Self::Div
+            | Self::Pow
+            | Self::Max
+            | Self::Rect
             | Self::Transform
             | Self::Connect => 2,
             Self::Repeat => 3,
@@ -113,12 +123,16 @@ impl Display for Drawing {
             Self::Sub => f.write_str("-"),
             Self::Mul => f.write_str("*"),
             Self::Div => f.write_str("/"),
+            Self::Pow => f.write_str("^"),
+            Self::Max => f.write_str("max"),
             Self::Sin => f.write_str("sin"),
             Self::Cos => f.write_str("cos"),
             Self::Tan => f.write_str("tan"),
             Self::Circle => f.write_str("c"),
             Self::Line => f.write_str("l"),
             Self::Square => f.write_str("r"),
+            Self::Rect => f.write_str("r_s"),
+            Self::Empty => f.write_str("empt"),
             Self::Matrix => f.write_str("M"),
             Self::Transform => f.write_str("T"),
             Self::Repeat => f.write_str("repeat"),
@@ -140,12 +154,16 @@ impl FromStr for Drawing {
             "-" => Self::Sub,
             "/" => Self::Div,
             "*" => Self::Mul,
+            "pow" => Self::Pow,
+            "max" => Self::Max,
             "sin" => Self::Sin,
             "cos" => Self::Cos,
             "tan" => Self::Tan,
             "c" => Self::Circle,
             "l" => Self::Line,
             "r" => Self::Square,
+            "r_s" => Self::Rect,
+            "empt" => Self::Empty,
             "M" => Self::Matrix,
             "T" => Self::Transform,
             "repeat" => Self::Repeat,
@@ -211,19 +229,23 @@ impl Printable for Drawing {
             | Self::LibVar(_)
             | Self::Pi
             | Self::Float(_)
+            | Self::Empty
             | Self::Circle
             | Self::Line
             | Self::Square => 60,
             Self::List => 50,
             Self::Apply
             | Self::Shift
+            | Self::Max
             | Self::Sin
             | Self::Cos
             | Self::Tan
+            | Self::Rect
             | Self::Matrix
             | Self::Transform
             | Self::Repeat
             | Self::Connect => 40,
+            Self::Pow => 35,
             Self::Mul | Self::Div => 30,
             Self::Add | Self::Sub => 20,
             Self::Lambda | Self::Lib(_) => 10,
@@ -239,6 +261,13 @@ impl Printable for Drawing {
             (&Self::Circle, []) => printer.writer.write_str("c"),
             (&Self::Line, []) => printer.writer.write_str("l"),
             (&Self::Square, []) => printer.writer.write_str("r"),
+            (&Self::Empty, []) => printer.writer.write_str("empt"),
+            (&Self::Rect, [w, h]) => {
+                printer.writer.write_str("r_s ")?;
+                printer.print(w)?;
+                printer.writer.write_str(" ")?;
+                printer.print(h)
+            }
             (&Self::Add, [l, r]) => {
                 printer.print(l)?;
                 printer.writer.write_str(" + ")?;
@@ -257,6 +286,17 @@ impl Printable for Drawing {
             (&Self::Div, [l, r]) => {
                 printer.print(l)?;
                 printer.writer.write_str(" / ")?;
+                printer.print(r)
+            }
+            (&Self::Pow, [l, r]) => {
+                printer.print(l)?;
+                printer.writer.write_str(" ^ ")?;
+                printer.print(r)
+            }
+            (&Self::Max, [l, r]) => {
+                printer.writer.write_str("max ")?;
+                printer.print(l)?;
+                printer.writer.write_str(" ")?;
                 printer.print(r)
             }
             (&Self::Sin, [x]) => {

@@ -42,18 +42,18 @@ impl<'a> Context<'a> {
     }
 
     fn eval(&self, expr: &'a Expr<Drawing>) -> Result<Value<'a>, TypeError> {
-        let result = match (expr.0.operation(), expr.0.args()) {
-            (&Drawing::Float(f), []) => Value::Num(f.into()),
-            (&Drawing::Pi, []) => Value::Num(std::f64::consts::PI),
-            (Drawing::Circle, []) => Value::Shapes(vec![Shape::Circle {
+        match (expr.0.operation(), expr.0.args()) {
+            (&Drawing::Float(f), []) => Ok(Value::Num(f.into())),
+            (&Drawing::Pi, []) => Ok(Value::Num(std::f64::consts::PI)),
+            (Drawing::Circle, []) => Ok(Value::Shapes(vec![Shape::Circle {
                 center: (0.0, 0.0),
                 radius: 1.0,
-            }]),
-            (Drawing::Line, []) => Value::Shapes(vec![Shape::Line {
+            }])),
+            (Drawing::Line, []) => Ok(Value::Shapes(vec![Shape::Line {
                 start: (-0.5, 0.0),
                 end: (0.5, 0.0),
-            }]),
-            (Drawing::Square, []) => Value::Shapes(vec![
+            }])),
+            (Drawing::Square, []) => Ok(Value::Shapes(vec![
                 Shape::Line {
                     start: (-0.5, -0.5),
                     end: (0.5, -0.5),
@@ -70,88 +70,123 @@ impl<'a> Context<'a> {
                     start: (-0.5, 0.5),
                     end: (-0.5, -0.5),
                 },
-            ]),
-            (&Drawing::Var(index), []) => self.get_index(index.0).clone(),
-            (&Drawing::LibVar(name), []) => self.get_lib(name).clone(),
-            (Drawing::Lambda, [body]) => Value::Lambda(body),
+            ])),
+            (Drawing::Rect, [w, h]) => match (self.eval(w)?, self.eval(h)?) {
+                (Value::Num(w), Value::Num(h)) => Ok(Value::Shapes(vec![
+                    Shape::Line {
+                        start: (-w / 2.0, -h / 2.0),
+                        end: (w / 2.0, -h / 2.0),
+                    },
+                    Shape::Line {
+                        start: (w / 2.0, -h / 2.0),
+                        end: (w / 2.0, h / 2.0),
+                    },
+                    Shape::Line {
+                        start: (w / 2.0, h / 2.0),
+                        end: (-w / 2.0, h / 2.0),
+                    },
+                    Shape::Line {
+                        start: (-w / 2.0, h / 2.0),
+                        end: (-w / 2.0, -h / 2.0),
+                    },
+                ])),
+                _ => Err(TypeError {
+                    expected: "numbers".to_string(),
+                }),
+            },
+            (Drawing::Empty, []) => Ok(Value::Shapes(vec![])),
+            (&Drawing::Var(index), []) => Ok(self.get_index(index.0).clone()),
+            (&Drawing::LibVar(name), []) => Ok(self.get_lib(name).clone()),
+            (Drawing::Lambda, [body]) => Ok(Value::Lambda(body)),
             (Drawing::Transform, [expr, mat]) => {
                 let val = self.eval(expr)?;
-                let (tx, ty, rot, sc) = match self.eval(mat) {
-                    Ok(Value::Matrix(entries)) => (
-                        entries.translate_x,
-                        entries.translate_y,
-                        entries.rotate,
-                        entries.scale,
-                    ),
-                    _ => panic!("second argument to Transform must be matrix"),
-                };
-                val.map_shapes(|shape| shape.translate(tx, ty).rotate(rot).scale(sc))
+                match self.eval(mat) {
+                    Ok(Value::Matrix(entries)) => Ok(val.map_shapes(|shape| {
+                        shape
+                            .translate(entries.translate_x, entries.translate_y)
+                            .rotate(entries.rotate)
+                            .scale(entries.scale)
+                    })),
+                    _ => Err(TypeError {
+                        expected: "second argument to Transform must be matrix".to_string(),
+                    }),
+                }
             }
             (Drawing::Matrix, [sc, rot, x, y]) => {
                 let s = self.eval(sc)?.to_float()?;
                 let angle = self.eval(rot)?.to_float()?;
                 let tran_x = self.eval(x)?.to_float()?;
                 let tran_y = self.eval(y)?.to_float()?;
-                Value::Matrix(Entries {
+                Ok(Value::Matrix(Entries {
                     scale: s,
                     rotate: angle,
                     translate_x: tran_x,
                     translate_y: tran_y,
-                })
+                }))
             }
             (Drawing::Add, [x, y]) => {
                 let ax = self.eval(x)?.to_float()?;
                 let ay = self.eval(y)?.to_float()?;
-                Value::Num(ax + ay)
+                Ok(Value::Num(ax + ay))
             }
             (Drawing::Sub, [x, y]) => {
                 let sx = self.eval(x)?.to_float()?;
                 let sy = self.eval(y)?.to_float()?;
-                Value::Num(sx - sy)
+                Ok(Value::Num(sx - sy))
             }
             (Drawing::Mul, [x, y]) => {
                 let mx = self.eval(x)?.to_float()?;
                 let my = self.eval(y)?.to_float()?;
-                Value::Num(mx * my)
+                Ok(Value::Num(mx * my))
             }
             (Drawing::Div, [x, y]) => {
                 let mx = self.eval(x)?.to_float()?;
                 let my = self.eval(y)?.to_float()?;
-                Value::Num(mx / my)
+                Ok(Value::Num(mx / my))
+            }
+            (Drawing::Pow, [x, y]) => {
+                let mx = self.eval(x)?.to_float()?;
+                let my = self.eval(y)?.to_float()?;
+                Ok(Value::Num(mx.powf(my)))
+            }
+            (Drawing::Max, [x, y]) => {
+                let mx = self.eval(x)?.to_float()?;
+                let my = self.eval(y)?.to_float()?;
+                Ok(Value::Num(mx.max(my)))
             }
             (Drawing::Sin, [th]) => {
                 let theta = self.eval(th)?.to_float()?;
-                Value::Num(theta.sin())
+                Ok(Value::Num(theta.sin()))
             }
             (Drawing::Cos, [th]) => {
                 let theta = self.eval(th)?.to_float()?;
-                Value::Num(theta.cos())
+                Ok(Value::Num(theta.cos()))
             }
             (Drawing::Tan, [th]) => {
                 let theta = self.eval(th)?.to_float()?;
-                Value::Num(theta.tan())
+                Ok(Value::Num(theta.tan()))
             }
             (&Drawing::Lib(name), [bound_value, body]) => {
                 let bound_value = self.eval(bound_value)?;
                 let context = self.clone().with_lib(name, bound_value);
-                context.eval(body)?
+                context.eval(body)
             }
             (Drawing::Apply, [fun, arg]) => {
                 let body = self.eval(fun)?.to_body()?;
                 let arg = self.eval(arg)?;
                 let context = self.clone().with_arg(arg);
-                context.eval(body)?
+                context.eval(body)
             }
             (Drawing::Connect, exprs) => {
                 let mut shapes = Vec::with_capacity(exprs.len());
                 for expr in exprs {
                     shapes.extend(self.eval(expr)?.into_shapes()?);
                 }
-                Value::Shapes(shapes)
+                Ok(Value::Shapes(shapes))
             }
             (Drawing::Shift, [body]) => {
                 let context = self.clone().shift();
-                context.eval(body)?
+                context.eval(body)
             }
             (Drawing::Repeat, [expr, times, mat]) => {
                 let val = self.eval(expr)?;
@@ -177,7 +212,7 @@ impl<'a> Context<'a> {
                 }
 
                 shapes.dedup();
-                Value::Shapes(shapes)
+                Ok(Value::Shapes(shapes))
             }
             (Drawing::List, exprs) => {
                 // Places the result of evaluating each of the `exprs` one under the other.
@@ -203,11 +238,10 @@ impl<'a> Context<'a> {
                     bbox = bbox.union(&new_box.translate(0.0, shift));
                     shapes.extend(new_shapes);
                 }
-                Value::Shapes(shapes)
+                Ok(Value::Shapes(shapes))
             }
             unreach => unreachable!("{:?}", unreach),
-        };
-        Ok(result)
+        }
     }
 }
 

@@ -189,17 +189,8 @@ where
                 None,
             );
 
-            let experiment_no_dsrs = BeamExperiment::new(
-                [],
-                BEAM_SIZE,
-                BEAM_SIZE,
-                LPS,
-                1,
-                false,
-                (),
-                true,
-                None,
-            );
+            let experiment_no_dsrs =
+                BeamExperiment::new([], BEAM_SIZE, BEAM_SIZE, LPS, 1, false, (), true, None);
 
             let summary_dsrs = if use_cache {
                 cache.get_or_insert_with(&experiment_dsrs_id, || {
