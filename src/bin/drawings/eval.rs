@@ -177,6 +177,7 @@ impl<'a> Context<'a> {
                     prev = prev.map_shapes(|shape| shape.translate(tx, ty).rotate(rot).scale(sc)); 
                 }
 
+                shapes.dedup();
                 Value::Shapes(shapes)
             }
             (Drawing::List, exprs) => {
@@ -205,7 +206,7 @@ impl Default for Context<'_> {
 }
 
 /// The primitive components of a [`Picture`].
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum Shape {
     /// A circle
     Circle {
