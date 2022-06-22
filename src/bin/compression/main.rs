@@ -139,7 +139,7 @@ fn main() {
             opts.timeout.clone(),
             limit,
             opts.learn_constants,
-            opts.max_arity
+            opts.max_arity,
         );
 
         all.add(exps);

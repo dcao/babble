@@ -116,7 +116,7 @@ fn main() {
         opts.timeout.clone(),
         (),
         opts.learn_constants,
-        opts.max_arity
+        opts.max_arity,
     );
 
     println!("running...");

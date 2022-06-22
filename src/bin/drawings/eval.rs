@@ -174,7 +174,7 @@ impl<'a> Context<'a> {
                 let mut prev = val;
                 for _i in 0..t {
                     shapes.extend(prev.clone().into_shapes().ok().unwrap());
-                    prev = prev.map_shapes(|shape| shape.translate(tx, ty).rotate(rot).scale(sc)); 
+                    prev = prev.map_shapes(|shape| shape.translate(tx, ty).rotate(rot).scale(sc));
                 }
 
                 shapes.dedup();

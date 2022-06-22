@@ -127,7 +127,7 @@ fn main() {
             vec![],
             (),
             opts.learn_constants,
-            opts.max_arity
+            opts.max_arity,
         );
 
         println!("running...");
