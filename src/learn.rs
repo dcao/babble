@@ -381,8 +381,8 @@ where
         let mut cache: BTreeMap<Vec<(Match, Vec<egg::Var>)>, PartialExpr<Op, (Id, Id)>> =
             BTreeMap::new();
         for au in aus.iter() {
-            let pattern: Pattern<_> = normalize(au.clone()).0.into();
-            // let pattern: Pattern<_> = patternize(au);
+            // let pattern: Pattern<_> = normalize(au.clone()).0.into();
+            let pattern: Pattern<_> = patternize(au);
 
             // A key in `cache` is a set of matches
             // represented as a sorted vector.
