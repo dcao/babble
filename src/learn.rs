@@ -233,7 +233,6 @@ where
 impl<Op> LearnedLibrary<Op, (Id, Id)>
 where
     Op: Arity + Clone + Debug + Ord,
-    // T: Clone + Ord,
 {
     /// Computes the antiunifications of `state` in the DFTA `dfta`.
     fn enumerate(&mut self, dfta: &Dfta<(Op, Op), (Id, Id)>, state: &(Id, Id)) {
@@ -278,7 +277,11 @@ where
                             .iter()
                             .map(|input| self.aus_by_state[input].iter().cloned())
                             .multi_cartesian_product()
-                            .map(|inputs| AstNode::new(op1.clone(), inputs).into());
+                            .map(|inputs| PartialExpr::from(AstNode::new(op1.clone(), inputs)))
+                            .filter(|au| {
+                                self.max_arity
+                                    .map_or(true, |max_arity| au.unique_holes().len() <= max_arity)
+                            });
 
                         aus.extend(new_aus);
                     }
@@ -303,7 +306,6 @@ where
             // discarding redundant anti-unifications.
 
             let learn_constants = self.learn_constants;
-            let max_arity = self.max_arity;
 
             let nontrivial_aus = aus
                 .iter()
@@ -335,10 +337,7 @@ where
                     // if size(e[x_1/e_1, ..., x_n/e_n]) > 2n + 1. This
                     // corresponds to an anti-unification containing at least n
                     // + 1 nodes.
-                    // In addition, if max_arity is set, we only want to learn patterns with a maximum arity.
-                    if max_arity.is_some() && num_vars > max_arity.unwrap() { // TODO: this should be done to all AUs
-                        None
-                    } else if num_vars < au.num_holes() || au.num_nodes() > num_vars + 1 {
+                    if num_vars < au.num_holes() || au.num_nodes() > num_vars + 1 {
                         Some(au)
                     } else {
                         None
