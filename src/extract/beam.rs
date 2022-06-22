@@ -145,18 +145,23 @@ impl CostSet {
         CostSet { set }
     }
 
+    /// prune takes care of two different tasks to reduce the number
+    /// of functions in a LibSel:
+    /// 
+    /// - If we have an lps limit, we remove anything that has more fns
+    ///   than we allow in a LibSel
+    /// - Then, if we still have too many LibSels, we prune based on
+    ///   beam size.
     pub fn prune(&mut self, n: usize, lps: LibsPerSel, extra_por: bool) {
-        // println!("prune");
-        // Only preserve the n best `LibSel`s in the set.
+        if let LibsPerSel::Limit(lps) = lps {
+            self.set.retain(|x| x.libs.len() <= lps);
+        }
+
         if self.set.len() > n {
             self.set.sort_unstable_by_key(|elem| elem.full_cost);
 
             if extra_por {
                 self.unify2();
-            }
-
-            if let LibsPerSel::Limit(lps) = lps {
-                self.set.retain(|x| x.libs.len() <= lps);
             }
 
             if self.set.len() <= n {
