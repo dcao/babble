@@ -96,6 +96,9 @@ pub struct LearnedLibrary<Op, T> {
     nontrivial_aus: BTreeSet<PartialExpr<Op, Var>>,
     /// Whether to also learn "library functions" which take no arguments.
     learn_constants: bool,
+    /// Maximum arity of functions to learn.
+    max_arity: Option<usize>,
+    /// Data about which e-classes can co-occur.
     co_occurrences: CoOccurrences,
 }
 
@@ -109,12 +112,14 @@ where
     pub fn new<A: Analysis<AstNode<Op>>>(
         egraph: &'a EGraph<AstNode<Op>, A>,
         learn_constants: bool,
+        max_arity: Option<usize>,
         co_occurrences: CoOccurrences,
     ) -> Self {
         let mut learned_lib = Self {
             aus_by_state: BTreeMap::new(),
             nontrivial_aus: BTreeSet::new(),
             learn_constants,
+            max_arity,
             co_occurrences,
         };
         let dfta = Dfta::from(egraph);
@@ -179,7 +184,11 @@ where
                             .iter()
                             .map(|input| self.aus_by_state[input].iter().cloned())
                             .multi_cartesian_product()
-                            .map(|inputs| AstNode::new(op1.clone(), inputs).into());
+                            .map(|inputs| PartialExpr::from(AstNode::new(op1.clone(), inputs)))
+                            .filter(|au| {
+                                self.max_arity
+                                    .map_or(true, |max_arity| au.unique_holes().len() <= max_arity)
+                            });
 
                         aus.extend(new_aus);
                     }

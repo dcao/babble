@@ -13,7 +13,7 @@ use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     co_occurrence::COBuilder,
     extract::{
-        beam::{LibExtractor, LibsPerSel, PartialLibCost},
+        beam::{LibExtractor, PartialLibCost},
         lift_libs,
     },
     learn::LearnedLibrary,
@@ -36,7 +36,7 @@ where
     /// The inter beam size to use
     inter_beams: usize,
     /// The number of libs to learn at a time
-    lps: LibsPerSel,
+    lps: usize,
     /// The number of rounds of library learning to do
     rounds: usize,
     /// Whether to use the extra partial order reduction or not
@@ -45,6 +45,8 @@ where
     extra_data: Extra,
     /// Whether to learn "library functions" with no arguments.
     learn_constants: bool,
+    /// Maximum arity of a library function.
+    max_arity: Option<usize>,
 }
 
 impl<Op, Extra> BeamExperiment<Op, Extra>
@@ -55,11 +57,12 @@ where
         dsrs: I,
         final_beams: usize,
         inter_beams: usize,
-        lps: LibsPerSel,
+        lps: usize,
         rounds: usize,
         extra_por: bool,
         extra_data: Extra,
         learn_constants: bool,
+        max_arity: Option<usize>,
     ) -> Self
     where
         I: IntoIterator<Item = Rewrite<AstNode<Op>, PartialLibCost>>,
@@ -73,6 +76,7 @@ where
             extra_por,
             extra_data,
             learn_constants,
+            max_arity,
         }
     }
 }
@@ -136,7 +140,8 @@ where
 
         debug!("Running anti-unification... ");
         let au_time = Instant::now();
-        let mut learned_lib = LearnedLibrary::new(&aeg, self.learn_constants, co_occurs);
+        let mut learned_lib =
+            LearnedLibrary::new(&aeg, self.learn_constants, self.max_arity, co_occurs);
         debug!(
             "Found {} patterns in {}ms",
             learned_lib.size(),
@@ -202,7 +207,7 @@ where
                 // Add the root combine node again
                 let mut fin = Runner::<_, _, ()>::new(PartialLibCost::empty())
                     .with_egraph(aeg.clone())
-                    .with_iter_limit(1)
+                    // .with_iter_limit(1)
                     .run(
                         lib_rewrites
                             .iter()

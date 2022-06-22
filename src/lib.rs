@@ -23,6 +23,7 @@ pub mod dreamcoder;
 pub mod experiments;
 pub mod extract;
 pub mod learn;
+pub mod rewrites;
 pub mod sexp;
 pub mod simple_lang;
 pub mod teachable;

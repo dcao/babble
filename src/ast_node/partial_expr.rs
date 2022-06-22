@@ -3,9 +3,11 @@ use crate::teachable::BindingExpr;
 use super::{super::teachable::Teachable, AstNode, Expr};
 use egg::{ENodeOrVar, Id, Language, Pattern, RecExpr, Var};
 use std::{
+    collections::HashSet,
     convert::{TryFrom, TryInto},
     error::Error,
     fmt::{self, Debug, Display, Formatter},
+    hash::Hash,
 };
 
 /// A partial expression. This is a generalization of an abstract syntax tree
@@ -78,6 +80,25 @@ where
             }
             hole @ PartialExpr::Hole(_) => hole,
         }
+    }
+}
+
+impl<Op, T: Eq + Hash> PartialExpr<Op, T> {
+    /// Returns the set of unique holes in the partial expression.
+    #[must_use]
+    pub fn unique_holes(&self) -> HashSet<&T> {
+        let mut holes = HashSet::new();
+        match self {
+            PartialExpr::Node(node) => {
+                for expr in node {
+                    holes.extend(expr.unique_holes());
+                }
+            }
+            PartialExpr::Hole(hole) => {
+                holes.insert(hole);
+            }
+        };
+        holes
     }
 }
 

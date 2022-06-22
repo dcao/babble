@@ -3,7 +3,7 @@ pub use self::ilp_experiment::IlpExperiment;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
-    extract::beam::{LibsPerSel, PartialLibCost},
+    extract::beam::PartialLibCost,
     learn::LibId,
     teachable::Teachable,
 };
@@ -19,6 +19,7 @@ use std::{
 };
 
 mod beam_experiment;
+pub mod cache;
 mod ilp_experiment;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -48,6 +49,8 @@ impl<Op> Summary<Op> {
         space_saving * 100.0
     }
 
+    /// Returns the reduction in cost between `old` and `self` as a percentage
+    /// of the initial cost.
     pub fn percent_improved(&self, old: &Self) -> f64 {
         assert_eq!(self.initial_cost, old.initial_cost);
         let improvement = (old.final_cost as f64) - (self.final_cost as f64);
@@ -195,12 +198,13 @@ where
         exprs: Vec<Expr<Op>>,
         dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
         mut beams: Vec<usize>,
-        mut lpss: Vec<LibsPerSel>,
+        mut lpss: Vec<usize>,
         mut rounds_list: Vec<usize>,
         mut extra_pors: Vec<bool>,
         timeouts: Vec<u64>,
         extra: Extra,
         learn_constants: bool,
+        max_arity: Option<usize>,
     ) -> Self
     where
         Extra: serde::ser::Serialize + Clone + Debug + Clone + 'static,
@@ -209,7 +213,8 @@ where
 
         // Defaults for if we have empty values
         if beams.is_empty() {
-            beams.push(25);
+            // TODO: be more graceful about this
+            panic!("error: beams not specified");
         }
 
         if rounds_list.is_empty() {
@@ -217,7 +222,8 @@ where
         }
 
         if lpss.is_empty() {
-            lpss.push(LibsPerSel::Unlimited);
+            // TODO: be more graceful about this
+            panic!("error: lps not specified");
         }
 
         if extra_pors.is_empty() {
@@ -227,6 +233,11 @@ where
         for beam in beams {
             for &extra_por in &extra_pors {
                 for &lps in &lpss {
+                    if lps > beam {
+                        // TODO: be more graceful about this too
+                        panic!("lps {} greater than beam {}", lps, beam);
+                    }
+
                     for &rounds in &rounds_list {
                         let beam_experiment = BeamExperiment::new(
                             dsrs.clone(),
@@ -237,6 +248,7 @@ where
                             extra_por,
                             extra.clone(),
                             learn_constants,
+                            max_arity,
                         );
                         if rounds > 1 {
                             res.push(Box::new(Rounds::new(rounds, beam_experiment)));
@@ -327,7 +339,7 @@ mod plumbing {
     /// Gets all of the libs and their defns out of the result of a lib learning pass.
     /// We take into account the current number of libs defined so that we don't overwrite existing
     /// libs from previous runs.
-    pub(crate) fn libs<Op>(llr: LLRes<'_, Op>, cur_libs: usize) -> HashMap<LibId, Vec<AstNode<Op>>>
+    pub(crate) fn libs<Op>(llr: LLRes<'_, Op>) -> HashMap<LibId, Vec<AstNode<Op>>>
     where
         Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
     {
@@ -337,12 +349,8 @@ mod plumbing {
         // so we give up on the spot.
         let mut res = HashMap::new();
 
-        fn walk<Op>(
-            from: LLRes<'_, Op>,
-            res: &mut HashMap<LibId, Vec<AstNode<Op>>>,
-            cur_libs: usize,
-            ix: Id,
-        ) where
+        fn walk<Op>(from: LLRes<'_, Op>, res: &mut HashMap<LibId, Vec<AstNode<Op>>>, ix: Id)
+        where
             Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
         {
             // Check what kind of node we're at.
@@ -353,16 +361,16 @@ mod plumbing {
                         .build_recexpr(|x| from[usize::from(x)].clone());
 
                     // Push to res
-                    res.insert(LibId(lid.0 + cur_libs), rc.as_ref().to_vec());
+                    res.insert(LibId(lid.0), rc.as_ref().to_vec());
                     // Recursively walk in body
-                    walk(from, res, cur_libs, **b);
+                    walk(from, res, **b);
                 }
                 _ => {} // no-op
             }
         }
 
         // Walk starting from root
-        walk(llr, &mut res, cur_libs, Id::from(llr.len() - 1));
+        walk(llr, &mut res, Id::from(llr.len() - 1));
 
         res
     }
@@ -446,7 +454,7 @@ where
 
             rc = self.experiment.run(current_exprs).into();
 
-            let ls = plumbing::libs(rc.as_ref(), libs.len());
+            let ls = plumbing::libs(rc.as_ref());
             libs.extend(ls);
             current_exprs = plumbing::exprs(rc.as_ref());
         }

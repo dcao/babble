@@ -1,6 +1,6 @@
 //! Abstract syntax trees.
 use egg::{FromOp, Id, Language};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::{
     error::Error,
     fmt::{self, Debug, Display, Formatter},
