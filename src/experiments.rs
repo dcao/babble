@@ -332,7 +332,7 @@ mod plumbing {
     /// Gets all of the libs and their defns out of the result of a lib learning pass.
     /// We take into account the current number of libs defined so that we don't overwrite existing
     /// libs from previous runs.
-    pub(crate) fn libs<Op>(llr: LLRes<'_, Op>, cur_libs: usize) -> HashMap<LibId, Vec<AstNode<Op>>>
+    pub(crate) fn libs<Op>(llr: LLRes<'_, Op>) -> HashMap<LibId, Vec<AstNode<Op>>>
     where
         Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
     {
@@ -345,7 +345,6 @@ mod plumbing {
         fn walk<Op>(
             from: LLRes<'_, Op>,
             res: &mut HashMap<LibId, Vec<AstNode<Op>>>,
-            cur_libs: usize,
             ix: Id,
         ) where
             Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
@@ -358,16 +357,16 @@ mod plumbing {
                         .build_recexpr(|x| from[usize::from(x)].clone());
 
                     // Push to res
-                    res.insert(LibId(lid.0 + cur_libs), rc.as_ref().to_vec());
+                    res.insert(LibId(lid.0), rc.as_ref().to_vec());
                     // Recursively walk in body
-                    walk(from, res, cur_libs, **b);
+                    walk(from, res, **b);
                 }
                 _ => {} // no-op
             }
         }
 
         // Walk starting from root
-        walk(llr, &mut res, cur_libs, Id::from(llr.len() - 1));
+        walk(llr, &mut res, Id::from(llr.len() - 1));
 
         res
     }
@@ -451,7 +450,7 @@ where
 
             rc = self.experiment.run(current_exprs).into();
 
-            let ls = plumbing::libs(rc.as_ref(), libs.len());
+            let ls = plumbing::libs(rc.as_ref());
             libs.extend(ls);
             current_exprs = plumbing::exprs(rc.as_ref());
         }
