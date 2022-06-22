@@ -22,7 +22,7 @@ use crate::{
 use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Searcher, Var};
 use itertools::Itertools;
 use log::debug;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::{Debug, Display},
@@ -101,7 +101,7 @@ pub struct LearnedLibrary<Op, T> {
 
 impl<'a, Op> LearnedLibrary<Op, (Id, Id)>
 where
-    Op: Arity + Clone + Debug + Ord + Sync + Send + Display + 'static,
+    Op: Arity + Clone + Debug + Ord + Sync + Send + Display + 'static + Teachable,
     AstNode<Op>: Language,
 {
     /// Constructs a [`LearnedLibrary`] from an [`EGraph`] by antiunifying pairs of
@@ -121,9 +121,132 @@ where
         let dfta = dfta.cross_over();
 
         for state in dfta.output_states() {
-            learned_lib.enumerate(&dfta, state);
+            learned_lib.enumerate(&dfta, state, egraph);
         }
         learned_lib
+    }
+
+    /// Computes the antiunifications of `state` in the DFTA `dfta`.
+    fn enumerate<A: Analysis<AstNode<Op>>>(
+        &mut self,
+        dfta: &Dfta<(Op, Op), (Id, Id)>,
+        state: &(Id, Id),
+        egraph: &'a EGraph<AstNode<Op>, A>,
+    ) {
+        if self.aus_by_state.contains_key(state) {
+            // We've already enumerated this state, so there's nothing to do.
+            return;
+        }
+
+        // We're going to recursively compute the antiunifications of the inputs
+        // of all of the rules leading to this state. Before we do, we need to
+        // mark this state as in progress so that a loop in the rules doesn't
+        // cause infinite recursion.
+        //
+        // By initially setting the antiunifications of this state to empty, we
+        // exclude any antiunifications that would come from looping sequences
+        // of rules.
+        self.aus_by_state.insert(*state, BTreeSet::new());
+
+        if !self.co_occurrences.may_co_occur(state.0, state.1) {
+            return;
+        }
+
+        let mut aus: BTreeSet<PartialExpr<Op, (Id, Id)>> = BTreeSet::new();
+
+        let mut same = false;
+        let mut different = false;
+
+        if let Some(rules) = dfta.get_by_output(state) {
+            for ((op1, op2), inputs) in rules {
+                if op1 == op2 {
+                    same = true;
+                    if inputs.is_empty() {
+                        aus.insert(AstNode::leaf(op1.clone()).into());
+                    } else {
+                        // Recursively enumerate the inputs to this rule.
+                        for input in inputs {
+                            self.enumerate(dfta, input, egraph);
+                        }
+
+                        // For a rule `op(s1, ..., sn) -> state`, we add an
+                        // antiunification of the form `(op a1 ... an)` for every
+                        // combination `a1, ..., an` of antiunifications of the
+                        // input states `s1, ..., sn`, i.e., for every `(a1, ..., an)`
+                        // in the cartesian product
+                        // `antiunifications_by_state[s1] × ... × antiunifications_by_state[sn]`
+                        let new_aus = inputs
+                            .iter()
+                            .map(|input| self.aus_by_state[input].iter().cloned())
+                            .multi_cartesian_product()
+                            .map(|inputs| AstNode::new(op1.clone(), inputs).into());
+
+                        aus.extend(new_aus);
+                    }
+                } else {
+                    different = true;
+                }
+            }
+        }
+
+        if same && different {
+            aus.insert(PartialExpr::Hole(state.clone()));
+        }
+
+        if aus.is_empty() {
+            aus.insert(PartialExpr::Hole(state.clone()));
+        } else {
+            // If the two e-classes cannot co-occur in the same program, do not produce an AU for them!
+            // We filter out the anti-unifications which are just concrete
+            // expressions with no variables, and then convert the contained
+            // states to pattern variables. The conversion takes
+            // alpha-equivalent anti-unifications to the same value, effectively
+            // discarding redundant anti-unifications.
+
+            let learn_constants = self.learn_constants;
+
+            let nontrivial_aus = aus
+                .iter()
+                .filter(|au| learn_constants || au.has_holes())
+                .cloned()
+                .map(normalize)
+                .filter_map(|(au, num_vars)| {
+                    // Here we filter out rewrites that don't actually simplify
+                    // anything. We say that an AU rewrite simplifies an
+                    // expression if it replaces that expression with a function
+                    // call that is strictly smaller than the original
+                    // expression.
+                    //
+                    // The size of a function call `f e_1 ... e_n` is size(e1) +
+                    // ... + size(e_n) + n + 1, as there are n applications and
+                    // the function's identifier `f`.
+                    //
+                    // The size of an expression e containing n subexpressions
+                    // e_1, ..., e_n is k_1 * size(e_1) + ... + k_n * size(e_n)
+                    // + size(e[x_1/e_1, ..., x_n/e_n]) - (k_1 + ... + k_n),
+                    // where k_i is the number of times e_i appears in e and
+                    // x_1, ..., x_n are variables.
+                    //
+                    // Because size(e_i) can be arbitrarily large, if any
+                    // variable k_i is greater than 1, the difference in size
+                    // between the function call and the original expression can
+                    // also be arbitrarily large. Otherwise, if k_1 = ... = k_n
+                    // = 1, the rewrite can simplify an expression if and only
+                    // if size(e[x_1/e_1, ..., x_n/e_n]) > 2n + 1. This
+                    // corresponds to an anti-unification containing at least n
+                    // + 1 nodes.
+                    if num_vars < au.num_holes() || au.num_nodes() > num_vars + 1 {
+                        Some(au)
+                    } else {
+                        None
+                    }
+                });
+
+            self.nontrivial_aus.extend(nontrivial_aus);
+            Self::deduplicate_with_vars(&mut aus, egraph);
+        }
+
+        *self.aus_by_state.get_mut(state).unwrap() = aus;
     }
 }
 
@@ -223,123 +346,63 @@ where
         }
         self.nontrivial_aus = cache.values().cloned().collect();
     }
-}
 
-impl<Op> LearnedLibrary<Op, (Id, Id)>
-where
-    Op: Arity + Clone + Debug + Ord,
-    // T: Clone + Ord,
-{
-    /// Computes the antiunifications of `state` in the DFTA `dfta`.
-    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), (Id, Id)>, state: &(Id, Id)) {
-        if self.aus_by_state.contains_key(state) {
-            // We've already enumerated this state, so there's nothing to do.
-            return;
-        }
+    /// deduplicate_with_vars does the same thing as deduplicate, with one change:
+    /// when deduplicating two patterns, we consider both if they have the same
+    /// matches and if the patterns contain the same variables.
+    ///
+    /// This deduplication is used during construction of the AU tree.
+    /// We need to have a separate deduplication algorithm for doing it while we
+    /// construct the tree because of the following circumstance:
+    ///
+    /// ```
+    /// (+ ?x (+ 1 ?x))
+    /// (+ ?x (+ 1 ?y))
+    /// ```
+    ///
+    /// Even though `(+ 1 ?x)` and `(+ 1 ?y)` match the same set, they can't
+    /// be deduplicated, since in context they refer to different things.
+    /// Thus, we have to take into account variable names as well.
+    pub fn deduplicate_with_vars<A: Analysis<AstNode<Op>>>(
+        aus: &mut BTreeSet<PartialExpr<Op, (Id, Id)>>,
+        egraph: &EGraph<AstNode<Op>, A>,
+    ) {
+        // The algorithm is simply to iterate over all patterns,
+        // and save their matches in a dictionary indexed by the match set.
+        let mut cache: BTreeMap<Vec<(Match, Vec<egg::Var>)>, PartialExpr<Op, (Id, Id)>> =
+            BTreeMap::new();
+        for au in aus.iter() {
+            let pattern: Pattern<_> = normalize(au.clone()).0.into();
+            // let pattern: Pattern<_> = patternize(au);
 
-        // We're going to recursively compute the antiunifications of the inputs
-        // of all of the rules leading to this state. Before we do, we need to
-        // mark this state as in progress so that a loop in the rules doesn't
-        // cause infinite recursion.
-        //
-        // By initially setting the antiunifications of this state to empty, we
-        // exclude any antiunifications that would come from looping sequences
-        // of rules.
-        self.aus_by_state.insert(*state, BTreeSet::new());
-        let mut aus: BTreeSet<PartialExpr<Op, (Id, Id)>> = BTreeSet::new();
+            // A key in `cache` is a set of matches
+            // represented as a sorted vector.
+            let mut key = vec![];
+            for m in pattern.search(egraph) {
+                for sub in m.substs {
+                    let actuals: Vec<_> = pattern.vars().iter().map(|v| sub[*v]).collect();
+                    let mut vars = pattern.vars().into_iter().collect::<Vec<_>>();
+                    vars.sort();
+                    let match_signature = Match::new(m.eclass, actuals);
+                    key.push((match_signature, vars));
+                }
+            }
+            key.sort();
 
-        let mut same = false;
-        let mut different = false;
-
-        if let Some(rules) = dfta.get_by_output(state) {
-            for ((op1, op2), inputs) in rules {
-                if op1 == op2 {
-                    same = true;
-                    if inputs.is_empty() {
-                        aus.insert(AstNode::leaf(op1.clone()).into());
-                    } else {
-                        // Recursively enumerate the inputs to this rule.
-                        for input in inputs {
-                            self.enumerate(dfta, input);
-                        }
-
-                        // For a rule `op(s1, ..., sn) -> state`, we add an
-                        // antiunification of the form `(op a1 ... an)` for every
-                        // combination `a1, ..., an` of antiunifications of the
-                        // input states `s1, ..., sn`, i.e., for every `(a1, ..., an)`
-                        // in the cartesian product
-                        // `antiunifications_by_state[s1] × ... × antiunifications_by_state[sn]`
-                        let new_aus = inputs
-                            .iter()
-                            .map(|input| self.aus_by_state[input].iter().cloned())
-                            .multi_cartesian_product()
-                            .map(|inputs| AstNode::new(op1.clone(), inputs).into());
-
-                        aus.extend(new_aus);
-                    }
-                } else {
-                    different = true;
+            match cache.get(&key) {
+                Some(cached) if cached.size() <= au.size() => {
+                    debug!(
+                        "Early pruning pattern {} as a duplicate of {}",
+                        patternize(au),
+                        Pattern::from(patternize(cached))
+                    );
+                }
+                _ => {
+                    cache.insert(key, au.clone());
                 }
             }
         }
-
-        if same && different {
-            aus.insert(PartialExpr::Hole(state.clone()));
-        }
-
-        if aus.is_empty() {
-            aus.insert(PartialExpr::Hole(state.clone()));
-        } else if self.co_occurrences.may_co_occur(state.0, state.1) {
-            // If the two e-classes cannot co-occur in the same program, do not produce an AU for them!
-            // We filter out the anti-unifications which are just concrete
-            // expressions with no variables, and then convert the contained
-            // states to pattern variables. The conversion takes
-            // alpha-equivalent anti-unifications to the same value, effectively
-            // discarding redundant anti-unifications.
-
-            let learn_constants = self.learn_constants;
-
-            let nontrivial_aus = aus
-                .iter()
-                .filter(|au| learn_constants || au.has_holes())
-                .cloned()
-                .map(normalize)
-                .filter_map(|(au, num_vars)| {
-                    // Here we filter out rewrites that don't actually simplify
-                    // anything. We say that an AU rewrite simplifies an
-                    // expression if it replaces that expression with a function
-                    // call that is strictly smaller than the original
-                    // expression.
-                    //
-                    // The size of a function call `f e_1 ... e_n` is size(e1) +
-                    // ... + size(e_n) + n + 1, as there are n applications and
-                    // the function's identifier `f`.
-                    //
-                    // The size of an expression e containing n subexpressions
-                    // e_1, ..., e_n is k_1 * size(e_1) + ... + k_n * size(e_n)
-                    // + size(e[x_1/e_1, ..., x_n/e_n]) - (k_1 + ... + k_n),
-                    // where k_i is the number of times e_i appears in e and
-                    // x_1, ..., x_n are variables.
-                    //
-                    // Because size(e_i) can be arbitrarily large, if any
-                    // variable k_i is greater than 1, the difference in size
-                    // between the function call and the original expression can
-                    // also be arbitrarily large. Otherwise, if k_1 = ... = k_n
-                    // = 1, the rewrite can simplify an expression if and only
-                    // if size(e[x_1/e_1, ..., x_n/e_n]) > 2n + 1. This
-                    // corresponds to an anti-unification containing at least n
-                    // + 1 nodes.
-                    if num_vars < au.num_holes() || au.num_nodes() > num_vars + 1 {
-                        Some(au)
-                    } else {
-                        None
-                    }
-                });
-
-            self.nontrivial_aus.extend(nontrivial_aus);
-        }
-
-        *self.aus_by_state.get_mut(state).unwrap() = aus;
+        *aus = cache.values().cloned().collect();
     }
 }
 
