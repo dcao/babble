@@ -42,14 +42,13 @@ impl CostSet {
 
         for ls1 in &self.set {
             for ls2 in &other.set {
-                let ls = ls1.combine(ls2);
-                if ls.libs.len() > lps {
-                    continue;
-                }
-
-                match set.binary_search(&ls) {
-                    Ok(_) => {} // Nadia: Why insert it again?
-                    Err(pos) => set.insert(pos, ls),
+                match ls1.combine(ls2, lps) {
+                    None => continue,
+                    Some(ls) =>
+                        match set.binary_search(&ls) {
+                            Ok(_) => {}
+                            Err(pos) => set.insert(pos, ls),
+                        },
                 }
             }
         }
@@ -106,7 +105,7 @@ impl CostSet {
         }
     }
 
-    pub fn add_lib(&self, lib: LibId, cost: &CostSet) -> CostSet {
+    pub fn add_lib(&self, lib: LibId, cost: &CostSet, lps: usize) -> CostSet {
         // println!("add_lib");
         // To add a lib, we do a modified cross.
         let mut set = Vec::new();
@@ -118,11 +117,13 @@ impl CostSet {
                 continue;
             }
             for ls2 in &self.set {
-                let ls = ls2.add_lib(lib, ls1);
-
-                match set.binary_search(&ls) {
-                    Ok(pos) => set.insert(pos, ls),
-                    Err(pos) => set.insert(pos, ls),
+                match ls2.add_lib(lib, ls1, lps) {
+                    None => continue,
+                    Some(ls) =>
+                        match set.binary_search(&ls) {
+                            Ok(pos) => (), // set.insert(pos, ls), // TODO: why did we used to insert it again?
+                            Err(pos) => set.insert(pos, ls),
+                        },
                 }
             }
         }
@@ -152,13 +153,15 @@ impl CostSet {
         let mut table: HashMap<usize, BinaryHeap<Reverse<LibSelFC>>> = HashMap::new();
 
         // We then iterate over all of the LibSels in this set
+        // TODO: can we store a reference in LibSelFC and avoid cloning here?
         for ls in self.set.iter().cloned() {
             let num_libs = ls.libs.len();
 
+            // We don't need to do this anymore, because this is happening in cross:
             // If lps is set, if num_libs > lps, give up immediately
-            if num_libs > lps {
-                continue;
-            }
+            // if num_libs > lps {
+            //     panic!("LibSels that are too large should have been filtered out by cross!");
+            // }
 
             let h = table.entry(num_libs).or_insert_with(|| BinaryHeap::new());
 
@@ -167,10 +170,9 @@ impl CostSet {
 
         // From our table, recombine into a sorted vector
         let mut set = Vec::new();
-        // Account for 0 case
-        let beams_per_size = std::cmp::max(1, n / (lps + 1));
+        let beams_per_size = std::cmp::max(1, n / lps);
 
-        for (_, mut h) in table {
+        for (sz, mut h) in table {
             // Take the first n items from the heap
             let mut i = 0;
             while i < beams_per_size {
@@ -237,7 +239,7 @@ impl LibSel {
 
     /// Combines two `LibSel`s. Unions the lib sets, adds
     /// the expr
-    pub fn combine(&self, other: &LibSel) -> LibSel {
+    pub fn combine(&self, other: &LibSel, lps: usize) -> Option<LibSel> {
         let mut res = self.clone();
 
         for (k, v) in &other.libs {
@@ -250,7 +252,10 @@ impl LibSel {
                 }
                 Err(ix) => {
                     res.full_cost += *v;
-                    res.libs.insert(ix, (*k, *v))
+                    res.libs.insert(ix, (*k, *v));
+                    if res.libs.len() > lps {
+                        return None;
+                    }
                 }
             }
         }
@@ -258,10 +263,10 @@ impl LibSel {
         res.expr_cost = self.expr_cost + other.expr_cost;
         res.full_cost += other.expr_cost;
 
-        res
+        Some(res)
     }
 
-    pub fn add_lib(&self, lib: LibId, cost: &LibSel) -> LibSel {
+    pub fn add_lib(&self, lib: LibId, cost: &LibSel, lps: usize) -> Option<LibSel> {
         let mut res = self.clone();
         let v = cost.expr_cost + 1; // +1 for the lib node, which you also have to pay for if you use the lib
         let mut full_cost = res.full_cost;
@@ -280,7 +285,10 @@ impl LibSel {
                 }
                 Err(ix) => {
                     full_cost += v;
-                    res.libs.insert(ix, (nested_lib, v))
+                    res.libs.insert(ix, (nested_lib, v));
+                    if res.libs.len() > lps {
+                        return None;
+                    }
                 }
             }
         }
@@ -294,12 +302,15 @@ impl LibSel {
             }
             Err(ix) => {
                 full_cost += v;
-                res.libs.insert(ix, (lib, v))
+                res.libs.insert(ix, (lib, v));
+                if res.libs.len() > lps {
+                    return None;
+                }
             }
         }
 
         res.full_cost = full_cost;
-        res
+        Some(res)
     }
 
     pub fn inc_cost(&mut self) {
@@ -433,7 +444,7 @@ where
             Some(BindingExpr::Lib(id, f, b)) => {
                 // This is a lib binding!
                 // cross e1, e2 and introduce a lib!
-                let mut e = x(b).add_lib(id, x(f));
+                let mut e = x(b).add_lib(id, x(f), self.lps);
                 e.unify();
                 e.prune(self.beam_size, self.lps, self.extra_por);
                 e
