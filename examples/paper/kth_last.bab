@@ -1,0 +1,6 @@
+;; A way to write k-th last for k = 1, 2, 3;
+;; rewriting all programs to use index instead allows discovering more common structure
+
+(lambda (@ (@ index (@ length (@ cdr $0))) $0))
+(lambda (@ (@ index (@ length (@ cdr (@ cdr $0)))) $0))
+(lambda (@ (@ index (@ length (@ cdr (@ cdr (@ cdr $0))))) $0))

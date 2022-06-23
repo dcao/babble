@@ -44,6 +44,10 @@ struct Opts {
     #[clap(long)]
     max_arity: Option<usize>,
 
+    /// Do not use domain-specific rewrites
+    #[clap(long)]
+    no_dsr: bool,
+
     /// The number of programs to anti-unify
     #[clap(long)]
     limit: Vec<usize>,
@@ -105,9 +109,25 @@ fn main() {
         println!();
     }
 
+    let dsrs = if opts.no_dsr {
+        vec![]
+    } else {
+        vec![
+            egg::rewrite!("add commute"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)"),
+            egg::rewrite!("add assoc"; "(@ (@ + (@ (@ + ?x) ?y)) ?z)" => "(@ (@ + ?x) (@ (@ + ?y) ?z))"),
+            egg::rewrite!("minus_assoc_1"; "(@ (@ - (@ (@ - ?x) ?y)) ?z)" => "(@ (@ - ?x) (@ (@ + ?y) ?z))"),
+            // egg::rewrite!("length_cdr"; "(@ length (@ cdr ?x))" => "(@ (@ - (@ length ?x)) (@ succ z)))"),
+            // egg::rewrite!("add_def_z"; "(@ (@ + z) ?x)" => "?x"),
+            // egg::rewrite!("add_def_succ"; "(@ (@ + (@ succ ?x)) ?y)" => "(@ succ (@ (@ + ?x) ?y))"),
+            egg::rewrite!("length_cdr"; "(@ length (@ cdr ?x))" => "(@ (@ - (@ length ?x)) 1))"),
+            egg::rewrite!("add_1_1"; "(@ (@ + 1) 1)" => "2"),
+            egg::rewrite!("add_1_2"; "(@ (@ + 1) 2)" => "3"),
+        ]
+    };
+
     let exps = Experiments::gen(
         prog,
-        vec![], // TODO
+        dsrs,
         opts.beams.clone(),
         opts.lps.clone(),
         opts.rounds.clone(),

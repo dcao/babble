@@ -46,6 +46,10 @@ struct Opts {
     #[clap(long)]
     learn_constants: bool,
 
+    /// Use domain-specific rewrites
+    #[clap(long)]
+    dsr: bool,
+
     /// Maximum arity of functions to learn.
     #[clap(long)]
     max_arity: Option<usize>,
@@ -116,9 +120,23 @@ fn main() {
             println!();
         }
 
+        let dsrs = if opts.dsr {
+            vec![
+                egg::rewrite!("scale_1_c"; "c" => "(T c (M 1.0 0 0 0))"),
+                egg::rewrite!("scale_1_l"; "l" => "(T l (M 1.0 0 0 0))"),
+                egg::rewrite!("scale_1_r"; "r" => "(T r (M 1.0 0 0 0))"),
+                egg::rewrite!("scale_1_r_s"; "(r_s ?w ?h)" => "(T (r_s ?w ?h) (M 1.0 0 0 0))"),
+                egg::rewrite!("scale_1_T"; "(T ?x ?m)" => "(T (T ?x ?m) (M 1.0 0 0 0))"),
+                egg::rewrite!("scale_1_C"; "(C ?x ?y)" => "(T (C ?x ?y) (M 1.0 0 0 0))"),
+                egg::rewrite!("scale_1_repeat"; "(repeat ?x ?n ?m)" => "(T (repeat ?x ?n ?m) (M 1.0 0 0 0))"),
+            ]
+        } else {
+            vec![]
+        };
+
         let exps = Experiments::gen(
             prog,
-            vec![],
+            dsrs,
             opts.beams.clone(),
             opts.lps.clone(),
             opts.rounds.clone(),

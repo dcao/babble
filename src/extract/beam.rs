@@ -44,11 +44,10 @@ impl CostSet {
             for ls2 in &other.set {
                 match ls1.combine(ls2, lps) {
                     None => continue,
-                    Some(ls) =>
-                        match set.binary_search(&ls) {
-                            Ok(_) => {}
-                            Err(pos) => set.insert(pos, ls),
-                        },
+                    Some(ls) => match set.binary_search(&ls) {
+                        Ok(_) => {}
+                        Err(pos) => set.insert(pos, ls),
+                    },
                 }
             }
         }
@@ -119,11 +118,10 @@ impl CostSet {
             for ls2 in &self.set {
                 match ls2.add_lib(lib, ls1, lps) {
                     None => continue,
-                    Some(ls) =>
-                        match set.binary_search(&ls) {
-                            Ok(pos) => (), // set.insert(pos, ls), // TODO: why did we used to insert it again?
-                            Err(pos) => set.insert(pos, ls),
-                        },
+                    Some(ls) => match set.binary_search(&ls) {
+                        Ok(pos) => (), // set.insert(pos, ls), // TODO: why did we used to insert it again?
+                        Err(pos) => set.insert(pos, ls),
+                    },
                 }
             }
         }
