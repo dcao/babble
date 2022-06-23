@@ -182,7 +182,7 @@ impl FromStr for Drawing {
                 } else if let Ok(f) = s.parse::<NotNan<f64>>() {
                     Self::Float(f)
                 } else {
-                    panic!("how to parse")
+                    panic!("how to parse {}?", s)
                 }
             }
         };

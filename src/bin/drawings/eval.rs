@@ -50,8 +50,8 @@ impl<'a> Context<'a> {
                 radius: 1.0,
             }])),
             (Drawing::Line, []) => Ok(Value::Shapes(vec![Shape::Line {
-                start: (-0.5, 0.0),
-                end: (0.5, 0.0),
+                start: (0.0, 0.0),
+                end: (1.0, 0.0),
             }])),
             (Drawing::Square, []) => Ok(Value::Shapes(vec![
                 Shape::Line {
@@ -103,9 +103,9 @@ impl<'a> Context<'a> {
                 match self.eval(mat) {
                     Ok(Value::Matrix(entries)) => Ok(val.map_shapes(|shape| {
                         shape
-                            .translate(entries.translate_x, entries.translate_y)
-                            .rotate(entries.rotate)
                             .scale(entries.scale)
+                            .rotate(entries.rotate)
+                            .translate(entries.translate_x, entries.translate_y)
                     })),
                     _ => Err(TypeError {
                         expected: "second argument to Transform must be matrix".to_string(),
