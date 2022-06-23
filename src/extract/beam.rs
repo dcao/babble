@@ -149,12 +149,13 @@ impl CostSet {
             panic!("extra_por unimplemented for new pruning");
         }
 
+        let mut old_set = std::mem::take(&mut self.set);
+
         // First, we create a table from # of libs to a list of LibSels
         let mut table: HashMap<usize, BinaryHeap<Reverse<LibSelFC>>> = HashMap::new();
 
         // We then iterate over all of the LibSels in this set
-        // TODO: can we store a reference in LibSelFC and avoid cloning here?
-        for ls in self.set.iter().cloned() {
+        for ls in old_set {
             let num_libs = ls.libs.len();
 
             // We don't need to do this anymore, because this is happening in cross:
