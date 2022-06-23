@@ -41,12 +41,10 @@ struct Opts {
     benchmark: Option<String>,
 
     #[clap(long)]
-    use_cache: bool,
+    cache: Option<PathBuf>,
 }
-
 const BENCHMARK_PATH: &str = "data/dreamcoder-benchmarks/benches";
 const DSR_PATH: &str = "data/benchmark-dsrs";
-const CACHE_DIR: &str = "cache";
 const BEAM_SIZE: usize = 50;
 
 #[derive(Debug)]
@@ -66,6 +64,12 @@ struct DsrResults {
 
 fn main() -> anyhow::Result<()> {
     let opts: Opts = Opts::parse();
+
+    let mut cache = opts
+        .cache
+        .map_or_else(ExperimentCache::new, ExperimentCache::from_dir)?;
+
+    println!("using cache: {}", cache.path().to_str().unwrap());
 
     let benchmark_path = opts.file.unwrap_or(PathBuf::from(BENCHMARK_PATH));
 
@@ -95,18 +99,11 @@ fn main() -> anyhow::Result<()> {
         println!("  {}: {} benchmark(s)", domain, benchmarks.len());
     }
 
-    let mut cache = ExperimentCache::new(&CACHE_DIR)?;
-
     if let Some(domain) = &opts.domain {
-        run_domain(
-            domain,
-            &domains[domain.as_str()],
-            &mut cache,
-            opts.use_cache,
-        )?;
+        run_domain(domain, &domains[domain.as_str()], &mut cache)?;
     } else {
         for (domain, benchmarks) in domains {
-            run_domain(domain, &benchmarks, &mut cache, opts.use_cache)?;
+            run_domain(domain, &benchmarks, &mut cache)?;
         }
     }
 
@@ -116,8 +113,7 @@ fn main() -> anyhow::Result<()> {
 fn run_domain<'a, I>(
     domain: &'a str,
     benchmarks: I,
-    cache: &mut ExperimentCache<'_, DreamCoderOp>,
-    use_cache: bool,
+    cache: &mut ExperimentCache<DreamCoderOp>,
 ) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = &'a Benchmark<'a>>,
@@ -157,10 +153,7 @@ where
 
             print!("    file: {}", file_name);
 
-            if use_cache
-                && cache.contains(&experiment_dsrs_id)
-                && cache.contains(&experiment_no_dsrs_id)
-            {
+            if cache.contains(&experiment_dsrs_id) && cache.contains(&experiment_no_dsrs_id) {
                 println!(" [cached]")
             } else {
                 println!()
@@ -170,11 +163,14 @@ where
             let input: CompressionInput = serde_json::from_str(&input)?;
 
             let mut programs = Vec::new();
-            for frontier in input.frontiers {
+            for mut frontier in input.frontiers {
+                let program = frontier.programs.remove(0).program;
+                programs.push(program.into());
+
                 // TODO: Put these in the same eclass
-                for program in frontier.programs {
-                    programs.push(program.program.into());
-                }
+                // for program in frontier.programs {
+                //     programs.push(program.program.into());
+                // }
             }
 
             let experiment_dsrs = BeamExperiment::new(
@@ -186,7 +182,7 @@ where
                 false,
                 (),
                 true,
-                None
+                None,
             );
 
             let experiment_no_dsrs = BeamExperiment::new(
@@ -198,28 +194,16 @@ where
                 false,
                 (),
                 true,
-                None
+                None,
             );
 
-            let summary_dsrs = if use_cache {
-                cache.get_or_insert_with(&experiment_dsrs_id, || {
-                    experiment_dsrs.run_summary(programs.clone())
-                })?
-            } else {
-                let summary = experiment_dsrs.run_summary(programs.clone());
-                cache.insert(experiment_dsrs_id, &summary)?;
-                summary
-            };
+            let summary_dsrs = cache.get_or_insert_with(&experiment_dsrs_id, || {
+                experiment_dsrs.run_summary(programs.clone())
+            })?;
 
-            let summary_no_dsrs = if use_cache {
-                cache.get_or_insert_with(&experiment_no_dsrs_id, || {
-                    experiment_no_dsrs.run_summary(programs.clone())
-                })?
-            } else {
-                let summary = experiment_no_dsrs.run_summary(programs.clone());
-                cache.insert(experiment_no_dsrs_id, &summary)?;
-                summary
-            };
+            let summary_no_dsrs = cache.get_or_insert_with(&experiment_no_dsrs_id, || {
+                experiment_no_dsrs.run_summary(programs.clone())
+            })?;
 
             let result = DsrResults {
                 domain: domain.to_owned(),

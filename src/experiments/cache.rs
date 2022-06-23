@@ -8,18 +8,27 @@ use std::{
     marker::PhantomData,
     path::{Path, PathBuf},
 };
+use time::{
+    format_description::well_known::{iso8601, Iso8601},
+    OffsetDateTime,
+};
+
+const CACHE_DIR: &'static str = "cache";
+const ISO8601_CONFIG: iso8601::EncodedConfig =
+    iso8601::Config::DEFAULT.set_use_separators(false).encode();
+const DATE_FORMAT: Iso8601<ISO8601_CONFIG> = Iso8601;
 
 /// A cache of experiment results.
 #[derive(Clone, Debug)]
-pub struct ExperimentCache<'a, Op> {
-    path: &'a Path,
+pub struct ExperimentCache<Op> {
+    path: PathBuf,
     index: BTreeMap<String, PathBuf>,
     phantom: PhantomData<Op>,
 }
 
 // This lint gives false positives for higher-rank trait bounds.
 #[allow(single_use_lifetimes)]
-impl<'a, Op> ExperimentCache<'a, Op>
+impl<Op> ExperimentCache<Op>
 where
     Op: Serialize + for<'b> Deserialize<'b>,
 {
@@ -30,9 +39,24 @@ where
     ///
     /// Errors if the directory does not exist, can't be opened, or contains a
     /// malformed cache.
-    pub fn new<P: AsRef<Path>>(path: &'a P) -> anyhow::Result<Self> {
+    pub fn new() -> anyhow::Result<Self> {
+        let dir_name = OffsetDateTime::now_utc().format(&DATE_FORMAT)?;
+        let path = Path::new(CACHE_DIR).join(dir_name);
+        Self::from_dir(path)
+    }
+
+    /// Load an experiment cache from the given directory. If the directory does
+    /// not already contain a cache, create a new empty cache in that directory.
+    ///
+    /// # Errors
+    ///
+    /// Errors if the directory does not exist, can't be opened, or contains a
+    /// malformed cache.
+    pub fn from_dir(path: PathBuf) -> anyhow::Result<Self> {
+        fs::create_dir_all(&path)?;
+
         let mut cache = Self {
-            path: path.as_ref(),
+            path,
             index: BTreeMap::new(),
             phantom: PhantomData,
         };
@@ -46,6 +70,11 @@ where
         };
 
         Ok(cache)
+    }
+
+    /// Return the directory where the cache is stored.
+    pub fn path(&self) -> &Path {
+        self.path.as_ref()
     }
 
     fn index_file(&self) -> PathBuf {
@@ -96,7 +125,6 @@ where
             Ok(None)
         }
     }
-
 
     /// Return the results of the given `experiment`. If the results have not
     /// been cached, run `default` to get the results, add them to the cache,
