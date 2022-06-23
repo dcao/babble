@@ -2,34 +2,16 @@
 //! orderings of learned library sets.
 use egg::{Analysis, CostFunction, DidMerge, EGraph, Id, Language, RecExpr};
 use log::debug;
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::{BinaryHeap, HashMap},
+    fmt::Debug,
+};
 
 use crate::{
     ast_node::{Arity, AstNode},
     learn::LibId,
     teachable::{BindingExpr, Teachable},
 };
-
-/// How many libs to use per library selection.
-#[derive(Copy, Clone, Debug, serde::Serialize)]
-pub enum LibsPerSel {
-    /// No limit on the number of libs per selection
-    Unlimited,
-    /// Limited to some number.
-    Limit(usize),
-}
-
-impl std::str::FromStr for LibsPerSel {
-    type Err = std::num::ParseIntError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "unlimited" {
-            Ok(Self::Unlimited)
-        } else {
-            usize::from_str(s).map(Self::Limit)
-        }
-    }
-}
 
 /// A `CostSet` is a set of pairs; each pair contains a set of library
 /// functions paired with the cost of the current expression/eclass
@@ -55,16 +37,18 @@ impl CostSet {
     /// This is essentially a Cartesian product between two CostSets (e.g. if
     /// each CostSet corresponds to an argument of a node) such that paired
     /// LibSels have their libraries combined and costs added.
-    pub fn cross(&self, other: &CostSet) -> CostSet {
+    pub fn cross(&self, other: &CostSet, lps: usize) -> CostSet {
         let mut set = Vec::new();
 
         for ls1 in &self.set {
             for ls2 in &other.set {
-                let ls = ls1.combine(ls2);
-
-                match set.binary_search(&ls) {
-                    Ok(_) => {} // Nadia: Why insert it again?
-                    Err(pos) => set.insert(pos, ls),
+                match ls1.combine(ls2, lps) {
+                    None => continue,
+                    Some(ls) =>
+                        match set.binary_search(&ls) {
+                            Ok(_) => {}
+                            Err(pos) => set.insert(pos, ls),
+                        },
                 }
             }
         }
@@ -121,7 +105,7 @@ impl CostSet {
         }
     }
 
-    pub fn add_lib(&self, lib: LibId, cost: &CostSet) -> CostSet {
+    pub fn add_lib(&self, lib: LibId, cost: &CostSet, lps: usize) -> CostSet {
         // println!("add_lib");
         // To add a lib, we do a modified cross.
         let mut set = Vec::new();
@@ -133,11 +117,13 @@ impl CostSet {
                 continue;
             }
             for ls2 in &self.set {
-                let ls = ls2.add_lib(lib, ls1);
-
-                match set.binary_search(&ls) {
-                    Ok(pos) => set.insert(pos, ls),
-                    Err(pos) => set.insert(pos, ls),
+                match ls2.add_lib(lib, ls1, lps) {
+                    None => continue,
+                    Some(ls) =>
+                        match set.binary_search(&ls) {
+                            Ok(pos) => (), // set.insert(pos, ls), // TODO: why did we used to insert it again?
+                            Err(pos) => set.insert(pos, ls),
+                        },
                 }
             }
         }
@@ -145,27 +131,68 @@ impl CostSet {
         CostSet { set }
     }
 
-    pub fn prune(&mut self, n: usize, lps: LibsPerSel, extra_por: bool) {
-        // println!("prune");
-        // Only preserve the n best `LibSel`s in the set.
-        if self.set.len() > n {
-            self.set.sort_unstable_by_key(|elem| elem.full_cost);
+    /// prune takes care of two different tasks to reduce the number
+    /// of functions in a LibSel:
+    ///
+    /// - If we have an lps limit, we remove anything that has more fns
+    ///   than we allow in a LibSel
+    /// - Then, if we still have too many LibSels, we prune based on
+    ///   beam size.
+    ///
+    /// Our pruning strategy preserves n LibSels per # of libs, where
+    /// n is the beam size. In other words, we preserve n LibSels with
+    /// 0 libs, n LibSels with 1 lib, etc.
+    pub fn prune(&mut self, n: usize, lps: usize, extra_por: bool) {
+        use std::cmp::Reverse;
 
-            if extra_por {
-                self.unify2();
-            }
-
-            if let LibsPerSel::Limit(lps) = lps {
-                self.set.retain(|x| x.libs.len() <= lps);
-            }
-
-            if self.set.len() <= n {
-                return;
-            }
-
-            self.set.drain(n..);
-            self.set.sort_unstable();
+        if extra_por {
+            panic!("extra_por unimplemented for new pruning");
         }
+
+        let mut old_set = std::mem::take(&mut self.set);
+
+        // First, we create a table from # of libs to a list of LibSels
+        let mut table: HashMap<usize, BinaryHeap<Reverse<LibSelFC>>> = HashMap::new();
+
+        // We then iterate over all of the LibSels in this set
+        for ls in old_set {
+            let num_libs = ls.libs.len();
+
+            // We don't need to do this anymore, because this is happening in cross:
+            // If lps is set, if num_libs > lps, give up immediately
+            // if num_libs > lps {
+            //     panic!("LibSels that are too large should have been filtered out by cross!");
+            // }
+
+            let h = table.entry(num_libs).or_insert_with(|| BinaryHeap::new());
+
+            h.push(Reverse(LibSelFC(ls)));
+        }
+
+        // From our table, recombine into a sorted vector
+        let mut set = Vec::new();
+        let beams_per_size = std::cmp::max(1, n / lps);
+
+        for (sz, mut h) in table {
+            // Take the first n items from the heap
+            let mut i = 0;
+            while i < beams_per_size {
+                if let Some(ls) = h.pop() {
+                    let ls = ls.0 .0;
+
+                    match set.binary_search(&ls) {
+                        Ok(_) => {}
+                        Err(pos) => set.insert(pos, ls),
+                    }
+
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        self.set = set;
     }
 
     pub fn unify2(&mut self) {
@@ -213,7 +240,7 @@ impl LibSel {
 
     /// Combines two `LibSel`s. Unions the lib sets, adds
     /// the expr
-    pub fn combine(&self, other: &LibSel) -> LibSel {
+    pub fn combine(&self, other: &LibSel, lps: usize) -> Option<LibSel> {
         let mut res = self.clone();
 
         for (k, v) in &other.libs {
@@ -226,7 +253,10 @@ impl LibSel {
                 }
                 Err(ix) => {
                     res.full_cost += *v;
-                    res.libs.insert(ix, (*k, *v))
+                    res.libs.insert(ix, (*k, *v));
+                    if res.libs.len() > lps {
+                        return None;
+                    }
                 }
             }
         }
@@ -234,10 +264,10 @@ impl LibSel {
         res.expr_cost = self.expr_cost + other.expr_cost;
         res.full_cost += other.expr_cost;
 
-        res
+        Some(res)
     }
 
-    pub fn add_lib(&self, lib: LibId, cost: &LibSel) -> LibSel {
+    pub fn add_lib(&self, lib: LibId, cost: &LibSel, lps: usize) -> Option<LibSel> {
         let mut res = self.clone();
         let v = cost.expr_cost + 1; // +1 for the lib node, which you also have to pay for if you use the lib
         let mut full_cost = res.full_cost;
@@ -256,7 +286,10 @@ impl LibSel {
                 }
                 Err(ix) => {
                     full_cost += v;
-                    res.libs.insert(ix, (nested_lib, v))
+                    res.libs.insert(ix, (nested_lib, v));
+                    if res.libs.len() > lps {
+                        return None;
+                    }
                 }
             }
         }
@@ -270,12 +303,15 @@ impl LibSel {
             }
             Err(ix) => {
                 full_cost += v;
-                res.libs.insert(ix, (lib, v))
+                res.libs.insert(ix, (lib, v));
+                if res.libs.len() > lps {
+                    return None;
+                }
             }
         }
 
         res.full_cost = full_cost;
-        res
+        Some(res)
     }
 
     pub fn inc_cost(&mut self) {
@@ -315,6 +351,32 @@ impl LibSel {
     }
 }
 
+/// A wrapper around LibSels that orders based on their full cost.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LibSelFC(pub(crate) LibSel);
+
+impl PartialOrd for LibSelFC {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let mut r = self.0.full_cost.cmp(&other.0.full_cost);
+        if !r.is_eq() {
+            return Some(r);
+        }
+
+        r = self.0.expr_cost.cmp(&other.0.expr_cost);
+        if !r.is_eq() {
+            return Some(r);
+        }
+
+        Some(self.0.libs.cmp(&other.0.libs))
+    }
+}
+
+impl Ord for LibSelFC {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
 // --------------------------------
 // --- The actual Analysis part ---
 // --------------------------------
@@ -326,17 +388,12 @@ pub struct PartialLibCost {
     inter_beam: usize,
     /// The maximum number of libs per lib selection. Any lib selections with a larger amount will
     /// be pruned.
-    lps: LibsPerSel,
+    lps: usize,
     extra_por: bool,
 }
 
 impl PartialLibCost {
-    pub fn new(
-        beam_size: usize,
-        inter_beam: usize,
-        lps: LibsPerSel,
-        extra_por: bool,
-    ) -> PartialLibCost {
+    pub fn new(beam_size: usize, inter_beam: usize, lps: usize, extra_por: bool) -> PartialLibCost {
         PartialLibCost {
             beam_size,
             inter_beam,
@@ -349,7 +406,7 @@ impl PartialLibCost {
         PartialLibCost {
             beam_size: 0,
             inter_beam: 0,
-            lps: LibsPerSel::Unlimited,
+            lps: 1,
             extra_por: false,
         }
     }
@@ -388,7 +445,7 @@ where
             Some(BindingExpr::Lib(id, f, b)) => {
                 // This is a lib binding!
                 // cross e1, e2 and introduce a lib!
-                let mut e = x(b).add_lib(id, x(f));
+                let mut e = x(b).add_lib(id, x(f), self.lps);
                 e.unify();
                 e.prune(self.beam_size, self.lps, self.extra_por);
                 e
@@ -410,7 +467,7 @@ where
                     let mut e = x(&enode.args()[0]).clone();
 
                     for cs in &enode.args()[1..] {
-                        e = e.cross(x(cs));
+                        e = e.cross(x(cs), self.lps);
                         // Intermediate prune.
                         e.unify();
                         e.prune(self.inter_beam, self.lps, self.extra_por);

@@ -30,7 +30,6 @@ where
     Ok(parse(&contents)?)
 }
 
-
 /// If the file specified by `path` exists, parse the file and return the
 /// resulting rewrites. If the file does not exist, return `None`.
 ///

@@ -22,10 +22,18 @@ impl Picture {
     }
 
     fn fmt_svg<W: Write>(&self, xml_writer: &mut EventWriter<W>) -> writer::Result<()> {
+        let bbox = self.bounding_box();
+        let viewbox = format!(
+            "{} {} {} {}",
+            bbox.lower_left.0,
+            -bbox.upper_right.1,
+            bbox.upper_right.0 - bbox.lower_left.0,
+            -bbox.lower_left.1 + bbox.upper_right.1
+        );
         xml_writer.write(
             XmlEvent::start_element("svg")
                 .default_ns("http://www.w3.org/2000/svg")
-                .attr("viewBox", "-25 -25 50 50"),
+                .attr("viewBox", &viewbox),
         )?;
         xml_writer.write(XmlEvent::start_element("style"))?;
         xml_writer.write(XmlEvent::cdata(
@@ -60,10 +68,11 @@ impl Shape {
                 center: (cx, cy),
                 radius: r,
             } => {
+                let svg_y = -cy;
                 xml_writer.write(
                     XmlEvent::start_element("circle")
                         .attr("cx", &cx.to_string())
-                        .attr("cy", &cy.to_string())
+                        .attr("cy", &svg_y.to_string())
                         .attr("r", &r.to_string()),
                 )?;
                 xml_writer.write(XmlEvent::end_element())
@@ -72,12 +81,14 @@ impl Shape {
                 start: (x1, y1),
                 end: (x2, y2),
             } => {
+                let svg_y1 = -y1;
+                let svg_y2 = -y2;
                 xml_writer.write(
                     XmlEvent::start_element("line")
                         .attr("x1", &x1.to_string())
-                        .attr("y1", &y1.to_string())
+                        .attr("y1", &svg_y1.to_string())
                         .attr("x2", &x2.to_string())
-                        .attr("y2", &y2.to_string()),
+                        .attr("y2", &svg_y2.to_string()),
                 )?;
                 xml_writer.write(XmlEvent::end_element())
             }
