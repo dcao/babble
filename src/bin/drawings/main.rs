@@ -58,10 +58,6 @@ struct Opts {
     #[clap(long)]
     max_arity: Option<usize>,
 
-    /// The number of programs to anti-unify
-    #[clap(long)]
-    limit: usize,
-
     /// The beam sizes to use for the beam extractor
     #[clap(long)]
     beams: Vec<usize>,
@@ -103,7 +99,6 @@ fn main() {
             x.try_into()
                 .expect("Training input is not a valid list of expressions")
         }) // Vec<Sexp> -> Vec<Expr>
-        .take(opts.limit)
         .collect();
 
     // If test file is specified, parse it as a list of exprs:

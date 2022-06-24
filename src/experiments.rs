@@ -7,7 +7,7 @@ use crate::{
     learn::LibId,
     teachable::Teachable,
 };
-use egg::{EGraph, RecExpr, Rewrite, Runner};
+use egg::{EGraph, Id, RecExpr, Rewrite, Runner};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -145,7 +145,7 @@ where
 
         // Print our analysis on this
         println!("Final beam results");
-        println!("{}", Pretty(&Expr::from(res.final_expr)));
+        println!("{}", Pretty(&res.final_expr));
         println!(
             "cost diff: {} -> {} (compression ratio {})",
             initial_cost,
@@ -265,19 +265,12 @@ where
                             max_arity,
                         );
                         let te = test_exprs.clone();
-                        if te.is_empty() {
-                            if rounds > 1 {
-                                res.push(Box::new(Rounds::new(rounds, beam_experiment)));
-                            } else {
-                                res.push(Box::new(beam_experiment));
-                            }
+                        if !te.is_empty() {
+                            res.push(Box::new(Generalization::new(beam_experiment, te, rounds)));
+                        } else if rounds > 1 {
+                            res.push(Box::new(Rounds::new(rounds, beam_experiment)));
                         } else {
-                            let gen_experiment = Generalization::new(beam_experiment, te);
-                            if rounds > 1 {
-                                res.push(Box::new(Rounds::new(rounds, gen_experiment)));
-                            } else {
-                                res.push(Box::new(gen_experiment));
-                            }
+                            res.push(Box::new(beam_experiment));
                         }
                     }
                 }
@@ -523,19 +516,47 @@ where
 {
     experiment: T,
     test_set: Vec<Expr<Op>>,
+    /// I tried to make this compose with Rounds, but it's very difficult
+    /// because iteratively learned rewrites have to be applied also iteratively.
+    /// So I had to mash the two together.
+    rounds: usize,
     phantom: PhantomData<Op>,
 }
 
 impl<Op, T: Experiment<Op>> Generalization<Op, T>
 where
-    Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord,
+    Op: Printable
+        + Teachable
+        + Hash
+        + Clone
+        + Debug
+        + Arity
+        + Ord
+        + Display
+        + Send
+        + Sync
+        + 'static,
 {
-    pub fn new(experiment: T, test_set: Vec<Expr<Op>>) -> Self {
+    pub fn new(experiment: T, test_set: Vec<Expr<Op>>, rounds: usize) -> Self {
         Self {
             experiment,
             test_set,
+            rounds,
             phantom: PhantomData,
         }
+    }
+
+    /// Create an egraph out of `exprs` rewritten with my DSRs.
+    fn to_egraph(&self, exprs: Vec<Expr<Op>>) -> (EGraph<AstNode<Op>, PartialLibCost>, Vec<Id>) {
+        let recexprs: Vec<RecExpr<AstNode<Op>>> =
+            exprs.clone().into_iter().map(|x| x.into()).collect();
+        let mut aeg = EGraph::new(PartialLibCost::empty());
+        let roots = recexprs.iter().map(|x| aeg.add_expr(x)).collect::<Vec<_>>();
+        aeg.rebuild();
+        let runner = Runner::<_, _, ()>::new(PartialLibCost::empty())
+            .with_egraph(aeg)
+            .run(self.dsrs());
+        (runner.egraph, roots)
     }
 }
 
@@ -559,26 +580,33 @@ where
     }
 
     fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
-        let res = self.experiment.run(exprs);
+        let mut current_train_exprs = exprs;
+        let mut current_test_exprs = self.test_set.clone();
+        let mut rc: RecExpr<AstNode<Op>>;
+        let mut libs = HashMap::new();
+        let mut test_libs = HashMap::new(); // can be subset of the libs
+        let mut current_rewrites = Vec::new();
 
-        let recexprs: Vec<RecExpr<AstNode<Op>>> = self
-            .test_set
-            .clone()
-            .into_iter()
-            .map(|x| x.into())
-            .collect();
-        let mut aeg = EGraph::new(PartialLibCost::empty());
-        let roots = recexprs.iter().map(|x| aeg.add_expr(x)).collect::<Vec<_>>();
-        aeg.rebuild();
-        let runner = Runner::<_, _, ()>::new(PartialLibCost::empty())
-            .with_egraph(aeg)
-            .run(self.experiment.dsrs());
-        let aeg = runner.egraph;
-        let final_expr = apply_libs(aeg, &roots, &res.rewrites);
+        for round in 0..self.rounds {
+            println!("round {}/{}", round + 1, self.rounds);
+
+            let round_res = self.experiment.run(current_train_exprs);
+
+            rc = round_res.final_expr.into();
+            libs.extend(plumbing::libs(rc.as_ref()));
+            current_train_exprs = plumbing::exprs(rc.as_ref());
+
+            let (aeg, roots) = self.to_egraph(current_test_exprs.clone());
+            rc = apply_libs(aeg, &roots, &round_res.rewrites);
+            test_libs.extend(plumbing::libs(rc.as_ref()));
+            current_test_exprs = plumbing::exprs(rc.as_ref());
+
+            current_rewrites.extend(round_res.rewrites);
+        }
 
         ExperimentResult {
-            final_expr: final_expr.into(),
-            rewrites: res.rewrites,
+            final_expr: plumbing::combine(test_libs, current_test_exprs),
+            rewrites: current_rewrites,
         }
     }
 
@@ -595,5 +623,40 @@ where
     ) {
         self.experiment
             .write_to_csv(writer, initial_cost, final_cost, time_elapsed);
+    }
+
+    /// Run experiment and write results to CSV.
+    fn run_csv(&self, exprs: Vec<Expr<Op>>, writer: &mut csv::Writer<fs::File>) {
+        println!(
+            "{}",
+            ExperimentTitle {
+                experiment: self,
+                phantom: PhantomData
+            }
+        );
+
+        let start_time = Instant::now();
+
+        // Add one to account for root node, not added yet
+        let initial_cost = self.test_set.iter().map(|expr| expr.len()).sum::<usize>() + 1;
+        let res = self.run(exprs);
+
+        let final_cost = res.final_expr.len();
+        let time_elapsed = start_time.elapsed();
+
+        // Print our analysis on this
+        println!("Final beam results");
+        println!("{}", Pretty(&res.final_expr));
+        println!(
+            "cost diff: {} -> {} (compression ratio {})",
+            initial_cost,
+            final_cost,
+            final_cost as f64 / initial_cost as f64
+        );
+        // println!("learned rewrites: {:?}", res.rewrites);
+        println!("total time: {}ms", time_elapsed.as_millis());
+        println!();
+
+        self.write_to_csv(writer, initial_cost, final_cost, time_elapsed);
     }
 }
