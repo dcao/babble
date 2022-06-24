@@ -405,8 +405,8 @@ where
 /// would be converted to the partial expression
 ///
 /// ```text
-/// (lib (lambda (lambda (* $0 (+ $1 1))))
-///  (apply (apply $0 ?y) ?x))
+/// (lib l_i (lambda (lambda (* $0 (+ $1 1))))
+///  (apply (apply l_i ?y) ?x))
 /// ```
 ///
 /// assuming `name` is "foo".

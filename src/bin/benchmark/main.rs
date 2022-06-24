@@ -178,7 +178,6 @@ where
                 BEAM_SIZE,
                 BEAM_SIZE,
                 LPS,
-                1,
                 false,
                 (),
                 true,
@@ -186,7 +185,7 @@ where
             );
 
             let experiment_no_dsrs =
-                BeamExperiment::new([], BEAM_SIZE, BEAM_SIZE, LPS, 1, false, (), true, None);
+                BeamExperiment::new([], BEAM_SIZE, BEAM_SIZE, LPS, false, (), true, None);
 
             let summary_dsrs = cache.get_or_insert_with(&experiment_dsrs_id, || {
                 experiment_dsrs.run_summary(programs.clone())

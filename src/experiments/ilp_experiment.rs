@@ -1,4 +1,4 @@
-use super::Experiment;
+use super::{Experiment, ExperimentResult};
 use crate::{
     ast_node::{Arity, AstNode, Expr, Printable},
     extract::beam::PartialLibCost,
@@ -71,13 +71,18 @@ where
         + 'static,
     Extra: Serialize + Debug + Clone,
 {
+    /// The list of domain-specific rewrites used in this experiment.
+    fn dsrs(&self) -> &[Rewrite<AstNode<Op>, PartialLibCost>] {
+        &self.dsrs
+    }
+
     #[cfg(not(feature = "grb"))]
-    fn run(&self, exprs: Vec<Expr<Op>>) -> Expr<Op> {
+    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
         unimplemented!("feature `grb` not enabled");
     }
 
     #[cfg(feature = "grb")]
-    fn run(&self, exprs: Vec<Expr<Op>>) -> Expr<Op> {
+    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
         use crate::{
             ast_node::Pretty,
             extract::{ilp::LpExtractor, lift_libs},
@@ -176,7 +181,10 @@ where
         println!("round time: {}ms", start_time.elapsed().as_millis());
         println!();
 
-        return lifted.into();
+        return ExperimentResult {
+            final_expr: lifted.into(),
+            rewrites: vec![],
+        };
     }
 
     fn write_to_csv(

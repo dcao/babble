@@ -410,6 +410,12 @@ impl PartialLibCost {
     }
 }
 
+impl Default for PartialLibCost {
+    fn default() -> Self {
+        PartialLibCost::empty()
+    }
+}
+
 impl<Op> Analysis<AstNode<Op>> for PartialLibCost
 where
     Op: Ord + std::hash::Hash + Debug + Teachable + Arity + Eq + Clone + Send + Sync + 'static,

@@ -3,11 +3,11 @@ pub use self::ilp_experiment::IlpExperiment;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
-    extract::beam::PartialLibCost,
+    extract::{apply_libs, beam::PartialLibCost},
     learn::LibId,
     teachable::Teachable,
 };
-use egg::{RecExpr, Rewrite};
+use egg::{EGraph, RecExpr, Rewrite, Runner};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -76,13 +76,24 @@ where
     }
 }
 
+/// Output of library learning.
+pub struct ExperimentResult<Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord> {
+    pub final_expr: Expr<Op>,
+    pub rewrites: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
+}
+
+/// Library learning experiment.
 pub trait Experiment<Op>
 where
     Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord,
 {
-    // Ideally exprs would have type `I: IntoIterator<Item = Expr<Op>>` but that's not object-safe.
-    fn run(&self, exprs: Vec<Expr<Op>>) -> Expr<Op>;
+    /// The list of domain-specific rewrites used in this experiment.
+    fn dsrs(&self) -> &[Rewrite<AstNode<Op>, PartialLibCost>];
 
+    // Ideally exprs would have type `I: IntoIterator<Item = Expr<Op>>` but that's not object-safe.
+    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op>;
+
+    /// Write experiments result to CSV.
     fn write_to_csv(
         &self,
         writer: &mut csv::Writer<fs::File>,
@@ -93,10 +104,11 @@ where
 
     fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result;
 
+    /// TODO: I don't think this is used; remove?
     fn run_summary(&self, initial_exprs: Vec<Expr<Op>>) -> Summary<Op> {
         let initial_cost = initial_exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
         let start_time = Instant::now();
-        let final_expr = self.run(initial_exprs.clone());
+        let final_expr = self.run(initial_exprs.clone()).final_expr;
         let run_time = start_time.elapsed();
         let final_cost = final_expr.len();
 
@@ -112,6 +124,7 @@ where
         }
     }
 
+    /// Run experiment and write results to CSV.
     fn run_csv(&self, exprs: Vec<Expr<Op>>, writer: &mut csv::Writer<fs::File>) {
         println!(
             "{}",
@@ -125,24 +138,25 @@ where
 
         // Add one to account for root node, not added yet
         let initial_cost = exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
-        let final_expr = self.run(exprs);
+        let res = self.run(exprs);
 
-        let final_cost = final_expr.len();
+        let final_cost = res.final_expr.len();
         let time_elapsed = start_time.elapsed();
 
         // Print our analysis on this
         println!("Final beam results");
-        println!("{}", Pretty(&Expr::from(final_expr)));
+        println!("{}", Pretty(&Expr::from(res.final_expr)));
         println!(
             "cost diff: {} -> {} (compression ratio {})",
             initial_cost,
             final_cost,
             final_cost as f64 / initial_cost as f64
         );
+        // println!("learned rewrites: {:?}", res.rewrites);
         println!("total time: {}ms", time_elapsed.as_millis());
         println!();
 
-        self.write_to_csv(writer, initial_cost, final_cost, time_elapsed)
+        self.write_to_csv(writer, initial_cost, final_cost, time_elapsed);
     }
 }
 
@@ -196,6 +210,7 @@ where
     /// Generates a set of experiments from a set of params
     pub fn gen<Extra>(
         exprs: Vec<Expr<Op>>,
+        test_exprs: Vec<Expr<Op>>,
         dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
         mut beams: Vec<usize>,
         mut lpss: Vec<usize>,
@@ -244,16 +259,25 @@ where
                             beam,
                             beam,
                             lps,
-                            rounds,
                             extra_por,
                             extra.clone(),
                             learn_constants,
                             max_arity,
                         );
-                        if rounds > 1 {
-                            res.push(Box::new(Rounds::new(rounds, beam_experiment)));
+                        let te = test_exprs.clone();
+                        if te.is_empty() {
+                            if rounds > 1 {
+                                res.push(Box::new(Rounds::new(rounds, beam_experiment)));
+                            } else {
+                                res.push(Box::new(beam_experiment));
+                            }
                         } else {
-                            res.push(Box::new(beam_experiment));
+                            let gen_experiment = Generalization::new(beam_experiment, te);
+                            if rounds > 1 {
+                                res.push(Box::new(Rounds::new(rounds, gen_experiment)));
+                            } else {
+                                res.push(Box::new(gen_experiment));
+                            }
                         }
                     }
                 }
@@ -444,23 +468,35 @@ impl<Op, T: Experiment<Op>> Experiment<Op> for Rounds<Op, T>
 where
     Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord,
 {
-    fn run(&self, exprs: Vec<Expr<Op>>) -> Expr<Op> {
+    /// The list of domain-specific rewrites used in this experiment.
+    fn dsrs(&self) -> &[Rewrite<AstNode<Op>, PartialLibCost>] {
+        self.experiment.dsrs()
+    }
+
+    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
         let mut current_exprs = exprs;
         let mut rc: RecExpr<AstNode<Op>>;
         let mut libs = HashMap::new();
+        let mut current_rewrites = Vec::new();
 
         for round in 0..self.rounds {
             println!("round {}/{}", round + 1, self.rounds);
 
-            rc = self.experiment.run(current_exprs).into();
+            let round_res = self.experiment.run(current_exprs);
+
+            rc = round_res.final_expr.into();
 
             let ls = plumbing::libs(rc.as_ref());
             libs.extend(ls);
             current_exprs = plumbing::exprs(rc.as_ref());
+            current_rewrites.extend(round_res.rewrites);
         }
 
         // Combine back into one big recexpr at the end
-        plumbing::combine(libs, current_exprs)
+        ExperimentResult {
+            final_expr: plumbing::combine(libs, current_exprs),
+            rewrites: current_rewrites,
+        }
     }
 
     fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -476,5 +512,88 @@ where
     ) {
         self.experiment
             .write_to_csv(writer, initial_cost, final_cost, time_elapsed)
+    }
+}
+
+/// Generalization experiment, which applies learned libraries on a test set.
+#[derive(Debug)]
+pub struct Generalization<Op, T: Experiment<Op>>
+where
+    Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord,
+{
+    experiment: T,
+    test_set: Vec<Expr<Op>>,
+    phantom: PhantomData<Op>,
+}
+
+impl<Op, T: Experiment<Op>> Generalization<Op, T>
+where
+    Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord,
+{
+    pub fn new(experiment: T, test_set: Vec<Expr<Op>>) -> Self {
+        Self {
+            experiment,
+            test_set,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<Op, T: Experiment<Op>> Experiment<Op> for Generalization<Op, T>
+where
+    Op: Printable
+        + Teachable
+        + Hash
+        + Clone
+        + Debug
+        + Arity
+        + Ord
+        + Display
+        + Send
+        + Sync
+        + 'static,
+{
+    /// The list of domain-specific rewrites used in this experiment.
+    fn dsrs(&self) -> &[Rewrite<AstNode<Op>, PartialLibCost>] {
+        self.experiment.dsrs()
+    }
+
+    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
+        let res = self.experiment.run(exprs);
+
+        let recexprs: Vec<RecExpr<AstNode<Op>>> = self
+            .test_set
+            .clone()
+            .into_iter()
+            .map(|x| x.into())
+            .collect();
+        let mut aeg = EGraph::new(PartialLibCost::empty());
+        let roots = recexprs.iter().map(|x| aeg.add_expr(x)).collect::<Vec<_>>();
+        aeg.rebuild();
+        let runner = Runner::<_, _, ()>::new(PartialLibCost::empty())
+            .with_egraph(aeg)
+            .run(self.experiment.dsrs());
+        let aeg = runner.egraph;
+        let final_expr = apply_libs(aeg, &roots, &res.rewrites);
+
+        ExperimentResult {
+            final_expr: final_expr.into(),
+            rewrites: res.rewrites,
+        }
+    }
+
+    fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.experiment.fmt_title(f)
+    }
+
+    fn write_to_csv(
+        &self,
+        writer: &mut csv::Writer<fs::File>,
+        initial_cost: usize,
+        final_cost: usize,
+        time_elapsed: Duration,
+    ) {
+        self.experiment
+            .write_to_csv(writer, initial_cost, final_cost, time_elapsed);
     }
 }

@@ -13,14 +13,14 @@ use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     co_occurrence::COBuilder,
     extract::{
+        apply_libs,
         beam::{LibExtractor, PartialLibCost},
-        lift_libs,
     },
     learn::LearnedLibrary,
     teachable::Teachable,
 };
 
-use super::Experiment;
+use super::{Experiment, ExperimentResult};
 
 /// A BeamExperiment contains all of the information needed to run a
 /// library learning experiment with the beam extractor.
@@ -37,8 +37,6 @@ where
     inter_beams: usize,
     /// The number of libs to learn at a time
     lps: usize,
-    /// The number of rounds of library learning to do
-    rounds: usize,
     /// Whether to use the extra partial order reduction or not
     extra_por: bool,
     /// Any extra data associated with this experiment
@@ -58,7 +56,6 @@ where
         final_beams: usize,
         inter_beams: usize,
         lps: usize,
-        rounds: usize,
         extra_por: bool,
         extra_data: Extra,
         learn_constants: bool,
@@ -72,7 +69,6 @@ where
             final_beams,
             inter_beams,
             lps,
-            rounds,
             extra_por,
             extra_data,
             learn_constants,
@@ -96,7 +92,12 @@ where
         + 'static,
     Extra: Serialize + Debug + Clone,
 {
-    fn run(&self, exprs: Vec<Expr<Op>>) -> Expr<Op> {
+    /// The list of domain-specific rewrites used in this experiment.
+    fn dsrs(&self) -> &[Rewrite<AstNode<Op>, PartialLibCost>] {
+        &self.dsrs
+    }
+
+    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
         let start_time = Instant::now();
         let timeout = Duration::from_secs(60 * 100000);
 
@@ -183,51 +184,18 @@ where
 
         debug!("learned libs");
         let all_libs: Vec<_> = learned_lib.libs().collect();
+        let mut chosen_rewrites = Vec::new();
         for lib in &cs.set[0].libs {
             debug!("{}: {}", lib.0, &all_libs[lib.0 .0]);
-        }
-
-        debug!("upper bound ('full') cost: {}", cs.set[0].full_cost);
-
-        debug!("learned libs");
-        let all_libs: Vec<_> = learned_lib.libs().collect();
-        for lib in &cs.set[0].libs {
-            debug!("{}: {}", lib.0, &all_libs[lib.0 .0]);
+            chosen_rewrites.push(lib_rewrites[lib.0 .0].clone());
         }
 
         debug!("upper bound ('full') cost: {}", cs.set[0].full_cost);
 
         let ex_time = Instant::now();
         debug!("Extracting... ");
-        let (lifted, final_cost) = cs
-            .set
-            .iter()
-            .take(1)
-            .map(|ls| {
-                // Add the root combine node again
-                let mut fin = Runner::<_, _, ()>::new(PartialLibCost::empty())
-                    .with_egraph(aeg.clone())
-                    // .with_iter_limit(1)
-                    .run(
-                        lib_rewrites
-                            .iter()
-                            .enumerate()
-                            .filter(|(i, _)| ls.libs.iter().any(|x| *i == x.0 .0))
-                            .map(|x| x.1),
-                    )
-                    .egraph;
-                let root = fin.add(AstNode::new(Op::list(), roots.iter().copied()));
-
-                let mut extractor = LibExtractor::new(&fin);
-                let best = extractor.best(root);
-
-                let lifted = lift_libs(best);
-                let final_cost = AstSize.cost_rec(&lifted);
-
-                (lifted, final_cost)
-            })
-            .min_by_key(|x| x.1)
-            .unwrap();
+        let lifted = apply_libs(aeg.clone(), &roots, &chosen_rewrites);
+        let final_cost = AstSize.cost_rec(&lifted);
 
         debug!("Finished in {}ms", ex_time.elapsed().as_millis());
         debug!("{}", Pretty(&Expr::from(lifted.clone())));
@@ -239,7 +207,10 @@ where
         );
         debug!("round time: {}ms", start_time.elapsed().as_millis());
 
-        return lifted.into();
+        ExperimentResult {
+            final_expr: lifted.into(),
+            rewrites: chosen_rewrites,
+        }
     }
 
     fn write_to_csv(
@@ -256,7 +227,6 @@ where
                 self.final_beams,
                 self.inter_beams,
                 self.lps,
-                self.rounds,
                 self.extra_por,
                 self.extra_data.clone(),
                 initial_cost,
@@ -268,7 +238,10 @@ where
     }
 
     fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "beam | final_beams: {}, inter_beams: {}, lps: {:?}, rounds: {}, extra_por: {}, extra_data: {:?}",
-               self.final_beams, self.inter_beams, self.lps, self.rounds, self.extra_por, self.extra_data)
+        write!(
+            f,
+            "beam | final_beams: {}, inter_beams: {}, lps: {:?}, extra_por: {}, extra_data: {:?}",
+            self.final_beams, self.inter_beams, self.lps, self.extra_por, self.extra_data
+        )
     }
 }
