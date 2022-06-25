@@ -16,6 +16,7 @@ use crate::lang::Drawing;
 use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     experiments::Experiments,
+    rewrites,
     sexp::Program,
 };
 use clap::Clap;
@@ -50,9 +51,13 @@ struct Opts {
     #[clap(long)]
     learn_constants: bool,
 
-    /// Use domain-specific rewrites
+    /// Optional file with domain-specific rewrites.
     #[clap(long)]
-    dsr: bool,
+    dsr: Option<PathBuf>,
+
+    /// Use domain-specific rewrites
+    // #[clap(long)]
+    // dsr: bool,
 
     /// Maximum arity of functions to learn.
     #[clap(long)]
@@ -142,16 +147,15 @@ fn main() {
             }
         }
 
-        let dsrs = if opts.dsr {
-            vec![
-                egg::rewrite!("scale_1_c"; "c" => "(T c (M 1.0 0 0 0))"),
-                egg::rewrite!("scale_1_l"; "l" => "(T l (M 1.0 0 0 0))"),
-                egg::rewrite!("scale_1_r"; "r" => "(T r (M 1.0 0 0 0))"),
-                egg::rewrite!("scale_1_r_s"; "(r_s ?w ?h)" => "(T (r_s ?w ?h) (M 1.0 0 0 0))"),
-                egg::rewrite!("scale_1_T"; "(T ?x ?m)" => "(T (T ?x ?m) (M 1.0 0 0 0))"),
-                egg::rewrite!("scale_1_C"; "(C ?x ?y)" => "(T (C ?x ?y) (M 1.0 0 0 0))"),
-                egg::rewrite!("scale_1_repeat"; "(repeat ?x ?n ?m)" => "(T (repeat ?x ?n ?m) (M 1.0 0 0 0))"),
-            ]
+        // If dsr file is specified, read it:
+        let dsrs = if let Some(dsr_path) = opts.dsr {
+            match rewrites::from_file(dsr_path) {
+                Ok(dsrs) => dsrs,
+                Err(e) => {
+                    eprintln!("Error reading dsr file: {}", e);
+                    std::process::exit(1);
+                }
+            }
         } else {
             vec![]
         };
