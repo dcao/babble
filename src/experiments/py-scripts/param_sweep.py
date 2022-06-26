@@ -8,6 +8,18 @@ from matplotlib.ticker import FormatStrFormatter
 from matplotlib.pyplot import cm
 import numpy as np
 
+# NOTE: This is no longer used.
+def _param_sweep_old(path_to_drawing_bab):
+    # beams = "10 50 100 200 500 1000"
+    # lps = "1 3 5 10"
+    # rounds = "2 5 10"
+    beams = "5 10"
+    lps = "1 2"
+    rounds = "1 2 3"
+    max_arity = "3"
+    subprocess.run(["cargo", "run", "--release", "--bin=drawings", "--", path_to_drawing_bab] +
+                   ["--beams"] + beams.split() + ["--lps"] + lps.split() + ["--rounds"] + rounds.split() + ["--max-arity", max_arity])
+
 # NOTE: For max memory, we need a different workflow that
 # can't use the exisiting experiment infrastructure.
 # We have to run each configuration separately and
@@ -28,10 +40,13 @@ def param_sweep(path_to_drawing_bab, single_run_data, alldata):
                 bm = str(b).split()[0]
                 lp = str(lps).split()[0]
                 rn = str(round).split()[0]
-                _, e = subprocess.Popen(["/usr/bin/time", "-l", "cargo", "run", "--release", "--bin=drawings", "--",
+                _, e = subprocess.Popen(["timeout", "-v", "0.4s", "/usr/bin/time", "-l", "cargo", "run", "--release", "--bin=drawings", "--",
                                path_to_drawing_bab, "--beams", bm, "--lps", lp, "--rounds", rn, "--max-arity", str(max_arity)],
                                stderr=subprocess.PIPE).communicate()
                 mem = ""
+                if "TERM" in (str(e)):
+                    print("CONFIG beam: {0}, lps: {1}, round: {2} TIMED OUT".format(bm, lp, rn))
+                    continue
                 ls = str(e).split()
                 if "maximum" in ls:
                     max_idx = ls.index("maximum")
@@ -46,18 +61,6 @@ def param_sweep(path_to_drawing_bab, single_run_data, alldata):
                         row.append(mem)
                         allwriter.writerow(row)
     fw.close()
-
-# not used.
-def param_sweep_old(path_to_drawing_bab):
-    # beams = "10 50 100 200 500 1000"
-    # lps = "1 3 5 10"
-    # rounds = "2 5 10"
-    beams = "5 10"
-    lps = "1 2"
-    rounds = "1 2 3"
-    max_arity = "3"
-    subprocess.run(["cargo", "run", "--release", "--bin=drawings", "--", path_to_drawing_bab] +
-                   ["--beams"] + beams.split() + ["--lps"] + lps.split() + ["--rounds"] + rounds.split() + ["--max-arity", max_arity])
 
 
 def parse_results_csv(path):
@@ -103,7 +106,6 @@ def mkplot(rows, xField, yField, plot_dir):
     plt.legend(loc="upper right")
     plt.title('{} vs {} over all {}'.format(yField, xField, ','.join(groupBy)))
     plt.savefig(fnm)
-    plt.show()
 
 
 def mkplots(rows):
