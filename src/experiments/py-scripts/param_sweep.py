@@ -4,6 +4,7 @@ import sys
 import csv
 import os
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 from matplotlib.pyplot import cm
 import numpy as np
 
@@ -62,8 +63,9 @@ def mkplot(rows, xField, yField, plot_dir):
     plt.figure()
     color = iter(cm.rainbow(np.linspace(0, 1, len(group))))
     for g in group:
-        xs = [r[xField] for r in group[g]]
-        ys = [r[yField] for r in group[g]]
+        xs = [float(r[xField]) for r in group[g]]
+        # ys = [f'{float(r[yField]):7.4f}' for r in group[g]]
+        ys = [float(r[yField]) for r in group[g]]
         plt.plot(xs, ys, marker="o", c=next(color), label=str(g))
     fnm = os.path.join(plot_dir, '{}-{}.pdf'.format(xField, yField))
     plt.legend(loc="upper right")
