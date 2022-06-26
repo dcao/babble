@@ -5,7 +5,7 @@ use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     extract::{apply_libs, beam::PartialLibCost},
     learn::LibId,
-    teachable::Teachable,
+    teachable::Teachable, dreamcoder::json::CompressionInput,
 };
 use egg::{EGraph, Id, RecExpr, Rewrite, Runner};
 use serde::{Deserialize, Serialize};
@@ -99,6 +99,7 @@ where
         writer: &mut csv::Writer<fs::File>,
         initial_cost: usize,
         final_cost: usize,
+        compression: f64,
         time_elapsed: Duration,
     );
 
@@ -141,6 +142,7 @@ where
         let res = self.run(exprs);
 
         let final_cost = res.final_expr.len();
+        let compression = final_cost as f64 / initial_cost as f64;
         let time_elapsed = start_time.elapsed();
 
         // Print our analysis on this
@@ -150,13 +152,13 @@ where
             "cost diff: {} -> {} (compression ratio {})",
             initial_cost,
             final_cost,
-            final_cost as f64 / initial_cost as f64
+            compression
         );
         // println!("learned rewrites: {:?}", res.rewrites);
         println!("total time: {}ms", time_elapsed.as_millis());
         println!();
 
-        self.write_to_csv(writer, initial_cost, final_cost, time_elapsed);
+        self.write_to_csv(writer, initial_cost, final_cost, compression, time_elapsed);
     }
 }
 
@@ -501,10 +503,11 @@ where
         writer: &mut csv::Writer<fs::File>,
         initial_cost: usize,
         final_cost: usize,
+        compression: f64,
         time_elapsed: Duration,
     ) {
         self.experiment
-            .write_to_csv(writer, initial_cost, final_cost, time_elapsed)
+            .write_to_csv(writer, initial_cost, final_cost, compression, time_elapsed)
     }
 }
 
@@ -619,10 +622,11 @@ where
         writer: &mut csv::Writer<fs::File>,
         initial_cost: usize,
         final_cost: usize,
+        compression: f64,
         time_elapsed: Duration,
     ) {
         self.experiment
-            .write_to_csv(writer, initial_cost, final_cost, time_elapsed);
+            .write_to_csv(writer, initial_cost, final_cost, compression, time_elapsed);
     }
 
     /// Run experiment and write results to CSV.
@@ -642,6 +646,7 @@ where
         let res = self.run(exprs);
 
         let final_cost = res.final_expr.len();
+        let compression = final_cost as f64 / initial_cost as f64;
         let time_elapsed = start_time.elapsed();
 
         // Print our analysis on this
@@ -651,12 +656,12 @@ where
             "cost diff: {} -> {} (compression ratio {})",
             initial_cost,
             final_cost,
-            final_cost as f64 / initial_cost as f64
+            compression
         );
         // println!("learned rewrites: {:?}", res.rewrites);
         println!("total time: {}ms", time_elapsed.as_millis());
         println!();
 
-        self.write_to_csv(writer, initial_cost, final_cost, time_elapsed);
+        self.write_to_csv(writer, initial_cost, final_cost, compression, time_elapsed);
     }
 }
