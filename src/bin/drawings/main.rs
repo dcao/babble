@@ -176,5 +176,6 @@ fn main() {
 
         println!("running...");
         exps.run("target/res_drawing.csv");
+
     }
 }

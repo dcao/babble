@@ -192,7 +192,7 @@ impl<'a> Context<'a> {
                 let val = self.eval(expr)?;
                 let t = match self.eval(times) {
                     Ok(Value::Num(f)) => f as usize,
-                    _ => panic!("Second argument to repeat must be a number"),
+                    _ => panic!("Second argument to Repeat must be a number"),
                 };
                 let (tx, ty, rot, sc) = match self.eval(mat) {
                     Ok(Value::Matrix(entries)) => (
@@ -201,7 +201,7 @@ impl<'a> Context<'a> {
                         entries.rotate,
                         entries.scale,
                     ),
-                    _ => panic!("second argument to Transform must be matrix"),
+                    _ => panic!("Third argument to Repeat must be matrix"),
                 };
 
                 let mut shapes = Vec::with_capacity(t);

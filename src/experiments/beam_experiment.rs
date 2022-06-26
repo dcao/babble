@@ -218,6 +218,7 @@ where
         writer: &mut csv::Writer<File>,
         initial_cost: usize,
         final_cost: usize,
+        compression: f64,
         time_elapsed: Duration,
     ) {
         writer
@@ -231,6 +232,7 @@ where
                 self.extra_data.clone(),
                 initial_cost,
                 final_cost,
+                compression,
                 time_elapsed.as_secs_f64(),
             ))
             .unwrap();
