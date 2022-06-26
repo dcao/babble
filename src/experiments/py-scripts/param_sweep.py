@@ -40,7 +40,7 @@ def param_sweep(path_to_drawing_bab, single_run_data, alldata):
                 bm = str(b).split()[0]
                 lp = str(lps).split()[0]
                 rn = str(round).split()[0]
-                _, e = subprocess.Popen(["timeout", "-v", "0.4s", "/usr/bin/time", "-l", "cargo", "run", "--release", "--bin=drawings", "--",
+                _, e = subprocess.Popen(["timeout", "-v", "30m", "/usr/bin/time", "-l", "cargo", "run", "--release", "--bin=drawings", "--",
                                path_to_drawing_bab, "--beams", bm, "--lps", lp, "--rounds", rn, "--max-arity", str(max_arity)],
                                stderr=subprocess.PIPE).communicate()
                 mem = ""
