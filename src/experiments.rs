@@ -269,10 +269,10 @@ where
                         let te = test_exprs.clone();
                         if !te.is_empty() {
                             res.push(Box::new(Generalization::new(beam_experiment, te, rounds)));
-                        } else if rounds > 1 {
-                            res.push(Box::new(Rounds::new(rounds, beam_experiment)));
                         } else {
-                            res.push(Box::new(beam_experiment));
+                            // We always use Rounds so that we unconditionally run our
+                            // plumbing infra, in the case of e.g. nested libs
+                            res.push(Box::new(Rounds::new(rounds, beam_experiment)));
                         }
                     }
                 }
@@ -376,8 +376,32 @@ mod plumbing {
             match &from[usize::from(ix)].as_binding_expr() {
                 Some(crate::teachable::BindingExpr::Lib(lid, defn, b)) => {
                     // Extract recursive expression
-                    let rc = (&from[usize::from(**defn)])
-                        .build_recexpr(|x| from[usize::from(x)].clone());
+                    let rc = build_recexpr(**defn, |x| {
+                        // When building up the RecExpr for our lib defn, we need to do some
+                        // special processing to make sure that we're accounting for the case
+                        // where we have nested lib defns, e.g.
+                        //
+                        // ```
+                        // lib l119 =
+                        //   lib l48 =
+                        //     λx5 x6 -> map (λx7 -> x5 x6 x7) x6
+                        //   in
+                        //     l48 (λx5 x6 -> l192 x6)
+                        // in
+                        //   (body)
+                        // ```
+                        match &from[usize::from(x)].as_binding_expr() {
+                            Some(crate::teachable::BindingExpr::Lib(_n_lid, _n_defn, n_b)) => {
+                                // We have a nested lib!
+                                // Process the lib itself by walking thru this node
+                                walk(from, res, x);
+
+                                // Then return the node given by n_b, the body of the nested lib.
+                                from[usize::from(**n_b)].clone()
+                            }
+                            _ => from[usize::from(x)].clone(),
+                        }
+                    });
 
                     // Push to res
                     res.insert(LibId(lid.0), rc.as_ref().to_vec());
@@ -433,6 +457,48 @@ mod plumbing {
         walk(llr, &mut res, Id::from(llr.len() - 1));
 
         res
+    }
+
+    /// A riff off Language::build_recexpr, which also uses the get_node arg fn
+    /// on the root index passed.
+    fn build_recexpr<F, L>(root: Id, mut get_node: F) -> RecExpr<L>
+    where
+        L: Language,
+        F: FnMut(Id) -> L,
+    {
+        let mut set = indexmap::IndexSet::<L>::default();
+        let mut ids = HashMap::<Id, Id>::default();
+        let mut todo = vec![root];
+
+        while let Some(id) = todo.last().copied() {
+            if ids.contains_key(&id) {
+                todo.pop();
+                continue;
+            }
+
+            let node = get_node(id);
+
+            // check to see if we can do this node yet
+            let mut ids_has_all_children = true;
+            for child in node.children() {
+                if !ids.contains_key(child) {
+                    ids_has_all_children = false;
+                    todo.push(*child)
+                }
+            }
+
+            // all children are processed, so we can lookup this node safely
+            if ids_has_all_children {
+                let node = node.map_children(|id| ids[&id]);
+                let new_id = set.insert_full(node).0;
+                ids.insert(id, Id::from(new_id));
+                todo.pop();
+            }
+        }
+
+        // finally, add the root node and create the expression
+        let mut nodes: Vec<L> = set.into_iter().collect();
+        RecExpr::from(nodes)
     }
 }
 
