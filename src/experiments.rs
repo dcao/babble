@@ -230,7 +230,7 @@ where
         dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
         mut beams: Vec<usize>,
         mut lpss: Vec<usize>,
-        mut rounds_list: Vec<usize>,
+        rounds: usize,
         mut extra_pors: Vec<bool>,
         timeouts: Vec<u64>,
         extra: Extra,
@@ -246,10 +246,6 @@ where
         if beams.is_empty() {
             // TODO: be more graceful about this
             panic!("error: beams not specified");
-        }
-
-        if rounds_list.is_empty() {
-            rounds_list.push(1);
         }
 
         if lpss.is_empty() {
@@ -269,40 +265,33 @@ where
                         panic!("lps {} greater than beam {}", lps, beam);
                     }
 
-                    for &rounds in &rounds_list {
-                        let beam_experiment = BeamExperiment::new(
-                            dsrs.clone(),
-                            beam,
-                            beam,
-                            lps,
-                            extra_por,
-                            extra.clone(),
-                            learn_constants,
-                            max_arity,
-                        );
-                        let te = test_exprs.clone();
-                        if !te.is_empty() {
-                            res.push(Box::new(Generalization::new(beam_experiment, te, rounds)));
-                        } else {
-                            // We always use Rounds so that we unconditionally run our
-                            // plumbing infra, in the case of e.g. nested libs
-                            res.push(Box::new(Rounds::new(rounds, beam_experiment)));
-                        }
+                    let beam_experiment = BeamExperiment::new(
+                        dsrs.clone(),
+                        beam,
+                        beam,
+                        lps,
+                        extra_por,
+                        extra.clone(),
+                        learn_constants,
+                        max_arity,
+                    );
+                    let te = test_exprs.clone();
+                    if !te.is_empty() {
+                        res.push(Box::new(Generalization::new(beam_experiment, te, rounds)));
+                    } else {
+                        // We always use Rounds so that we unconditionally run our
+                        // plumbing infra, in the case of e.g. nested libs
+                        res.push(Box::new(Rounds::new(rounds, beam_experiment)));
                     }
                 }
             }
         }
 
         for timeout in timeouts {
-            for &rounds in &rounds_list {
-                let ilp_experiment =
-                    IlpExperiment::new(dsrs.clone(), timeout, extra.clone(), learn_constants);
-                if rounds > 1 {
-                    res.push(Box::new(Rounds::new(rounds, ilp_experiment)));
-                } else {
-                    res.push(Box::new(ilp_experiment));
-                }
-            }
+            let ilp_experiment =
+                IlpExperiment::new(dsrs.clone(), timeout, extra.clone(), learn_constants);
+
+            res.push(Box::new(Rounds::new(rounds, ilp_experiment)));
         }
 
         Self {
@@ -582,9 +571,7 @@ where
 
                 println!(
                     " results: {}/{} (r {})",
-                    inter_cost,
-                    initial_cost,
-                    compression
+                    inter_cost, initial_cost, compression
                 );
 
                 log::debug!("{}", Pretty(&inter_expr));
