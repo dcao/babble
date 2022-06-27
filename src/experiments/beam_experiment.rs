@@ -17,7 +17,7 @@ use crate::{
     teachable::Teachable,
 };
 
-use super::{Experiment, ExperimentResult, CsvWriter};
+use super::{CsvWriter, Experiment, ExperimentResult};
 
 /// A BeamExperiment contains all of the information needed to run a
 /// library learning experiment with the beam extractor.

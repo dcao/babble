@@ -1,4 +1,4 @@
-use super::{Experiment, ExperimentResult, CsvWriter};
+use super::{CsvWriter, Experiment, ExperimentResult};
 use crate::{
     ast_node::{Arity, AstNode, Expr, Printable},
     extract::beam::PartialLibCost,
@@ -34,12 +34,7 @@ impl<Op, Extra> IlpExperiment<Op, Extra>
 where
     Op: Display + Hash + Clone + Ord + 'static,
 {
-    pub fn new<I>(
-        dsrs: I,
-        timeout: u64,
-        extra_data: Extra,
-        learn_constants: bool,
-    ) -> Self
+    pub fn new<I>(dsrs: I, timeout: u64, extra_data: Extra, learn_constants: bool) -> Self
     where
         I: IntoIterator<Item = Rewrite<AstNode<Op>, PartialLibCost>>,
     {

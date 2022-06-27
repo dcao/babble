@@ -8,18 +8,6 @@ from matplotlib.ticker import FormatStrFormatter
 from matplotlib.pyplot import cm
 import numpy as np
 
-# NOTE: This is no longer used.
-def _param_sweep_old(path_to_drawing_bab):
-    # beams = "10 50 100 200 500 1000"
-    # lps = "1 3 5 10"
-    # rounds = "2 5 10"
-    beams = "5 10"
-    lps = "1 2"
-    rounds = "1 2 3"
-    max_arity = "3"
-    subprocess.run(["cargo", "run", "--release", "--bin=drawings", "--", path_to_drawing_bab] +
-                   ["--beams"] + beams.split() + ["--lps"] + lps.split() + ["--rounds"] + rounds.split() + ["--max-arity", max_arity])
-
 # NOTE: For max memory, we need a different workflow that
 # can't use the exisiting experiment infrastructure.
 # We have to run each configuration separately and
@@ -65,8 +53,8 @@ def param_sweep(path_to_drawing_bab, single_run_data, alldata):
 
 def parse_results_csv(path):
     FIELDS = \
-        ['__0', '__1', 'beam_size', 'beam_size_2', 'lps', '__2',
-            '__3', 'init_size', 'final_size', 'compression', 'time', 'memory']
+        ['exp_type', 'timeout', 'beam_size', 'beam_size_2', 'lps', 'extra_por',
+            'extra_data', 'round', 'init_size', 'final_size', 'compression', 'time', 'memory']
     with open(path) as f:
         rows = list(csv.DictReader(f, fieldnames=FIELDS))
 
