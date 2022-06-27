@@ -122,6 +122,7 @@ where
         let roots = recexprs.iter().map(|x| aeg.add_expr(x)).collect::<Vec<_>>();
         aeg.rebuild();
 
+        debug!("Initial egraph size: {}", aeg.total_size());
         debug!("Running {} DSRs... ", self.dsrs.len());
 
         let runner = Runner::<_, _, ()>::new(PartialLibCost::empty())
@@ -131,7 +132,7 @@ where
 
         let aeg = runner.egraph;
 
-        debug!("Finished in {}ms; egrpah size: {}", start_time.elapsed().as_millis(), aeg.total_size());
+        debug!("Finished in {}ms; final egrpah size: {}", start_time.elapsed().as_millis(), aeg.total_size());
 
         debug!("Running co-occurrence analysis... ");
         let co_time = Instant::now();
