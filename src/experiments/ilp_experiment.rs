@@ -1,4 +1,4 @@
-use super::{Experiment, ExperimentResult};
+use super::{Experiment, ExperimentResult, CsvWriter};
 use crate::{
     ast_node::{Arity, AstNode, Expr, Printable},
     extract::beam::PartialLibCost,
@@ -24,8 +24,6 @@ where
     dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
     /// The timeout length to use
     timeout: u64,
-    /// Number of rounds to do
-    rounds: usize,
     /// Any extra data associated with this experiment
     extra_data: Extra,
     /// Whether to learn "library functions" without any arguments.
@@ -39,7 +37,6 @@ where
     pub fn new<I>(
         dsrs: I,
         timeout: u64,
-        rounds: usize,
         extra_data: Extra,
         learn_constants: bool,
     ) -> Self
@@ -49,7 +46,6 @@ where
         Self {
             dsrs: dsrs.into_iter().collect(),
             timeout,
-            rounds,
             extra_data,
             learn_constants,
         }
@@ -77,12 +73,12 @@ where
     }
 
     #[cfg(not(feature = "grb"))]
-    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
+    fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
         unimplemented!("feature `grb` not enabled");
     }
 
     #[cfg(feature = "grb")]
-    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
+    fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
         use crate::{
             ast_node::Pretty,
             extract::{ilp::LpExtractor, lift_libs},
@@ -187,9 +183,14 @@ where
         };
     }
 
+    fn total_rounds(&self) -> usize {
+        1
+    }
+
     fn write_to_csv(
         &self,
-        writer: &mut csv::Writer<File>,
+        writer: &mut CsvWriter,
+        round: usize,
         initial_cost: usize,
         final_cost: usize,
         compression: f64,
@@ -201,10 +202,10 @@ where
                 self.timeout,
                 0,
                 0,
-                "Unlimited",
-                self.rounds,
+                0,
                 false,
                 self.extra_data.clone(),
+                round,
                 initial_cost,
                 final_cost,
                 compression,

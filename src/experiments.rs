@@ -3,9 +3,10 @@ pub use self::ilp_experiment::IlpExperiment;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
+    dreamcoder::json::CompressionInput,
     extract::{apply_libs, beam::PartialLibCost},
     learn::LibId,
-    teachable::Teachable, dreamcoder::json::CompressionInput,
+    teachable::Teachable,
 };
 use egg::{EGraph, Id, RecExpr, Rewrite, Runner};
 use serde::{Deserialize, Serialize};
@@ -82,6 +83,8 @@ pub struct ExperimentResult<Op: Printable + Teachable + Hash + Clone + Debug + A
     pub rewrites: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
 }
 
+pub type CsvWriter = csv::Writer<Box<dyn std::io::Write>>;
+
 /// Library learning experiment.
 pub trait Experiment<Op>
 where
@@ -91,12 +94,14 @@ where
     fn dsrs(&self) -> &[Rewrite<AstNode<Op>, PartialLibCost>];
 
     // Ideally exprs would have type `I: IntoIterator<Item = Expr<Op>>` but that's not object-safe.
-    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op>;
+    // This function also gets a writer method to write out intermediate results to the csv.
+    fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op>;
 
     /// Write experiments result to CSV.
     fn write_to_csv(
         &self,
-        writer: &mut csv::Writer<fs::File>,
+        writer: &mut CsvWriter,
+        round: usize,
         initial_cost: usize,
         final_cost: usize,
         compression: f64,
@@ -105,11 +110,15 @@ where
 
     fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result;
 
+    fn total_rounds(&self) -> usize;
+
     /// TODO: I don't think this is used; remove?
     fn run_summary(&self, initial_exprs: Vec<Expr<Op>>) -> Summary<Op> {
+        let mut wtr: CsvWriter = csv::Writer::from_writer(Box::new(std::io::sink()));
+
         let initial_cost = initial_exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
         let start_time = Instant::now();
-        let final_expr = self.run(initial_exprs.clone()).final_expr;
+        let final_expr = self.run(initial_exprs.clone(), &mut wtr).final_expr;
         let run_time = start_time.elapsed();
         let final_cost = final_expr.len();
 
@@ -126,7 +135,7 @@ where
     }
 
     /// Run experiment and write results to CSV.
-    fn run_csv(&self, exprs: Vec<Expr<Op>>, writer: &mut csv::Writer<fs::File>) {
+    fn run_csv(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) {
         println!(
             "{}",
             ExperimentTitle {
@@ -139,7 +148,7 @@ where
 
         // Add one to account for root node, not added yet
         let initial_cost = exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
-        let res = self.run(exprs);
+        let res = self.run(exprs, writer);
 
         let final_cost = res.final_expr.len();
         let compression = final_cost as f64 / initial_cost as f64;
@@ -150,15 +159,20 @@ where
         println!("{}", Pretty(&res.final_expr));
         println!(
             "cost diff: {} -> {} (compression ratio {})",
-            initial_cost,
-            final_cost,
-            compression
+            initial_cost, final_cost, compression
         );
         // println!("learned rewrites: {:?}", res.rewrites);
         println!("total time: {}ms", time_elapsed.as_millis());
         println!();
 
-        self.write_to_csv(writer, initial_cost, final_cost, compression, time_elapsed);
+        self.write_to_csv(
+            writer,
+            self.total_rounds(),
+            initial_cost,
+            final_cost,
+            compression,
+            time_elapsed,
+        );
     }
 }
 
@@ -281,13 +295,8 @@ where
 
         for timeout in timeouts {
             for &rounds in &rounds_list {
-                let ilp_experiment = IlpExperiment::new(
-                    dsrs.clone(),
-                    timeout,
-                    rounds,
-                    extra.clone(),
-                    learn_constants,
-                );
+                let ilp_experiment =
+                    IlpExperiment::new(dsrs.clone(), timeout, extra.clone(), learn_constants);
                 if rounds > 1 {
                     res.push(Box::new(Rounds::new(rounds, ilp_experiment)));
                 } else {
@@ -304,7 +313,8 @@ where
 
     /// Runs all experiments in this set
     pub fn run(self, csv_path: &str) {
-        let mut writer = csv::Writer::from_path(csv_path).unwrap();
+        let file = std::fs::File::create(csv_path).unwrap();
+        let mut writer: CsvWriter = csv::Writer::from_writer(Box::new(file));
 
         for experiment in self.experiments {
             experiment.run_csv(self.exprs.clone(), &mut writer);
@@ -534,16 +544,19 @@ where
         self.experiment.dsrs()
     }
 
-    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
+    fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
+        let initial_cost = exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
+        let start = std::time::Instant::now();
+
         let mut current_exprs = exprs;
         let mut rc: RecExpr<AstNode<Op>>;
         let mut libs = HashMap::new();
         let mut current_rewrites = Vec::new();
 
         for round in 0..self.rounds {
-            println!("round {}/{}", round + 1, self.rounds);
+            print!("round {}/{}", round + 1, self.rounds);
 
-            let round_res = self.experiment.run(current_exprs);
+            let round_res = self.experiment.run(current_exprs, writer);
 
             rc = round_res.final_expr.into();
 
@@ -551,6 +564,33 @@ where
             libs.extend(ls);
             current_exprs = plumbing::exprs(rc.as_ref());
             current_rewrites.extend(round_res.rewrites);
+
+            // We record intermediate results if we're not at the last round yet
+            if round != self.rounds - 1 {
+                let inter_expr = plumbing::combine(libs.clone(), current_exprs.clone());
+                let inter_cost = inter_expr.len();
+                let compression = inter_cost as f64 / initial_cost as f64;
+
+                self.write_to_csv(
+                    writer,
+                    round,
+                    initial_cost,
+                    inter_cost,
+                    compression,
+                    start.elapsed(),
+                );
+
+                println!(
+                    " results: {}/{} (r {})",
+                    inter_cost,
+                    initial_cost,
+                    compression
+                );
+
+                log::debug!("{}", Pretty(&inter_expr));
+            } else {
+                println!(" finished!");
+            }
         }
 
         // Combine back into one big recexpr at the end
@@ -564,16 +604,27 @@ where
         self.experiment.fmt_title(f)
     }
 
+    fn total_rounds(&self) -> usize {
+        self.rounds
+    }
+
     fn write_to_csv(
         &self,
-        writer: &mut csv::Writer<fs::File>,
+        writer: &mut CsvWriter,
+        round: usize,
         initial_cost: usize,
         final_cost: usize,
         compression: f64,
         time_elapsed: Duration,
     ) {
-        self.experiment
-            .write_to_csv(writer, initial_cost, final_cost, compression, time_elapsed)
+        self.experiment.write_to_csv(
+            writer,
+            round,
+            initial_cost,
+            final_cost,
+            compression,
+            time_elapsed,
+        )
     }
 }
 
@@ -648,7 +699,7 @@ where
         self.experiment.dsrs()
     }
 
-    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
+    fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
         let mut current_train_exprs = exprs;
         let mut current_test_exprs = self.test_set.clone();
         let mut rc: RecExpr<AstNode<Op>>;
@@ -659,7 +710,7 @@ where
         for round in 0..self.rounds {
             println!("round {}/{}", round + 1, self.rounds);
 
-            let round_res = self.experiment.run(current_train_exprs);
+            let round_res = self.experiment.run(current_train_exprs, writer);
 
             rc = round_res.final_expr.into();
             libs.extend(plumbing::libs(rc.as_ref()));
@@ -683,20 +734,31 @@ where
         self.experiment.fmt_title(f)
     }
 
+    fn total_rounds(&self) -> usize {
+        1
+    }
+
     fn write_to_csv(
         &self,
-        writer: &mut csv::Writer<fs::File>,
+        writer: &mut CsvWriter,
+        rounds: usize,
         initial_cost: usize,
         final_cost: usize,
         compression: f64,
         time_elapsed: Duration,
     ) {
-        self.experiment
-            .write_to_csv(writer, initial_cost, final_cost, compression, time_elapsed);
+        self.experiment.write_to_csv(
+            writer,
+            rounds,
+            initial_cost,
+            final_cost,
+            compression,
+            time_elapsed,
+        );
     }
 
     /// Run experiment and write results to CSV.
-    fn run_csv(&self, exprs: Vec<Expr<Op>>, writer: &mut csv::Writer<fs::File>) {
+    fn run_csv(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) {
         println!(
             "{}",
             ExperimentTitle {
@@ -709,7 +771,7 @@ where
 
         // Add one to account for root node, not added yet
         let initial_cost = self.test_set.iter().map(|expr| expr.len()).sum::<usize>() + 1;
-        let res = self.run(exprs);
+        let res = self.run(exprs, writer);
 
         let final_cost = res.final_expr.len();
         let compression = final_cost as f64 / initial_cost as f64;
@@ -720,14 +782,19 @@ where
         println!("{}", Pretty(&res.final_expr));
         println!(
             "cost diff: {} -> {} (compression ratio {})",
-            initial_cost,
-            final_cost,
-            compression
+            initial_cost, final_cost, compression
         );
         // println!("learned rewrites: {:?}", res.rewrites);
         println!("total time: {}ms", time_elapsed.as_millis());
         println!();
 
-        self.write_to_csv(writer, initial_cost, final_cost, compression, time_elapsed);
+        self.write_to_csv(
+            writer,
+            self.total_rounds(),
+            initial_cost,
+            final_cost,
+            compression,
+            time_elapsed,
+        );
     }
 }

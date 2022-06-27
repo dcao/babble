@@ -1,6 +1,6 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    fs::{self, File},
+    fs::File,
     hash::Hash,
     time::{Duration, Instant},
 };
@@ -12,15 +12,12 @@ use serde::ser::Serialize;
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     co_occurrence::COBuilder,
-    extract::{
-        apply_libs,
-        beam::{LibExtractor, PartialLibCost},
-    },
+    extract::{apply_libs, beam::PartialLibCost},
     learn::LearnedLibrary,
     teachable::Teachable,
 };
 
-use super::{Experiment, ExperimentResult};
+use super::{Experiment, ExperimentResult, CsvWriter};
 
 /// A BeamExperiment contains all of the information needed to run a
 /// library learning experiment with the beam extractor.
@@ -97,7 +94,7 @@ where
         &self.dsrs
     }
 
-    fn run(&self, exprs: Vec<Expr<Op>>) -> ExperimentResult<Op> {
+    fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
         let start_time = Instant::now();
         let timeout = Duration::from_secs(60 * 100000);
 
@@ -132,7 +129,11 @@ where
 
         let aeg = runner.egraph;
 
-        debug!("Finished in {}ms; final egrpah size: {}", start_time.elapsed().as_millis(), aeg.total_size());
+        debug!(
+            "Finished in {}ms; final egrpah size: {}",
+            start_time.elapsed().as_millis(),
+            aeg.total_size()
+        );
 
         debug!("Running co-occurrence analysis... ");
         let co_time = Instant::now();
@@ -214,9 +215,14 @@ where
         }
     }
 
+    fn total_rounds(&self) -> usize {
+        1
+    }
+
     fn write_to_csv(
         &self,
-        writer: &mut csv::Writer<File>,
+        writer: &mut CsvWriter,
+        round: usize,
         initial_cost: usize,
         final_cost: usize,
         compression: f64,
@@ -231,6 +237,7 @@ where
                 self.lps,
                 self.extra_por,
                 self.extra_data.clone(),
+                round,
                 initial_cost,
                 final_cost,
                 compression,
