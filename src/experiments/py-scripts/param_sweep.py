@@ -18,9 +18,9 @@ def param_sweep(path_to_drawing_bab, single_run_data, alldata):
     # beams = [10, 50, 100, 200, 500, 1000]
     # lps = [1, 3, 5, 10]
     # rounds = [2, 5, 10]
-    beams = [5, 10]
-    lpss = [1, 2]
-    rounds = [1, 2, 3]
+    beams = [10, 25, 50, 100]
+    lpss = [1, 2, 5, 10, 25]
+    rounds = [100]
     max_arity = 3
     for b in beams:
         for lps in lpss:
@@ -28,7 +28,7 @@ def param_sweep(path_to_drawing_bab, single_run_data, alldata):
                 bm = str(b).split()[0]
                 lp = str(lps).split()[0]
                 rn = str(round).split()[0]
-                _, e = subprocess.Popen(["timeout", "-v", "0.4s", "/usr/bin/time", "-l", "cargo", "run", "--release", "--bin=drawings", "--",
+                _, e = subprocess.Popen(["gtimeout", "-v", "100s", "/usr/bin/time", "-l", "cargo", "run", "--release", "--bin=drawings", "--",
                                path_to_drawing_bab, "--beams", bm, "--lps", lp, "--rounds", rn, "--max-arity", str(max_arity)],
                                stderr=subprocess.PIPE).communicate()
                 mem = ""
@@ -50,7 +50,6 @@ def param_sweep(path_to_drawing_bab, single_run_data, alldata):
                         allwriter.writerow(row)
     fw.close()
 
-
 def parse_results_csv(path):
     FIELDS = \
         ['exp_type', 'timeout', 'beam_size', 'beam_size_2', 'lps', 'extra_por',
@@ -58,16 +57,45 @@ def parse_results_csv(path):
     with open(path) as f:
         rows = list(csv.DictReader(f, fieldnames=FIELDS))
 
-    # add derived "round" field
-    cfg_round = {}
-    for r in rows:
-        cfg = (r['beam_size'], r['beam_size_2'], r['lps'])
-        if cfg not in cfg_round:
-            cfg_round[cfg] = 0
-        cfg_round[cfg] += 1
-        r['round'] = cfg_round[cfg]
-
     return rows
+
+# TODO: Incorporate memory into this somehow
+def mk_cactus(rows, plot_dir):
+    # We're makin a lil cactus plot type thing!
+    # The idea is that we have a line corresponding to a pairing of
+    # beam size and lps, where the data points on the line correspond
+    # to the number of rounds we run (and thus the time used).
+    # We only want to add a point to the line if the extra time to run
+    # more rounds results in higher compression.
+    group = {}
+
+    for r in rows:
+        g = (r["beam_size"], r["lps"])
+        if g not in group:
+            group[g] = []
+
+        insert = True
+
+        # for og in group[g]:
+        #     # Out of the entries already in this group, if they take less time,
+        #     # they must have a lower compression ratio. If this isn't the case,
+        #     # we don't add the row.
+        #     if og['time'] < r['time'] and og['compression'] > r['compression']:
+        #         insert = False
+
+        if insert:
+            group[g].append(r)
+
+    plt.figure()
+    color = iter(cm.rainbow(np.linspace(0, 1, len(group))))
+    for g in group:
+        xs = [float(r['time']) for r in group[g]]
+        ys = [float(r['compression']) for r in group[g]]
+        plt.plot(xs, ys, marker="o", c=next(color), label=str(g))
+    fnm = os.path.join(plot_dir, 'cactus-time-compression.pdf')
+    plt.legend(loc="lower right")
+    plt.title('time v. compression over all (beam size, lps)')
+    plt.savefig(fnm)
 
 
 def mkplot(rows, xField, yField, plot_dir):
@@ -101,10 +129,11 @@ def mkplots(rows):
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
-    for x in ['round', 'beam_size', 'lps']:
-        for y in ['compression', 'time', 'memory']:
-            mkplot(rows, x, y, plot_dir)
+    mk_cactus(rows, plot_dir)
 
+    # for x in ['round', 'beam_size', 'lps']:
+    #     for y in ['compression', 'time', 'memory']:
+    #         mkplot(rows, x, y, plot_dir)
 
 def analyze_data(p):
     mkplots(parse_results_csv(p))
