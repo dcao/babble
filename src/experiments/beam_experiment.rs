@@ -131,7 +131,7 @@ where
 
         let aeg = runner.egraph;
 
-        debug!("Finished in {}ms", start_time.elapsed().as_millis());
+        debug!("Finished in {}ms; egrpah size: {}", start_time.elapsed().as_millis(), aeg.total_size());
 
         debug!("Running co-occurrence analysis... ");
         let co_time = Instant::now();
