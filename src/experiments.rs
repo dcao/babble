@@ -151,7 +151,7 @@ where
         let res = self.run(exprs, writer);
 
         let final_cost = res.final_expr.len();
-        let compression = final_cost as f64 / initial_cost as f64;
+        let compression = initial_cost as f64 / final_cost as f64;
         let time_elapsed = start_time.elapsed();
 
         // Print our analysis on this
@@ -569,7 +569,7 @@ where
             if round != self.rounds - 1 {
                 let inter_expr = plumbing::combine(libs.clone(), current_exprs.clone());
                 let inter_cost = inter_expr.len();
-                let compression = inter_cost as f64 / initial_cost as f64;
+                let compression = initial_cost as f64 / inter_cost as f64;
 
                 self.write_to_csv(
                     writer,
@@ -774,7 +774,7 @@ where
         let res = self.run(exprs, writer);
 
         let final_cost = res.final_expr.len();
-        let compression = final_cost as f64 / initial_cost as f64;
+        let compression = initial_cost as f64 / final_cost as f64;
         let time_elapsed = start_time.elapsed();
 
         // Print our analysis on this
