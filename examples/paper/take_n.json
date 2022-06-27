@@ -1,0 +1,235 @@
+{
+  "CPUs": 2,
+  "arity": 2,
+  "verbose": false,
+  "collect_data": false,
+  "bs": 3000,
+  "aic": 1,
+  "structurePenalty": 2,
+  "topK": 2,
+  "DSL": {
+    "logVariable": 0,
+    "productions": [
+      {
+        "logProbability": 0,
+        "expression": "map"
+      },
+      {
+        "logProbability": 0,
+        "expression": "unfold"
+      },
+      {
+        "logProbability": 0,
+        "expression": "range"
+      },
+      {
+        "logProbability": 0,
+        "expression": "index"
+      },
+      {
+        "logProbability": 0,
+        "expression": "fold"
+      },
+      {
+        "logProbability": 0,
+        "expression": "length"
+      },
+      {
+        "logProbability": 0,
+        "expression": "if"
+      },
+      {
+        "logProbability": 0,
+        "expression": "+"
+      },
+      {
+        "logProbability": 0,
+        "expression": "-"
+      },
+      {
+        "logProbability": 0,
+        "expression": "empty"
+      },
+      {
+        "logProbability": 0,
+        "expression": "cons"
+      },
+      {
+        "logProbability": 0,
+        "expression": "car"
+      },
+      {
+        "logProbability": 0,
+        "expression": "cdr"
+      },
+      {
+        "logProbability": 0,
+        "expression": "empty?"
+      },
+      {
+        "logProbability": 0,
+        "expression": "0"
+      },
+      {
+        "logProbability": 0,
+        "expression": "1"
+      },
+      {
+        "logProbability": 0,
+        "expression": "*"
+      },
+      {
+        "logProbability": 0,
+        "expression": "mod"
+      },
+      {
+        "logProbability": 0,
+        "expression": "gt?"
+      },
+      {
+        "logProbability": 0,
+        "expression": "eq?"
+      },
+      {
+        "logProbability": 0,
+        "expression": "is-prime"
+      },
+      {
+        "logProbability": 0,
+        "expression": "is-square"
+      }
+    ]
+  },
+  "frontiers": [
+    {
+      "request": {
+        "arguments": [
+          {
+            "arguments": [
+              {
+                "arguments": [],
+                "constructor": "int"
+              }
+            ],
+            "constructor": "list"
+          },
+          {
+            "arguments": [
+              {
+                "arguments": [],
+                "constructor": "int"
+              }
+            ],
+            "constructor": "list"
+          }
+        ],
+        "constructor": "->"
+      },
+      "programs": [
+        {
+          "logLikelihood": 0,
+          "program": "(lambda (cons (car $0) empty))"
+        }
+      ],
+      "task": "take-k with k=1"
+    },
+    {
+      "request": {
+        "arguments": [
+          {
+            "arguments": [
+              {
+                "arguments": [],
+                "constructor": "int"
+              }
+            ],
+            "constructor": "list"
+          },
+          {
+            "arguments": [
+              {
+                "arguments": [],
+                "constructor": "int"
+              }
+            ],
+            "constructor": "list"
+          }
+        ],
+        "constructor": "->"
+      },
+      "programs": [
+        {
+          "logLikelihood": 0,
+          "program": "(lambda (cons (car $0) (cons (car (cdr $0)) empty)))"
+        }
+      ],
+      "task": "take-k with k=2"
+    },
+    {
+      "request": {
+        "arguments": [
+          {
+            "arguments": [
+              {
+                "arguments": [],
+                "constructor": "int"
+              }
+            ],
+            "constructor": "list"
+          },
+          {
+            "arguments": [
+              {
+                "arguments": [],
+                "constructor": "int"
+              }
+            ],
+            "constructor": "list"
+          }
+        ],
+        "constructor": "->"
+      },
+      "programs": [
+        {
+          "logLikelihood": 0,
+          "program": "(lambda (map (lambda (index $0 $1)) (range (+ 1 (+ 1 (+ 1 1))))))"
+        }
+      ],
+      "task": "take-k with k=4"
+    },
+    {
+      "request": {
+        "arguments": [
+          {
+            "arguments": [
+              {
+                "arguments": [],
+                "constructor": "int"
+              }
+            ],
+            "constructor": "list"
+          },
+          {
+            "arguments": [
+              {
+                "arguments": [],
+                "constructor": "int"
+              }
+            ],
+            "constructor": "list"
+          }
+        ],
+        "constructor": "->"
+      },
+      "programs": [
+        {
+          "logLikelihood": 0,
+          "program": "(lambda (map (lambda (index $0 $1)) (range (+ 1 (+ 1 (+ 1 (+ 1 1)))))))"
+        }
+      ],
+      "task": "take-k with k=5"
+    }
+  ],
+  "pseudoCounts": 10,
+  "topI": 100
+}
