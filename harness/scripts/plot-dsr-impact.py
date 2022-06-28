@@ -6,7 +6,7 @@ import csv
 def main():
     x = []
     y = []
-    with open('data/dsr-impact.csv', newline='') as file:
+    with open('harness/data_gen/dsr-impact.csv', newline='') as file:
         reader = csv.DictReader(file)
         for row in reader:
             x.append(row['benchmark'])
@@ -29,7 +29,7 @@ def main():
         if i % 5 != 0:
             label.set_visible(False)
 
-    figure.savefig('dsr-impact.svg')
+    figure.savefig('harness/plots/dsr-impact.svg')
 
 
 main()

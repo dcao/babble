@@ -65,8 +65,8 @@ struct Opts {
     lps: Vec<usize>,
 
     /// The number of rounds of lib learning to run
-    #[clap(long)]
-    rounds: Vec<usize>,
+    #[clap(long, default_value_t = 1)]
+    rounds: usize,
 
     /// Whether to use the additional partial order reduction step
     #[clap(long)]
@@ -131,7 +131,7 @@ fn main() {
         dsrs,
         opts.beams.clone(),
         opts.lps.clone(),
-        opts.rounds.clone(),
+        opts.rounds,
         opts.extra_por.clone(),
         opts.timeout.clone(),
         (),
@@ -140,5 +140,5 @@ fn main() {
     );
 
     println!("running...");
-    exps.run("target/res_list.csv");
+    exps.run("harness/data_gen/res_list.csv");
 }
