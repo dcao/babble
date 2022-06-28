@@ -175,6 +175,6 @@ fn main() {
         );
 
         println!("running...");
-        exps.run("target/res_drawing.csv");
+        exps.run("harness/data_gen/res_drawing.csv");
     }
 }

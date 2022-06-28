@@ -142,6 +142,6 @@ fn main() {
         );
 
         println!("running...");
-        exps.run("target/res_smiley.csv");
+        exps.run("harness/data_gen/res_smiley.csv");
     }
 }

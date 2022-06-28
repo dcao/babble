@@ -140,5 +140,5 @@ fn main() {
     );
 
     println!("running...");
-    exps.run("target/res_list.csv");
+    exps.run("harness/data_gen/res_list.csv");
 }
