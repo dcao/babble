@@ -12,7 +12,7 @@ import numpy as np
 # can't use the exisiting experiment infrastructure.
 # We have to run each configuration separately and
 # log the max memory consumption.
-def param_sweep(path_to_drawing_bab, single_run_data, alldata):
+def param_sweep_old(path_to_drawing_bab, single_run_data, alldata):
     fw = open(alldata, "w")
     allwriter = csv.writer(fw)
     # beams = [10, 50, 100, 200, 500, 1000]
@@ -49,6 +49,28 @@ def param_sweep(path_to_drawing_bab, single_run_data, alldata):
                         row.append(mem)
                         allwriter.writerow(row)
     fw.close()
+
+
+def param_sweep(path_to_drawing_bab):
+    # beams = "10 50 100 200 500 1000"
+    # lps = "1 3 5 10"
+    # rounds = "2 5 10"
+    beams = [10]
+    lpss = [1]
+    rounds = [1]
+    max_arity = 3
+    for b in beams:
+        for lps in lpss:
+            for round in rounds:
+                bm = str(b).split()[0]
+                lp = str(lps).split()[0]
+                rn = str(round).split()[0]
+                _, e = subprocess.Popen(["gtimeout", "-v", "100s", "/usr/bin/time", "-l", "cargo", "run", "--release", "--bin=drawings", "--",
+                               path_to_drawing_bab, "--beams", bm, "--lps", lp, "--rounds", rn, "--max-arity", str(max_arity)],
+                               stderr=subprocess.PIPE).communicate()
+                if "TERM" in (str(e)):
+                    print("CONFIG beam: {0}, lps: {1}, round: {2} TIMED OUT".format(bm, lp, rn))
+                    continue
 
 def parse_results_csv(path):
     FIELDS = \
@@ -150,6 +172,7 @@ if __name__ == "__main__":
         if (fnm.split(".")[1] != "bab"):
             print("Must provide .bab file")
         else:
-            param_sweep(sys.argv[1], "target/res_drawing.csv", "target/alldata.csv")
-            #analyze_data("target/res_drawing.csv")
-            analyze_data("target/alldata.csv")
+            param_sweep(sys.argv[1])
+            #param_sweep(sys.argv[1], "target/res_drawing.csv", "target/alldata.csv")
+            analyze_data("target/res_drawing.csv")
+            #analyze_data("target/alldata.csv")
