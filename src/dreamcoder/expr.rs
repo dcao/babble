@@ -87,7 +87,7 @@ pub enum DreamCoderOp {
     /// A symbol, typically one of the language's primitives.
     Symbol(Symbol),
 
-    /// An "inlined" expression. This is how Dream&shy;Coder represents learned
+    /// An "inlined" expression. This is how DreamCoder represents learned
     /// functions.
     Inlined(Box<Expr<Self>>),
 

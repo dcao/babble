@@ -30,7 +30,9 @@ def main():
 
     print("[magenta bold]generating data[/]")
     print("> parsing dreamcoder data")
-    confirm("[bold]; python3 harness/scripts/parse_dc.py harness/data/dreamcoder-benchmarks")
+    confirm(
+        "[bold]; cargo run --bin=parse_dc harness/data/dreamcoder-benchmarks"
+    )
     print("[dim]> written to harness/data_gen/dc_res.csv")
     print()
 

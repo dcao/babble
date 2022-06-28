@@ -63,6 +63,7 @@ struct DsrResults {
 }
 
 fn main() -> anyhow::Result<()> {
+    env_logger::init();
     let opts: Opts = Opts::parse();
 
     let mut cache = opts
