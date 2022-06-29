@@ -584,10 +584,12 @@ where
             }
         }
 
+        let ll = libs.len();
+
         // Combine back into one big recexpr at the end
         ExperimentResult {
             final_expr: plumbing::combine(libs, current_exprs),
-            num_libs: libs.len(),
+            num_libs: ll,
             rewrites: current_rewrites,
         }
     }
@@ -718,9 +720,11 @@ where
             current_rewrites.extend(round_res.rewrites);
         }
 
+        let ll = test_libs.len();
+
         ExperimentResult {
             final_expr: plumbing::combine(test_libs, current_test_exprs),
-            num_libs: test_libs.len(),
+            num_libs: ll,
             rewrites: current_rewrites,
         }
     }
