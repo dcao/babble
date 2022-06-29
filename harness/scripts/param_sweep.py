@@ -26,7 +26,7 @@ def param_sweep_old(path_to_drawing_bab, single_run_data, alldata):
     rounds = [200]
     max_arity = 3
     for b in beams:
-        for lps in [1, b/2, b]:
+        for lps in [1, b//2, b]:
             for round in rounds:
                 bm = str(b).split()[0]
                 lp = str(lps).split()[0]
@@ -59,12 +59,11 @@ def param_sweep(path_to_drawing_bab, dts):
     # lps = "1 3 5 10"
     # rounds = "2 5 10"
     with open(get_data_csv_filename(dts), 'w') as all:       
-        beams = [10, 50]
-        lpss = [1, 5]
+        beams = [50, 100, 150, 200, 500]
         rounds = [100]
         max_arity = 3
         for b in beams:
-            for lps in lpss:
+            for lps in [1, b//2, b]:
                 for round in rounds:
                     bm = str(b).split()[0]
                     lp = str(lps).split()[0]
