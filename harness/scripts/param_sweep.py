@@ -81,7 +81,7 @@ def param_sweep(path_to_drawing_bab, dts):
 def parse_results_csv(path):
     FIELDS = \
         ['exp_type', 'timeout', 'beam_size', 'beam_size_2', 'lps', 'extra_por',
-            'extra_data', 'round', 'init_size', 'final_size', 'compression', 'time', 'memory']
+            'extra_data', 'round', 'init_size', 'final_size', 'compression', 'num_libs', 'time', 'memory']
     with open(path) as f:
         rows = list(csv.DictReader(f, fieldnames=FIELDS))
 
