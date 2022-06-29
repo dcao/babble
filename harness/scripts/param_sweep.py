@@ -55,22 +55,26 @@ def param_sweep(path_to_drawing_bab):
     # beams = "10 50 100 200 500 1000"
     # lps = "1 3 5 10"
     # rounds = "2 5 10"
-    beams = [10]
-    lpss = [1]
-    rounds = [1]
-    max_arity = 3
-    for b in beams:
-        for lps in lpss:
-            for round in rounds:
-                bm = str(b).split()[0]
-                lp = str(lps).split()[0]
-                rn = str(round).split()[0]
-                _, e = subprocess.Popen(["gtimeout", "-v", "100s", "/usr/bin/time", "-l", "cargo", "run", "--release", "--bin=drawings", "--",
-                               path_to_drawing_bab, "--beams", bm, "--lps", lp, "--rounds", rn, "--max-arity", str(max_arity)],
-                               stderr=subprocess.PIPE).communicate()
-                if "TERM" in (str(e)):
-                    print("CONFIG beam: {0}, lps: {1}, round: {2} TIMED OUT".format(bm, lp, rn))
-                    continue
+    with open("target/all.csv", 'w') as all:       
+        beams = [10, 50]
+        lpss = [1, 5]
+        rounds = [100]
+        max_arity = 3
+        for b in beams:
+            for lps in lpss:
+                for round in rounds:
+                    bm = str(b).split()[0]
+                    lp = str(lps).split()[0]
+                    rn = str(round).split()[0]
+                    _, e = subprocess.Popen(["gtimeout", "-v", "1.3s", "/usr/bin/time", "-l", "cargo", "run", "--release", "--bin=drawings", "--",
+                                path_to_drawing_bab, "--beams", bm, "--lps", lp, "--rounds", rn, "--max-arity", str(max_arity)],
+                                stderr=subprocess.PIPE).communicate()
+                    with open("target/res_drawing.csv", 'r') as one:     
+                        for l in one.readlines():
+                            all.write(l)
+                    if "TERM" in (str(e)):
+                        print("CONFIG beam: {0}, lps: {1}, round: {2} TIMED OUT".format(bm, lp, rn))
+                        continue
 
 def parse_results_csv(path):
     FIELDS = \
@@ -82,7 +86,7 @@ def parse_results_csv(path):
     return rows
 
 # TODO: Incorporate memory into this somehow
-def mk_cactus(rows, plot_dir):
+def mk_cactus(bg, rows, plot_dir):
     # We're makin a lil cactus plot type thing!
     # The idea is that we have a line corresponding to a pairing of
     # beam size and lps, where the data points on the line correspond
@@ -92,7 +96,7 @@ def mk_cactus(rows, plot_dir):
     group = {}
 
     for r in rows:
-        g = (r["beam_size"], r["lps"])
+        g = r["lps"]
         if g not in group:
             group[g] = []
 
@@ -114,9 +118,10 @@ def mk_cactus(rows, plot_dir):
         xs = [float(r['time']) for r in group[g]]
         ys = [float(r['compression']) for r in group[g]]
         plt.plot(xs, ys, marker="o", c=next(color), label=str(g))
-    fnm = os.path.join(plot_dir, 'cactus-time-compression.pdf')
+    fnm = os.path.join(plot_dir, 'cactus-time-compression' + str(bg) + '.pdf')
     plt.legend(loc="lower right")
-    plt.title('time v. compression over all (beam size, lps)')
+    title = 'time v. compression over all lps and beam {0}'.format(bg)
+    plt.title(title)
     plt.savefig(fnm)
 
 
@@ -151,7 +156,15 @@ def mkplots(rows):
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
-    mk_cactus(rows, plot_dir)
+    beam_group = {}
+    for r in rows:
+        g = r["beam_size"]
+        if g not in beam_group:
+            beam_group[g] = []
+        beam_group[g].append(r)
+
+    for bg in beam_group:
+        mk_cactus(bg, beam_group[bg], plot_dir)
 
     # for x in ['round', 'beam_size', 'lps']:
     #     for y in ['compression', 'time', 'memory']:
@@ -172,5 +185,8 @@ if __name__ == "__main__":
         if (fnm.split(".")[1] != "bab"):
             print("Must provide .bab file")
         else:
+            # param_sweep(sys.argv[1])
+            # analyze_data("target/all.csv")
+            # analyze_data("azure/nuts-bolts-bigrun.csv")
             param_sweep(sys.argv[1])
             analyze_data("harness/data_gen/res_drawing.csv")
