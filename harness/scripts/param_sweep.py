@@ -60,7 +60,7 @@ def param_sweep(path_to_drawing_bab, dts):
     # rounds = "2 5 10"
     with open(get_data_csv_filename(dts), 'w') as all:       
         beams = [50, 100, 150, 200, 500]
-        rounds = [100]
+        rounds = [200]
         max_arity = 3
         for b in beams:
             for lps in [1, b//2, b]:
