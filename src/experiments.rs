@@ -4,13 +4,13 @@ pub use self::ilp_experiment::IlpExperiment;
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     extract::beam::PartialLibCost,
-    learn::LibId,
     teachable::Teachable,
 };
 use egg::{RecExpr, Rewrite};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     fmt::{self, Debug, Display, Formatter},
     fs,
     hash::Hash,
@@ -24,9 +24,8 @@ mod ilp_experiment;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Summary<Op> {
-    pub initial_exprs: Vec<Expr<Op>>,
+    pub initial_expr_groups: Vec<Vec<Expr<Op>>>,
     pub initial_cost: usize,
-    pub learned_libs: BTreeMap<LibId, Expr<Op>>,
     pub final_expr: Expr<Op>,
     pub final_cost: usize,
     pub run_time: Duration,
@@ -83,6 +82,30 @@ where
     // Ideally exprs would have type `I: IntoIterator<Item = Expr<Op>>` but that's not object-safe.
     fn run(&self, exprs: Vec<Expr<Op>>) -> Expr<Op>;
 
+    fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> Expr<Op>;
+
+    fn run_multi_summary(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> Summary<Op> {
+        let start_time = Instant::now();
+
+        let initial_expr_groups = expr_groups.clone();
+        let initial_cost: usize = initial_expr_groups
+            .iter()
+            .map(|group| group.iter().map(|expr| expr.len()).min().unwrap())
+            .sum();
+        let initial_cost = initial_cost + 1;
+
+        let final_expr = self.run_multi(expr_groups);
+        let final_cost = final_expr.len();
+
+        Summary {
+            initial_expr_groups,
+            initial_cost,
+            final_expr,
+            final_cost,
+            run_time: start_time.elapsed(),
+        }
+    }
+
     fn write_to_csv(
         &self,
         writer: &mut csv::Writer<fs::File>,
@@ -92,25 +115,6 @@ where
     );
 
     fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result;
-
-    fn run_summary(&self, initial_exprs: Vec<Expr<Op>>) -> Summary<Op> {
-        let initial_cost = initial_exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
-        let start_time = Instant::now();
-        let final_expr = self.run(initial_exprs.clone());
-        let run_time = start_time.elapsed();
-        let final_cost = final_expr.len();
-
-        // TODO: Actually record the libs
-        let learned_libs = BTreeMap::default();
-        Summary {
-            initial_exprs,
-            initial_cost,
-            learned_libs,
-            final_expr,
-            final_cost,
-            run_time,
-        }
-    }
 
     fn run_csv(&self, exprs: Vec<Expr<Op>>, writer: &mut csv::Writer<fs::File>) {
         println!(
@@ -450,7 +454,26 @@ where
         let mut libs = HashMap::new();
 
         for round in 0..self.rounds {
-            println!("round {}/{}", round + 1, self.rounds);
+            debug!("round {}/{}", round + 1, self.rounds);
+
+            rc = self.experiment.run(current_exprs).into();
+
+            let ls = plumbing::libs(rc.as_ref());
+            libs.extend(ls);
+            current_exprs = plumbing::exprs(rc.as_ref());
+        }
+
+        // Combine back into one big recexpr at the end
+        plumbing::combine(libs, current_exprs)
+    }
+
+    fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> Expr<Op> {
+        let mut rc: RecExpr<AstNode<Op>> = self.experiment.run_multi(expr_groups).into();
+        let mut libs = plumbing::libs(rc.as_ref());
+        let mut current_exprs = plumbing::exprs(rc.as_ref());
+
+        for round in 1..self.rounds {
+            debug!("round {}/{}", round + 1, self.rounds);
 
             rc = self.experiment.run(current_exprs).into();
 

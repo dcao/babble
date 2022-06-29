@@ -237,10 +237,10 @@ impl Display for DreamCoderOp {
 impl Printable for DreamCoderOp {
     fn precedence(&self) -> Precedence {
         match self {
-            Self::Symbol(_) | Self::Var(_) | Self::LibVar(_) => 60,
+            Self::Symbol(_) | Self::Var(_) | Self::LibVar(_) | Self::Inlined(_) => 60,
             Self::Combine => 50,
             Self::App | Self::Shift => 40,
-            Self::Lambda | Self::Lib(_) | Self::Inlined(_) => 10,
+            Self::Lambda | Self::Lib(_) => 10,
         }
     }
 
@@ -255,7 +255,13 @@ impl Printable for DreamCoderOp {
                 };
                 printer.in_brackets(|p| p.indented(|p| p.vsep(elem, ts.len(), ",")))
             }
-            (op, _) => write!(printer.writer, "{} ???", op),
+            (Self::Inlined(expr), []) => {
+                write!(printer.writer, "#")?;
+                printer.in_parens(|p| p.print_in_context(expr, 0))
+            }
+            (op, _) => {
+                write!(printer.writer, "{} ???", op)
+            }
         }
     }
 }

@@ -179,6 +179,10 @@ where
         return lifted.into();
     }
 
+    fn run_multi(&self, _expr_groups: Vec<Vec<Expr<Op>>>) -> Expr<Op> {
+        unimplemented!()
+    }
+
     fn write_to_csv(
         &self,
         writer: &mut csv::Writer<File>,

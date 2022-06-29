@@ -1,11 +1,11 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    fs::{self, File},
+    fs::File,
     hash::Hash,
     time::{Duration, Instant},
 };
 
-use egg::{AstSize, CostFunction, EGraph, RecExpr, Rewrite, Runner};
+use egg::{AstSize, CostFunction, EGraph, Id, RecExpr, Rewrite, Runner};
 use log::debug;
 use serde::ser::Serialize;
 
@@ -51,7 +51,17 @@ where
 
 impl<Op, Extra> BeamExperiment<Op, Extra>
 where
-    Op: Display + Hash + Clone + Ord + 'static,
+    Op: Arity
+        + Teachable
+        + Printable
+        + Debug
+        + Display
+        + Hash
+        + Clone
+        + Ord
+        + Sync
+        + Send
+        + 'static,
 {
     pub fn new<I>(
         dsrs: I,
@@ -79,52 +89,15 @@ where
             max_arity,
         }
     }
-}
 
-impl<Op, Extra> Experiment<Op> for BeamExperiment<Op, Extra>
-where
-    Op: Teachable
-        + Printable
-        + Arity
-        + Clone
-        + Send
-        + Sync
-        + Debug
-        + Display
-        + Hash
-        + Ord
-        + 'static,
-    Extra: Serialize + Debug + Clone,
-{
-    fn run(&self, exprs: Vec<Expr<Op>>) -> Expr<Op> {
+    fn run_egraph(&self, roots: &[Id], egraph: EGraph<AstNode<Op>, PartialLibCost>) -> Expr<Op> {
         let start_time = Instant::now();
         let timeout = Duration::from_secs(60 * 100000);
-
-        // First, let's turn our list of exprs into a list of recexprs
-        let recexprs: Vec<RecExpr<AstNode<Op>>> =
-            exprs.clone().into_iter().map(|x| x.into()).collect();
-
-        // Add one to account for root node, not added yet
-        let initial_cost = {
-            let s: usize = recexprs.iter().map(|x| AstSize.cost_rec(x)).sum();
-            s + 1
-        };
-
-        debug!("Starting cost: {}", initial_cost);
-
-        let mut aeg = EGraph::new(PartialLibCost::new(
-            self.final_beams,
-            self.inter_beams,
-            self.lps,
-            self.extra_por,
-        ));
-        let roots = recexprs.iter().map(|x| aeg.add_expr(x)).collect::<Vec<_>>();
-        aeg.rebuild();
 
         debug!("Running {} DSRs... ", self.dsrs.len());
 
         let runner = Runner::<_, _, ()>::new(PartialLibCost::empty())
-            .with_egraph(aeg)
+            .with_egraph(egraph)
             .with_time_limit(timeout)
             .run(&self.dsrs);
 
@@ -134,7 +107,7 @@ where
 
         debug!("Running co-occurrence analysis... ");
         let co_time = Instant::now();
-        let co_ext = COBuilder::new(&aeg, &roots);
+        let co_ext = COBuilder::new(&aeg, roots);
         let co_occurs = co_ext.run();
         debug!("Finished in {}ms", co_time.elapsed().as_millis());
 
@@ -230,16 +203,78 @@ where
             .unwrap();
 
         debug!("Finished in {}ms", ex_time.elapsed().as_millis());
+        debug!("final cost: {}", final_cost);
         debug!("{}", Pretty(&Expr::from(lifted.clone())));
-        debug!(
-            "cost diff: {} -> {} (compression ratio {})",
-            initial_cost,
-            final_cost,
-            final_cost as f32 / initial_cost as f32
-        );
         debug!("round time: {}ms", start_time.elapsed().as_millis());
 
         return lifted.into();
+    }
+}
+
+impl<Op, Extra> Experiment<Op> for BeamExperiment<Op, Extra>
+where
+    Op: Teachable
+        + Printable
+        + Arity
+        + Clone
+        + Send
+        + Sync
+        + Debug
+        + Display
+        + Hash
+        + Ord
+        + 'static,
+    Extra: Serialize + Debug + Clone,
+{
+    fn run(&self, exprs: Vec<Expr<Op>>) -> Expr<Op> {
+        // First, let's turn our list of exprs into a list of recexprs
+        let recexprs: Vec<RecExpr<AstNode<Op>>> =
+            exprs.clone().into_iter().map(|x| x.into()).collect();
+
+        let mut egraph = EGraph::new(PartialLibCost::new(
+            self.final_beams,
+            self.inter_beams,
+            self.lps,
+            self.extra_por,
+        ));
+        let roots: Vec<_> = recexprs.iter().map(|x| egraph.add_expr(x)).collect();
+        egraph.rebuild();
+
+        self.run_egraph(&roots, egraph)
+    }
+
+    fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> Expr<Op> {
+        // First, let's turn our list of exprs into a list of recexprs
+        let recexpr_groups: Vec<Vec<_>> = expr_groups
+            .into_iter()
+            .map(|group| group.into_iter().map(RecExpr::from).collect())
+            .collect();
+
+        let mut egraph = EGraph::new(PartialLibCost::new(
+            self.final_beams,
+            self.inter_beams,
+            self.lps,
+            self.extra_por,
+        ));
+
+        let roots: Vec<_> = recexpr_groups
+            .into_iter()
+            .map(|mut group| {
+                let first_expr = group.pop().unwrap();
+                let root = egraph.add_expr(&first_expr);
+                for expr in group {
+                    let class = egraph.add_expr(&expr);
+                    egraph.union(root, class);
+                }
+
+                root
+            })
+            .into_iter()
+            .collect();
+
+        egraph.rebuild();
+
+        self.run_egraph(&roots, egraph)
     }
 
     fn write_to_csv(
