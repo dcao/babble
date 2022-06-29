@@ -22,12 +22,11 @@ def param_sweep_old(path_to_drawing_bab, single_run_data, alldata):
     # beams = [10, 50, 100, 200, 500, 1000]
     # lps = [1, 3, 5, 10]
     # rounds = [2, 5, 10]
-    beams = [10, 25, 50, 100]
-    lpss = [1, 2, 5, 10, 25]
-    rounds = [100]
+    beams = [50, 100, 150, 200, 500]
+    rounds = [200]
     max_arity = 3
     for b in beams:
-        for lps in lpss:
+        for lps in [1, b/2, b]:
             for round in rounds:
                 bm = str(b).split()[0]
                 lp = str(lps).split()[0]
