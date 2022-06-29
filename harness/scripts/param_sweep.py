@@ -73,6 +73,7 @@ def param_sweep(path_to_drawing_bab, dts):
                                 stderr=subprocess.PIPE).communicate()
                     if "TERM" in (str(e)):
                         print("CONFIG beam: {0}, lps: {1}, round: {2} TIMED OUT".format(bm, lp, rn))
+                    if not os.path.exists("harness/data_gen/res_drawing.csv"):
                         continue
                     with open("harness/data_gen/res_drawing.csv", 'r') as one:     
                         for l in one.readlines():
