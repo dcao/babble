@@ -192,4 +192,4 @@ if __name__ == "__main__":
             # analyze_data("target/all.csv")
             # analyze_data("azure/nuts-bolts-bigrun.csv")
             param_sweep(sys.argv[1], dts)
-            analyze_data(get_data_csv_filename(dts))
+            analyze_data(get_data_csv_filename(dts), dts)
