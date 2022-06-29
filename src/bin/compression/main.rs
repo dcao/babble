@@ -146,5 +146,5 @@ fn main() {
     }
 
     println!("running...");
-    all.run("target/res_compression.csv");
+    all.run("harness/data_gen/res_compression.csv");
 }

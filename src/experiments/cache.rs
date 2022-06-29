@@ -13,7 +13,7 @@ use time::{
     OffsetDateTime,
 };
 
-const CACHE_DIR: &'static str = "cache";
+const CACHE_DIR: &'static str = "harness/data_gen/cache";
 const ISO8601_CONFIG: iso8601::EncodedConfig =
     iso8601::Config::DEFAULT.set_use_separators(false).encode();
 const DATE_FORMAT: Iso8601<ISO8601_CONFIG> = Iso8601;

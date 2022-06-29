@@ -29,7 +29,7 @@ use std::{
 #[derive(Clap)]
 #[clap(version, author, about)]
 struct Opts {
-    /// The input directory. If none is specified, defaults to `"data/dreamcoder-benchmarks/benches"`.
+    /// The input directory. If none is specified, defaults to `"harness/data/dreamcoder-benchmarks/benches"`.
     #[clap(parse(from_os_str))]
     file: Option<PathBuf>,
 
@@ -42,8 +42,8 @@ struct Opts {
     #[clap(long)]
     cache: Option<PathBuf>,
 }
-const BENCHMARK_PATH: &str = "data/dreamcoder-benchmarks/benches";
-const DSR_PATH: &str = "data/benchmark-dsrs";
+const BENCHMARK_PATH: &str = "harness/data/dreamcoder-benchmarks/benches";
+const DSR_PATH: &str = "harness/data/benchmark-dsrs";
 const BEAM_SIZE: usize = 100;
 const LPS: usize = 20;
 
@@ -63,6 +63,7 @@ struct DsrResults {
 }
 
 fn main() -> anyhow::Result<()> {
+    env_logger::init();
     let opts: Opts = Opts::parse();
 
     let mut cache = opts
@@ -216,7 +217,7 @@ fn plot_dsr_impact<I>(results: I) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = DsrResults>,
 {
-    let mut csv_writer = csv::Writer::from_path("plot/data/dsr-impact.csv")?;
+    let mut csv_writer = csv::Writer::from_path("harness/data_gen/dsr-impact.csv")?;
     csv_writer.serialize(("benchmark", "percent improvement"))?;
 
     for (i, result) in results.into_iter().enumerate() {

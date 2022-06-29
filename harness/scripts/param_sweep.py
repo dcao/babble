@@ -152,7 +152,7 @@ def mkplot(rows, xField, yField, plot_dir):
 
 
 def mkplots(rows):
-    plot_dir = os.path.join('plot_results')
+    plot_dir = os.path.join('harness/plots')
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
@@ -185,6 +185,8 @@ if __name__ == "__main__":
         if (fnm.split(".")[1] != "bab"):
             print("Must provide .bab file")
         else:
-            #param_sweep(sys.argv[1])
+            # param_sweep(sys.argv[1])
             # analyze_data("target/all.csv")
-            analyze_data("azure/nuts-bolts-bigrun.csv")
+            # analyze_data("azure/nuts-bolts-bigrun.csv")
+            param_sweep(sys.argv[1])
+            analyze_data("harness/data_gen/res_drawing.csv")
