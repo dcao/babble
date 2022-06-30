@@ -80,6 +80,7 @@ where
 /// Output of library learning.
 pub struct ExperimentResult<Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord> {
     pub final_expr: Expr<Op>,
+    pub num_libs: usize,
     pub rewrites: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
 }
 
@@ -105,6 +106,7 @@ where
         initial_cost: usize,
         final_cost: usize,
         compression: f64,
+        num_libs: usize,
         time_elapsed: Duration,
     );
 
@@ -171,6 +173,7 @@ where
             initial_cost,
             final_cost,
             compression,
+            res.num_libs,
             time_elapsed,
         );
     }
@@ -566,6 +569,7 @@ where
                     initial_cost,
                     inter_cost,
                     compression,
+                    libs.len(),
                     start.elapsed(),
                 );
 
@@ -580,9 +584,12 @@ where
             }
         }
 
+        let ll = libs.len();
+
         // Combine back into one big recexpr at the end
         ExperimentResult {
             final_expr: plumbing::combine(libs, current_exprs),
+            num_libs: ll,
             rewrites: current_rewrites,
         }
     }
@@ -602,6 +609,7 @@ where
         initial_cost: usize,
         final_cost: usize,
         compression: f64,
+        num_libs: usize,
         time_elapsed: Duration,
     ) {
         self.experiment.write_to_csv(
@@ -610,6 +618,7 @@ where
             initial_cost,
             final_cost,
             compression,
+            num_libs,
             time_elapsed,
         )
     }
@@ -711,8 +720,11 @@ where
             current_rewrites.extend(round_res.rewrites);
         }
 
+        let ll = test_libs.len();
+
         ExperimentResult {
             final_expr: plumbing::combine(test_libs, current_test_exprs),
+            num_libs: ll,
             rewrites: current_rewrites,
         }
     }
@@ -732,6 +744,7 @@ where
         initial_cost: usize,
         final_cost: usize,
         compression: f64,
+        num_libs: usize,
         time_elapsed: Duration,
     ) {
         self.experiment.write_to_csv(
@@ -740,6 +753,7 @@ where
             initial_cost,
             final_cost,
             compression,
+            num_libs,
             time_elapsed,
         );
     }
@@ -781,6 +795,7 @@ where
             initial_cost,
             final_cost,
             compression,
+            res.num_libs,
             time_elapsed,
         );
     }

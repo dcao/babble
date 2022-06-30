@@ -174,6 +174,7 @@ where
 
         return ExperimentResult {
             final_expr: lifted.into(),
+            num_libs: todo!(),
             rewrites: vec![],
         };
     }
@@ -189,6 +190,7 @@ where
         initial_cost: usize,
         final_cost: usize,
         compression: f64,
+        num_libs: usize,
         time_elapsed: Duration,
     ) {
         writer
@@ -204,6 +206,7 @@ where
                 initial_cost,
                 final_cost,
                 compression,
+                num_libs,
                 time_elapsed.as_secs_f64(),
             ))
             .unwrap();

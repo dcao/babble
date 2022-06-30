@@ -200,7 +200,6 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
-
             // And calculate our final cost from the output!
             let final_cost: usize = {
                 // Get all programs
