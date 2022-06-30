@@ -17,6 +17,7 @@ use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     experiments::Experiments,
     sexp::Program,
+    rewrites,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -44,9 +45,9 @@ struct Opts {
     #[clap(long)]
     max_arity: Option<usize>,
 
-    /// Do not use domain-specific rewrites
+    /// Optional file with domain-specific rewrites.
     #[clap(long)]
-    no_dsr: bool,
+    dsr: Option<PathBuf>,
 
     /// The number of programs to anti-unify
     #[clap(long)]
@@ -109,20 +110,17 @@ fn main() {
         println!();
     }
 
-    let dsrs = if opts.no_dsr {
-        vec![]
+    // If dsr file is specified, read it:
+    let dsrs = if let Some(dsr_path) = opts.dsr {
+        match rewrites::from_file(dsr_path) {
+            Ok(dsrs) => dsrs,
+            Err(e) => {
+                eprintln!("Error reading dsr file: {}", e);
+                std::process::exit(1);
+            }
+        }
     } else {
-        vec![
-            egg::rewrite!("add commute"; "(@ (@ + ?x) ?y)" => "(@ (@ + ?y) ?x)"),
-            egg::rewrite!("add assoc"; "(@ (@ + (@ (@ + ?x) ?y)) ?z)" => "(@ (@ + ?x) (@ (@ + ?y) ?z))"),
-            egg::rewrite!("minus_assoc_1"; "(@ (@ - (@ (@ - ?x) ?y)) ?z)" => "(@ (@ - ?x) (@ (@ + ?y) ?z))"),
-            // egg::rewrite!("length_cdr"; "(@ length (@ cdr ?x))" => "(@ (@ - (@ length ?x)) (@ succ z)))"),
-            // egg::rewrite!("add_def_z"; "(@ (@ + z) ?x)" => "?x"),
-            // egg::rewrite!("add_def_succ"; "(@ (@ + (@ succ ?x)) ?y)" => "(@ succ (@ (@ + ?x) ?y))"),
-            egg::rewrite!("length_cdr"; "(@ length (@ cdr ?x))" => "(@ (@ - (@ length ?x)) 1))"),
-            egg::rewrite!("add_1_1"; "(@ (@ + 1) 1)" => "2"),
-            egg::rewrite!("add_1_2"; "(@ (@ + 1) 2)" => "3"),
-        ]
+        vec![]
     };
 
     let exps = Experiments::gen(

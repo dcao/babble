@@ -55,10 +55,6 @@ struct Opts {
     #[clap(long)]
     dsr: Option<PathBuf>,
 
-    /// Use domain-specific rewrites
-    // #[clap(long)]
-    // dsr: bool,
-
     /// Maximum arity of functions to learn.
     #[clap(long)]
     max_arity: Option<usize>,
