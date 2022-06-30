@@ -49,28 +49,18 @@ def plot(res_name):
 
 
 def generalize(bab_file):
-    #train_size = [40, 80, 120, 160, 200]
+    # TODO: we are assuming that there are 250 benchmarks in each domain.
+    # We should generalize this later.
     train_size = [40, 80, 120, 160, 200]
     num_replication = 5
     test_size = 50
 
     all_progs = []
 
-    # all all programs to a list
+    # add all programs to a list
     with open(bab_file, 'r') as bab:
         for l in bab.readlines():
             all_progs.append(l)
-
-    # # remove the test (held out) data
-    # test_data = random.sample(all_progs, test_size)
-    # assert(len(test_data) == test_size)
-    # with open("test.bab", 'w') as te:
-    #     for td in test_data:
-    #         te.write(td)
-
-    # # get the rest of the  200 training data
-    # all_train = list(set(all_progs) - set(test_data))
-    # assert(len(all_train) == 200)
 
     curr_time = time.strftime("%Y%m%d-%H%M%S")
     res_name = "generalization_result" + curr_time + ".csv"
@@ -79,15 +69,17 @@ def generalize(bab_file):
             compressions = []
             for nr in range(num_replication):
 
-                # remove the test (held out) data
+                all_train = all_progs.copy()
+                # remove the 50 test (held out) data
                 test_data = random.sample(all_progs, test_size)
+                assert(len(test_data) == test_size)
                 with open("test.bab", 'w') as te:
                     for td in test_data:
                         te.write(td)
 
-                # get the rest of the  200 training data
-                all_train = list(set(all_progs) - set(test_data))
-                assert(len(all_train) == 200)
+                # get the rest of the 200 training data
+                for p in test_data:
+                    all_train.remove(p)
 
                 train_data = random.sample(all_train, t)
                 with open("train.bab", 'w') as tr:
