@@ -12,48 +12,6 @@ import numpy as np
 def get_data_csv_filename(dts):
     return f"harness/data_gen/sweep_drawing_{dts}.csv"
 
-# NOTE: For max memory, we need a different workflow that
-# can't use the exisiting experiment infrastructure.
-# We have to run each configuration separately and
-# log the max memory consumption.
-def param_sweep_old(path_to_drawing_bab, single_run_data, alldata):
-    fw = open(alldata, "w")
-    allwriter = csv.writer(fw)
-    # beams = [10, 50, 100, 200, 500, 1000]
-    # lps = [1, 3, 5, 10]
-    # rounds = [2, 5, 10]
-    beams = [50, 100, 150, 200, 500]
-    rounds = [200]
-    max_arity = 3
-    for b in beams:
-        for lps in [1, b//2, b]:
-            for round in rounds:
-                bm = str(b).split()[0]
-                lp = str(lps).split()[0]
-                rn = str(round).split()[0]
-                _, e = subprocess.Popen(["gtimeout", "-v", "100s", "/usr/bin/time", "-l", "cargo", "run", "--release", "--bin=drawings", "--",
-                               path_to_drawing_bab, "--beams", bm, "--lps", lp, "--rounds", rn, "--max-arity", str(max_arity)],
-                               stderr=subprocess.PIPE).communicate()
-                mem = ""
-                if "TERM" in (str(e)):
-                    print("CONFIG beam: {0}, lps: {1}, round: {2} TIMED OUT".format(bm, lp, rn))
-                    continue
-                ls = str(e).split()
-                if "maximum" in ls:
-                    max_idx = ls.index("maximum")
-                    if "resident" in ls and (ls.index("resident") == max_idx + 1):
-                        max_mem = ls[max_idx - 1]
-                        mem = str(max_mem)
-                    else:
-                        mem = ""
-                with open(single_run_data, 'r') as fr:
-                    single_reader = csv.reader(fr)
-                    for row in single_reader:
-                        row.append(mem)
-                        allwriter.writerow(row)
-    fw.close()
-
-
 def param_sweep(path_to_drawing_bab, dts):
     # beams = "10 50 100 200 500 1000"
     # lps = "1 3 5 10"
