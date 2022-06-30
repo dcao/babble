@@ -49,8 +49,9 @@ def plot(res_name):
 
 
 def generalize(bab_file):
+    #train_size = [40, 80, 120, 160, 200]
     train_size = [40, 80, 120, 160, 200]
-    num_replication = 50
+    num_replication = 5
     test_size = 50
 
     all_progs = []
@@ -60,16 +61,16 @@ def generalize(bab_file):
         for l in bab.readlines():
             all_progs.append(l)
 
-    # remove the test (held out) data
-    test_data = random.sample(all_progs, test_size)
-    assert(len(test_data) == test_size)
-    with open("test.bab", 'w') as te:
-        for td in test_data:
-            te.write(td)
+    # # remove the test (held out) data
+    # test_data = random.sample(all_progs, test_size)
+    # assert(len(test_data) == test_size)
+    # with open("test.bab", 'w') as te:
+    #     for td in test_data:
+    #         te.write(td)
 
-    # get the rest of the  200 training data
-    all_train = list(set(all_progs) - set(test_data))
-    assert(len(all_train) == 200)
+    # # get the rest of the  200 training data
+    # all_train = list(set(all_progs) - set(test_data))
+    # assert(len(all_train) == 200)
 
     curr_time = time.strftime("%Y%m%d-%H%M%S")
     res_name = "generalization_result" + curr_time + ".csv"
@@ -77,8 +78,18 @@ def generalize(bab_file):
         for t in train_size:
             compressions = []
             for nr in range(num_replication):
+
+                # remove the test (held out) data
+                test_data = random.sample(all_progs, test_size)
+                with open("test.bab", 'w') as te:
+                    for td in test_data:
+                        te.write(td)
+
+                # get the rest of the  200 training data
+                all_train = list(set(all_progs) - set(test_data))
+                assert(len(all_train) == 200)
+
                 train_data = random.sample(all_train, t)
-                assert(len(train_data) == t)
                 with open("train.bab", 'w') as tr:
                     for td in train_data:
                         tr.write(td)
