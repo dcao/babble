@@ -14,7 +14,7 @@ def main():
         "all none/dc": [],
     }
 
-    with open('data_gen/compression.csv', newline='') as file:
+    with open('harness/data_gen/compression.csv', newline='') as file:
         reader = csv.DictReader(file)
         for row in reader:
             for field, value in row.items():
@@ -37,7 +37,7 @@ def main():
     #plot.violinplot(compression.values(), vert=False, showmedians=True)
     figure.tight_layout()
 
-    figure.savefig('compression.svg')
+    figure.savefig('harness/plots/compression.svg')
 
 
 main()

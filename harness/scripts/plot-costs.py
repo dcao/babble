@@ -12,7 +12,7 @@ def main():
         "all dsrs": [],
     }
 
-    with open('data_gen/costs.csv', newline='') as file:
+    with open('harness/data_gen/costs.csv', newline='') as file:
         reader = csv.DictReader(file)
         for row in reader:
             if True:  #float(row['first none']) > float(row['first dsrs']):
@@ -46,7 +46,7 @@ def main():
     for i, label in enumerate(plot.get_xticklabels()):
         label.set_visible(False)
 
-    figure.savefig('costs.svg')
+    figure.savefig('harness/plots/costs.svg')
 
 
 main()
