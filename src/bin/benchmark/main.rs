@@ -283,6 +283,7 @@ where
     }
 
     plot_costs(&results)?;
+    plot_raw_costs(&results)?;
     plot_dsr_impact(&results)?;
     plot_compression(&results)?;
 
