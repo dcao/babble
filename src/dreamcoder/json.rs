@@ -54,6 +54,7 @@ pub struct Production {
 #[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Frontier {
+    #[serde(alias = "name")]
     pub task: Option<String>,
     pub request: Type,
     pub programs: Vec<Program>,
