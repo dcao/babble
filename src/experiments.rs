@@ -1,5 +1,6 @@
 pub use self::beam_experiment::BeamExperiment;
 pub use self::ilp_experiment::IlpExperiment;
+pub use self::eqsat::EqsatExperiment;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
@@ -19,6 +20,7 @@ use std::{
 };
 
 mod beam_experiment;
+mod eqsat;
 pub mod cache;
 mod ilp_experiment;
 
