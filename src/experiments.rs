@@ -1,6 +1,6 @@
 pub use self::beam_experiment::BeamExperiment;
-pub use self::ilp_experiment::IlpExperiment;
 pub use self::eqsat_experiment::EqsatExperiment;
+pub use self::ilp_experiment::IlpExperiment;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
@@ -19,8 +19,8 @@ use std::{
 };
 
 mod beam_experiment;
-mod eqsat_experiment;
 pub mod cache;
+mod eqsat_experiment;
 mod ilp_experiment;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

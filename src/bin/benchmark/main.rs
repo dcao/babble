@@ -15,7 +15,9 @@
 use babble::{
     ast_node::Expr,
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
-    experiments::{cache::ExperimentCache, BeamExperiment, Experiment, Rounds, Summary, EqsatExperiment},
+    experiments::{
+        cache::ExperimentCache, BeamExperiment, EqsatExperiment, Experiment, Rounds, Summary,
+    },
     rewrites,
 };
 use clap::Clap;
@@ -229,10 +231,7 @@ where
                         })
                         .collect();
 
-                    let experiment = Rounds::new(
-                        1,
-                        EqsatExperiment::new(rewrites.clone(), ()),
-                    );
+                    let experiment = Rounds::new(1, EqsatExperiment::new(rewrites.clone(), ()));
 
                     let summary = cache.get_or_insert_with(&experiment_id, || {
                         experiment.run_multi_summary(program_groups)
