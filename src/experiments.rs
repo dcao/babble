@@ -3,20 +3,17 @@ pub use self::ilp_experiment::IlpExperiment;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
-    dreamcoder::json::CompressionInput,
     extract::{apply_libs, beam::PartialLibCost},
-    learn::LibId,
     teachable::Teachable,
 };
 use egg::{EGraph, Id, RecExpr, Rewrite, Runner};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     fmt::{self, Debug, Display, Formatter},
-    fs,
     hash::Hash,
     marker::PhantomData,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, io,
 };
 
 mod beam_experiment;
@@ -25,9 +22,8 @@ mod ilp_experiment;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Summary<Op> {
-    pub initial_exprs: Vec<Expr<Op>>,
+    pub initial_expr_groups: Vec<Vec<Expr<Op>>>,
     pub initial_cost: usize,
-    pub learned_libs: BTreeMap<LibId, Expr<Op>>,
     pub final_expr: Expr<Op>,
     pub final_cost: usize,
     pub run_time: Duration,
@@ -84,7 +80,7 @@ pub struct ExperimentResult<Op: Printable + Teachable + Hash + Clone + Debug + A
     pub rewrites: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
 }
 
-pub type CsvWriter = csv::Writer<Box<dyn std::io::Write>>;
+pub type CsvWriter = csv::Writer<Box<dyn io::Write>>;
 
 /// Library learning experiment.
 pub trait Experiment<Op>
@@ -97,6 +93,30 @@ where
     // Ideally exprs would have type `I: IntoIterator<Item = Expr<Op>>` but that's not object-safe.
     // This function also gets a writer method to write out intermediate results to the csv.
     fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op>;
+
+    fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> ExperimentResult<Op>;
+
+    fn run_multi_summary(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> Summary<Op> {
+        let start_time = Instant::now();
+
+        let initial_expr_groups = expr_groups.clone();
+        let initial_cost: usize = initial_expr_groups
+            .iter()
+            .map(|group| group.iter().map(|expr| expr.len()).min().unwrap())
+            .sum();
+        let initial_cost = initial_cost + 1;
+
+        let final_expr = self.run_multi(expr_groups).final_expr;
+        let final_cost = final_expr.len();
+
+        Summary {
+            initial_expr_groups,
+            initial_cost,
+            final_expr,
+            final_cost,
+            run_time: start_time.elapsed(),
+        }
+    }
 
     /// Write experiments result to CSV.
     fn write_to_csv(
@@ -113,28 +133,6 @@ where
     fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result;
 
     fn total_rounds(&self) -> usize;
-
-    /// TODO: I don't think this is used; remove?
-    fn run_summary(&self, initial_exprs: Vec<Expr<Op>>) -> Summary<Op> {
-        let mut wtr: CsvWriter = csv::Writer::from_writer(Box::new(std::io::sink()));
-
-        let initial_cost = initial_exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
-        let start_time = Instant::now();
-        let final_expr = self.run(initial_exprs.clone(), &mut wtr).final_expr;
-        let run_time = start_time.elapsed();
-        let final_cost = final_expr.len();
-
-        // TODO: Actually record the libs
-        let learned_libs = BTreeMap::default();
-        Summary {
-            initial_exprs,
-            initial_cost,
-            learned_libs,
-            final_expr,
-            final_cost,
-            run_time,
-        }
-    }
 
     /// Run experiment and write results to CSV.
     fn run_csv(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) {
@@ -547,7 +545,6 @@ where
 
         for round in 0..self.rounds {
             print!("round {}/{}", round + 1, self.rounds);
-
             let round_res = self.experiment.run(current_exprs, writer);
 
             rc = round_res.final_expr.into();
@@ -565,6 +562,70 @@ where
 
                 self.write_to_csv(
                     writer,
+                    round,
+                    initial_cost,
+                    inter_cost,
+                    compression,
+                    libs.len(),
+                    start.elapsed(),
+                );
+
+                println!(
+                    " results: {}/{} (r {})",
+                    inter_cost, initial_cost, compression
+                );
+
+                log::debug!("{}", Pretty(&inter_expr));
+            } else {
+                println!(" finished!");
+            }
+        }
+
+        let ll = libs.len();
+
+        // Combine back into one big recexpr at the end
+        ExperimentResult {
+            final_expr: plumbing::combine(libs, current_exprs),
+            num_libs: ll,
+            rewrites: current_rewrites,
+        }
+    }
+
+
+    fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> ExperimentResult<Op> {
+        // Hack: just ignore any written info.
+        let mut writer = CsvWriter::from_writer(Box::new(io::sink()));
+
+        let initial_cost = expr_groups.iter().map(|expr_group| expr_group.iter().map(|expr| expr.len()).min().unwrap()).sum::<usize>() + 1;
+        let start = std::time::Instant::now();
+
+        let first_res = self.experiment.run_multi(expr_groups);
+
+        let mut rc: RecExpr<AstNode<Op>> = first_res.final_expr.into();
+
+        let mut current_exprs = plumbing::exprs(rc.as_ref());
+        let mut libs = plumbing::libs(rc.as_ref());
+        let mut current_rewrites = first_res.rewrites;
+
+        for round in 1..self.rounds {
+            print!("round {}/{}", round + 1, self.rounds);
+            let round_res = self.experiment.run(current_exprs, &mut writer);
+
+            rc = round_res.final_expr.into();
+
+            let ls = plumbing::libs(rc.as_ref());
+            libs.extend(ls);
+            current_exprs = plumbing::exprs(rc.as_ref());
+            current_rewrites.extend(round_res.rewrites);
+
+            // We record intermediate results if we're not at the last round yet
+            if round != self.rounds - 1 {
+                let inter_expr = plumbing::combine(libs.clone(), current_exprs.clone());
+                let inter_cost = inter_expr.len();
+                let compression = initial_cost as f64 / inter_cost as f64;
+
+                self.write_to_csv(
+                    &mut writer,
                     round,
                     initial_cost,
                     inter_cost,
@@ -798,5 +859,9 @@ where
             res.num_libs,
             time_elapsed,
         );
+    }
+
+    fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> ExperimentResult<Op> {
+        unimplemented!()
     }
 }

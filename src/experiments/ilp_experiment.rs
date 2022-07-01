@@ -220,4 +220,8 @@ where
             self.timeout, self.extra_data
         )
     }
+
+    fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> ExperimentResult<Op> {
+        unimplemented!()
+    }
 }
