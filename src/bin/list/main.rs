@@ -16,8 +16,8 @@ use crate::lang::ListOp;
 use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     experiments::Experiments,
-    sexp::Program,
     rewrites,
+    sexp::Program,
 };
 use clap::Clap;
 use egg::{AstSize, CostFunction, RecExpr};

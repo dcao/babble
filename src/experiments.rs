@@ -12,8 +12,9 @@ use std::{
     collections::HashMap,
     fmt::{self, Debug, Display, Formatter},
     hash::Hash,
+    io,
     marker::PhantomData,
-    time::{Duration, Instant}, io,
+    time::{Duration, Instant},
 };
 
 mod beam_experiment;
@@ -591,12 +592,15 @@ where
         }
     }
 
-
     fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> ExperimentResult<Op> {
         // Hack: just ignore any written info.
         let mut writer = CsvWriter::from_writer(Box::new(io::sink()));
 
-        let initial_cost = expr_groups.iter().map(|expr_group| expr_group.iter().map(|expr| expr.len()).min().unwrap()).sum::<usize>() + 1;
+        let initial_cost = expr_groups
+            .iter()
+            .map(|expr_group| expr_group.iter().map(|expr| expr.len()).min().unwrap())
+            .sum::<usize>()
+            + 1;
         let start = std::time::Instant::now();
 
         let first_res = self.experiment.run_multi(expr_groups);
