@@ -612,14 +612,40 @@ where
         let start = std::time::Instant::now();
 
         let first_res = self.experiment.run_multi(expr_groups);
-
         let mut rc: RecExpr<AstNode<Op>> = first_res.final_expr.into();
 
         let mut current_exprs = plumbing::exprs(rc.as_ref());
         let mut libs = plumbing::libs(rc.as_ref());
         let mut current_rewrites = first_res.rewrites;
 
-        for round in 0..self.rounds {
+        {
+            let inter_expr = plumbing::combine(libs.clone(), current_exprs.clone());
+            let inter_cost = inter_expr.len();
+            let compression = initial_cost as f64 / inter_cost as f64;
+
+            self.write_to_csv(
+                &mut writer,
+                1,
+                initial_cost,
+                inter_cost,
+                compression,
+                libs.len(),
+                start.elapsed(),
+                );
+
+            log::info!(
+                "round {}/{} results: {}/{} (r {})",
+                1,
+                self.rounds,
+                inter_cost,
+                initial_cost,
+                compression
+                );
+
+            log::debug!("{}", Pretty(&inter_expr));
+        }
+
+        for round in 1..self.rounds {
             let round_res = self.experiment.run(current_exprs, &mut writer);
 
             rc = round_res.final_expr.into();
