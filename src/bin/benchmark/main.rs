@@ -15,7 +15,7 @@
 use babble::{
     ast_node::Expr,
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
-    experiments::{cache::ExperimentCache, BeamExperiment, Experiment, Rounds, Summary},
+    experiments::{cache::ExperimentCache, BeamExperiment, Experiment, Rounds, Summary, EqsatExperiment},
     rewrites,
 };
 use clap::Clap;
@@ -93,6 +93,8 @@ struct BenchResults {
     domain: String,
     benchmark: String,
     file: String,
+    summary_first_eqsat: Summary<DreamCoderOp>,
+    summary_all_eqsat: Summary<DreamCoderOp>,
     summary_first_none: Summary<DreamCoderOp>,
     summary_all_none: Summary<DreamCoderOp>,
     summary_first_dsrs: Summary<DreamCoderOp>,
@@ -189,6 +191,56 @@ where
             let input: CompressionInput = serde_json::from_str(&input)?;
 
             for use_all in [true, false] {
+                // eqsat!
+                {
+                    let experiment_id = format!(
+                        "{}-{}-{}-{}-eqsat",
+                        &domain,
+                        &benchmark.name,
+                        file.strip_suffix(".json").unwrap(),
+                        if use_all { "all" } else { "first" },
+                    );
+
+                    println!(
+                        "      experiment{}: {}",
+                        if cache.contains(&experiment_id) {
+                            " [cached]"
+                        } else {
+                            ""
+                        },
+                        experiment_id
+                    );
+
+                    let program_groups: Vec<Vec<Expr<_>>> = input
+                        .frontiers
+                        .iter()
+                        .cloned()
+                        .map(|frontier| -> Vec<Expr<DreamCoderOp>> {
+                            let programs = frontier
+                                .programs
+                                .into_iter()
+                                .map(|program| program.program.into());
+
+                            if use_all {
+                                programs.collect()
+                            } else {
+                                programs.take(1).collect()
+                            }
+                        })
+                        .collect();
+
+                    let experiment = Rounds::new(
+                        1,
+                        EqsatExperiment::new(rewrites.clone(), ()),
+                    );
+
+                    let summary = cache.get_or_insert_with(&experiment_id, || {
+                        experiment.run_multi_summary(program_groups)
+                    })?;
+
+                    summaries.insert((use_all, true, false, true), summary);
+                }
+
                 for use_dsrs in [true, false] {
                     for (lps, rounds) in [(LPS, ROUNDS), (ROUNDS, LPS)] {
                         let experiment_id = format!(
@@ -248,7 +300,7 @@ where
                             experiment.run_multi_summary(program_groups)
                         })?;
 
-                        summaries.insert((use_all, use_dsrs, lps == 1), summary);
+                        summaries.insert((use_all, use_dsrs, lps == 1, false), summary);
                     }
                 }
             }
@@ -257,20 +309,64 @@ where
                 domain: domain.to_string(),
                 benchmark: benchmark.name.to_string(),
                 file: file.to_string(),
-                summary_first_none: summaries.remove(&(false, false, true)).unwrap(),
-                summary_all_none: summaries.remove(&(true, false, true)).unwrap(),
-                summary_first_dsrs: summaries.remove(&(false, true, true)).unwrap(),
-                summary_all_dsrs: summaries.remove(&(true, true, true)).unwrap(),
+                summary_first_eqsat: summaries.remove(&(false, true, false, true)).unwrap(),
+                summary_all_eqsat: summaries.remove(&(true, true, false, true)).unwrap(),
+                summary_first_none: summaries.remove(&(false, false, true, false)).unwrap(),
+                summary_all_none: summaries.remove(&(true, false, true, false)).unwrap(),
+                summary_first_dsrs: summaries.remove(&(false, true, true, false)).unwrap(),
+                summary_all_dsrs: summaries.remove(&(true, true, true, false)).unwrap(),
             };
 
             results.push(bench_results);
         }
     }
 
+    plot_raw_data(&results)?;
     plot_costs(&results)?;
     plot_dsr_impact(&results)?;
     plot_compression(&results)?;
 
+    Ok(())
+}
+
+fn plot_raw_data(results: &[BenchResults]) -> anyhow::Result<()> {
+    let mut csv_writer = csv::Writer::from_path("harness/data_gen/raw_costs.csv")?;
+    csv_writer.serialize((
+        "benchmark",
+        "initial",
+        "dc",
+        "first eqsat",
+        "all eqsat",
+        "first none",
+        "first dsrs",
+        "all none",
+        "all dsrs",
+    ))?;
+
+    let dc_results = get_dc_results()?;
+
+    for result in results {
+        let iteration = Iteration {
+            domain: result.domain.clone(),
+            benchmark: result.benchmark.clone(),
+            file: result.file.clone(),
+        };
+        let dc_compression = dc_results[&iteration];
+
+        csv_writer.serialize((
+            format!("{}_{}/{}", result.domain, result.benchmark, result.file),
+            dc_compression.initial_size,
+            dc_compression.final_size,
+            result.summary_first_eqsat.final_cost,
+            result.summary_all_eqsat.final_cost,
+            result.summary_first_none.final_cost,
+            result.summary_first_dsrs.final_cost,
+            result.summary_all_none.final_cost,
+            result.summary_all_dsrs.final_cost,
+        ))?;
+    }
+
+    csv_writer.flush()?;
     Ok(())
 }
 

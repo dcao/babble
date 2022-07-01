@@ -203,7 +203,7 @@ where
         &self.dsrs
     }
 
-    fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
+    fn run(&self, exprs: Vec<Expr<Op>>, _writer: &mut CsvWriter) -> ExperimentResult<Op> {
         // First, let's turn our list of exprs into a list of recexprs
         let recexprs: Vec<RecExpr<AstNode<Op>>> =
             exprs.clone().into_iter().map(|x| x.into()).collect();
