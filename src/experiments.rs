@@ -29,6 +29,7 @@ pub struct Summary<Op> {
     pub initial_cost: usize,
     pub final_expr: Expr<Op>,
     pub final_cost: usize,
+    pub num_libs: usize,
     pub run_time: Duration,
 }
 
@@ -109,7 +110,8 @@ where
             .sum();
         let initial_cost = initial_cost + 1;
 
-        let final_expr = self.run_multi(expr_groups).final_expr;
+        let res = self.run_multi(expr_groups);
+        let final_expr = res.final_expr;
         let final_cost = final_expr.len();
 
         Summary {
@@ -117,6 +119,7 @@ where
             initial_cost,
             final_expr,
             final_cost,
+            num_libs: res.num_libs,
             run_time: start_time.elapsed(),
         }
     }
@@ -547,7 +550,6 @@ where
         let mut current_rewrites = Vec::new();
 
         for round in 0..self.rounds {
-            print!("round {}/{}", round + 1, self.rounds);
             let round_res = self.experiment.run(current_exprs, writer);
 
             rc = round_res.final_expr.into();
@@ -573,14 +575,18 @@ where
                     start.elapsed(),
                 );
 
-                println!(
-                    " results: {}/{} (r {})",
-                    inter_cost, initial_cost, compression
+                log::info!(
+                    "round {}/{} results: {}/{} (r {})",
+                    round + 1,
+                    self.rounds,
+                    inter_cost,
+                    initial_cost,
+                    compression
                 );
 
                 log::debug!("{}", Pretty(&inter_expr));
             } else {
-                println!(" finished!");
+                log::info!(" finished!");
             }
         }
 
@@ -613,8 +619,7 @@ where
         let mut libs = plumbing::libs(rc.as_ref());
         let mut current_rewrites = first_res.rewrites;
 
-        for round in 1..self.rounds {
-            print!("round {}/{}", round + 1, self.rounds);
+        for round in 0..self.rounds {
             let round_res = self.experiment.run(current_exprs, &mut writer);
 
             rc = round_res.final_expr.into();
@@ -640,14 +645,18 @@ where
                     start.elapsed(),
                 );
 
-                println!(
-                    " results: {}/{} (r {})",
-                    inter_cost, initial_cost, compression
+                log::info!(
+                    "round {}/{} results: {}/{} (r {})",
+                    round + 1,
+                    self.rounds,
+                    inter_cost,
+                    initial_cost,
+                    compression
                 );
 
                 log::debug!("{}", Pretty(&inter_expr));
             } else {
-                println!(" finished!");
+                log::info!("finished!");
             }
         }
 

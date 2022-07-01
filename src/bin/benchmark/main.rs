@@ -204,9 +204,9 @@ where
             let input = fs::read_to_string(input)?;
             let input: CompressionInput = serde_json::from_str(&input)?;
 
-            for use_all in [true, false] {
+            for use_all in [false] {
                 // eqsat!
-                {
+                if false {
                     let experiment_id = format!(
                         "{}-{}-{}-{}-eqsat",
                         &domain,
@@ -252,7 +252,7 @@ where
                     summaries.insert((use_all, true, false, true), summary);
                 }
 
-                for use_dsrs in [true, false] {
+                for use_dsrs in [true] {
                     for (lps, rounds) in [(ROUNDS, LPS)] {
                         let experiment_id = format!(
                             "{}-{}-{}-{}-{}-{}lps-{}rounds",
@@ -310,6 +310,15 @@ where
                         let summary = cache.get_or_insert_with(&experiment_id, || {
                             experiment.run_multi_summary(program_groups)
                         })?;
+
+                        println!(
+                            "        {} -> {} (r {:.3}), with {:>3} libs in {:>8.3}s",
+                            summary.initial_cost,
+                            summary.final_cost,
+                            summary.compression_ratio(),
+                            summary.num_libs,
+                            summary.run_time.as_secs_f32(),
+                        );
 
                         summaries.insert((use_all, use_dsrs, lps == 1, false), summary);
                     }
