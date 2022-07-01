@@ -1,0 +1,90 @@
+Stitch mode: none
+Will write compression messages to cm_out_dir:  compressionMessages
+Compression backend will run for most 20 iterations
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Total number of candidates: 51071
+Constructed version spaces and coalesced candidates in 27.4347s.
+Timing point -1 right before normalizing: 30.9435s.
+Trimmed down the beam, have only 300 best candidates
+Timing point 1 (from start of compression_step_master to having topI candidates): 30.9463s.
+Timing Comparison Point A (vspace+beam) (millis): 30946
+Rewrote topK in 23.1856s.
+Timing point 2 (from having topI candidates to BatchedRewrite under them): 23.1859s.
+sanity check for timing comparison, should be same as comparison point: 54.1322s.
+Timing Comparison Point B (vspace+beam+batched_rewrite) (millis): 54132
+Initial score: -1297.449438
+Initial language score: 0.000000
+Initial joint score: -1297.449438 using LC of 0.000000
+Here in the master worker: we still have 0 language alignments;
+Scored candidates in 4.07631s.
+Best MDL score: -1296.007753 with (lambda (cons (car $0)))
+Scored candidates with language and grammar in 4.37572s.
+Best joint score: -1296.007753 with (lambda (cons (car $0)))
+Timing point 3 (all scoring): 8.47766s.
+Improved score to -1296.007753 (dScore=1.441685) w/ new primitive
+	#(lambda (cons (car $0))) : list(t0) -> list(t0) -> list(t0)
+rewrote all of the frontiers in 12.5651s.
+Timing point 4 (rewrite final frontiers): 12.5651s.
+Completed one step of memory consolidation in 1.25325m.
+New primitive is used 6 times in the best programs in each of the frontiers.
+Here is where it is used:
+  (lambda (#(lambda (cons (car $0))) $0 $0))
+  (lambda (#(lambda (cons (car $0))) (cdr $0) $0))
+  (lambda (#(lambda (cons (car $0))) (#(lambda (cdr (cdr (cdr $0)))) $0) $0))
+  (lambda (#(lambda (cons (car $0))) $0 (cdr (cdr $0))))
+  (lambda (#(lambda (cons (car $0))) $0 (cons (index 1 $0) (cons (index 1 (cdr $0)) (cdr (#(lambda (cdr (cdr (cdr $0)))) $0))))))
+  (lambda (fold (cdr (#(lambda (cdr (cdr (cdr $0)))) $0)) $0 (lambda (lambda (cons $1 (#(lambda (cons (car $0))) $0 empty))))))
+Total number of candidates: 47267
+Constructed version spaces and coalesced candidates in 25.1093s.
+Timing point -1 right before normalizing: 28.7255s.
+Trimmed down the beam, have only 300 best candidates
+Timing point 1 (from start of compression_step_master to having topI candidates): 28.7272s.
+Timing Comparison Point A (vspace+beam) (millis): 28727
+Rewrote topK in 23.7726s.
+Timing point 2 (from having topI candidates to BatchedRewrite under them): 23.7728s.
+sanity check for timing comparison, should be same as comparison point: 52.5s.
+Timing Comparison Point B (vspace+beam+batched_rewrite) (millis): 52500
+Initial score: -1297.270480
+Initial language score: 0.000000
+Initial joint score: -1297.270480 using LC of 0.000000
+Here in the master worker: we still have 0 language alignments;
+Scored candidates in 4.53477s.
+Best MDL score: -1297.536951 with (lambda (#(lambda (lambda (fold $0 (cons (index 1 (cdr $1)) empty) (lambda (lambda (cons $1 $0)))))) (map (lambda $1) (range #(+ 1 (car (#(#(lambda (map (lambda (index $0 (cons (+ 1 $1) (range $0)))))) (+ 1 1)) (range 1))))))))
+No improvement possible with MDL.
+Scored candidates with language and grammar in 4.39546s.
+Best joint score: -1297.536951 with (lambda (#(lambda (lambda (fold $0 (cons (index 1 (cdr $1)) empty) (lambda (lambda (cons $1 $0)))))) (map (lambda $1) (range #(+ 1 (car (#(#(lambda (map (lambda (index $0 (cons (+ 1 $1) (range $0)))))) (+ 1 1)) (range 1))))))))
+Timing point 3 (all scoring): 8.96041s.
+No improvement possible with joint score.
+Completed one step of memory consolidation in 1.02435m.
+completed ocaml compression in 2.27775m.
+	Command being timed: "/scratch/mlbowers/proj/stitch/experiments/compression benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/bench008_it11.json"
+	User time (seconds): 33.62
+	System time (seconds): 0.90
+	Percent of CPU this job got: 25%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:16.72
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1010532
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 937127
+	Voluntary context switches: 327
+	Involuntary context switches: 3442
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 144
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

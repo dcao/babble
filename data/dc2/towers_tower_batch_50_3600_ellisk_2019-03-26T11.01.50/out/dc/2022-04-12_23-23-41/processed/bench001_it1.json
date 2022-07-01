@@ -1,0 +1,41 @@
+{
+    "bench_group": "towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50",
+    "bench": "bench001_it1",
+    "mode": "dreamcoder",
+    "run": "benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/dc/2022-04-12_23-23-41",
+    "metrics": {
+        "time_binary_seconds": 865.76,
+        "time_per_inv_with_rewrite": 138326.5,
+        "time_per_inv_no_rewrite": 76610.0,
+        "mem_peak_kb": 994328,
+        "compression_ratio": 1.2556976322052358,
+        "absolute_compression": 12678
+    },
+    "num_inventions": 4,
+    "inventions": [
+        {
+            "name": "fn_0",
+            "stitch_uncanonical": "(moveHand 4 (fn_0 #0 2 (lam (reverseHand $0))))",
+            "stitch_canonical": "(moveHand 4 (fn_0 #0 2 (lam (reverseHand $0))))",
+            "dreamcoder": "#(lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $1 (lambda (lambda (1x3 (moveHand 4 ($2 $0))))) (moveHand 2 (3x1 $2)))))) $0 2 (lambda (reverseHand $0)))))"
+        },
+        {
+            "name": "fn_1",
+            "stitch_uncanonical": "(fn_0 #0 #1 (lam (1x3 (reverseHand $0))))",
+            "stitch_canonical": "(fn_0 #0 #1 (lam (1x3 (reverseHand $0))))",
+            "dreamcoder": "#(lambda (lambda (#(lambda (lambda (lambda (tower_loopM $1 (lambda (lambda (1x3 (moveHand 4 ($2 $0))))) (moveHand 2 (3x1 $2)))))) $1 $0 (lambda (1x3 (reverseHand $0))))))"
+        },
+        {
+            "name": "fn_2",
+            "stitch_uncanonical": "(tower_loopM #1 (lam (lam (fn_0 (moveHand #2 $0) #0 (lam (reverseHand $0))))))",
+            "stitch_canonical": "(tower_loopM #0 (lam (lam (fn_0 (moveHand #1 $0) #2 (lam (reverseHand $0))))))",
+            "dreamcoder": "#(lambda (lambda (lambda (tower_loopM $1 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $1 (lambda (lambda (1x3 (moveHand 4 ($2 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand $2 $0) $4 (lambda (reverseHand $0)))))))))"
+        },
+        {
+            "name": "fn_3",
+            "stitch_uncanonical": "(fn_2 #1 #0 4)",
+            "stitch_canonical": "(fn_2 #0 #1 4)",
+            "dreamcoder": "#(lambda (lambda (#(lambda (lambda (lambda (tower_loopM $1 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $1 (lambda (lambda (1x3 (moveHand 4 ($2 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand $2 $0) $4 (lambda (reverseHand $0))))))))) $0 $1 4)))"
+        }
+    ]
+}

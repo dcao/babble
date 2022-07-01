@@ -1,0 +1,731 @@
+{
+    "verbose": false,
+    "arity": 3,
+    "topK": 2,
+    "pseudoCounts": 30.0,
+    "aic": 1.0,
+    "bs": 1000000,
+    "topI": 300,
+    "structurePenalty": 1.5,
+    "CPUs": 8,
+    "lc_score": 0.0,
+    "DSL": {
+        "logVariable": -0.409154,
+        "productions": [
+            {
+                "expression": "eq?",
+                "logProbability": -0.195525
+            },
+            {
+                "expression": "is-prime",
+                "logProbability": -0.195859
+            },
+            {
+                "expression": "is-square",
+                "logProbability": -0.226998
+            },
+            {
+                "expression": "gt?",
+                "logProbability": -0.22798
+            },
+            {
+                "expression": "empty?",
+                "logProbability": -0.260064
+            },
+            {
+                "expression": "cdr",
+                "logProbability": -0.43041
+            },
+            {
+                "expression": "map",
+                "logProbability": -0.470482
+            },
+            {
+                "expression": "range",
+                "logProbability": -0.542462
+            },
+            {
+                "expression": "cons",
+                "logProbability": -0.564148
+            },
+            {
+                "expression": "empty",
+                "logProbability": -0.596104
+            },
+            {
+                "expression": "unfold",
+                "logProbability": -0.596115
+            },
+            {
+                "expression": "1",
+                "logProbability": -0.659042
+            },
+            {
+                "expression": "0",
+                "logProbability": -0.705653
+            },
+            {
+                "expression": "+",
+                "logProbability": -0.767211
+            },
+            {
+                "expression": "length",
+                "logProbability": -0.76817
+            },
+            {
+                "expression": "mod",
+                "logProbability": -0.800239
+            },
+            {
+                "expression": "-",
+                "logProbability": -0.82883
+            },
+            {
+                "expression": "*",
+                "logProbability": -0.833862
+            },
+            {
+                "expression": "fold",
+                "logProbability": -1.131858
+            },
+            {
+                "expression": "if",
+                "logProbability": -1.133378
+            },
+            {
+                "expression": "index",
+                "logProbability": -1.1466
+            },
+            {
+                "expression": "car",
+                "logProbability": -1.150033
+            },
+            {
+                "expression": "#(lambda (+ 1 (+ 1 $0)))",
+                "logProbability": -0.709485
+            }
+        ]
+    },
+    "iterations": 20,
+    "frontiers": [
+        {
+            "name": "bool-identify-k with k=3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "bool",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (map (lambda (eq? $0 (#(lambda (+ 1 (+ 1 $0))) 1))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (map (lambda (eq? (#(lambda (+ 1 (+ 1 $0))) 1) $0)) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "count-head-in-tail",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "int",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (fold (cdr $0) 0 (lambda (lambda (+ $0 (if (eq? $1 (car $2)) 1 0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold (cdr $0) 0 (lambda (lambda (if (eq? $1 (car $2)) (+ $0 1) $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "has-k with k=3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "bool",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (is-square (fold $0 (#(lambda (+ 1 (+ 1 $0))) 1) (lambda (lambda (mod $0 $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (empty? (range (fold $0 (#(lambda (+ 1 (+ 1 $0))) 1) (lambda (lambda (mod $0 $1)))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "index-k with k=5",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "int",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (car (cdr (cdr (cdr (cdr $0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (index 1 (cdr (cdr (cdr $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "is-mod-k with k=2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "bool",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (is-prime (+ 1 (#(lambda (+ 1 (+ 1 $0))) (index (length $0) (cons 0 $0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (is-prime (fold $0 (+ 1 1) (lambda (lambda (- $0 (mod $1 $0)))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "is-primes",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "bool",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (fold $0 (is-square 1) (lambda (lambda (if $0 (is-prime $1) $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold $0 (is-square 0) (lambda (lambda (if $0 (is-prime $1) $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "kth-largest with k=1",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "int",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (fold $0 1 (lambda (lambda (if (gt? $0 $1) $0 $1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold $0 1 (lambda (lambda (if (gt? $1 $0) $1 $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "modulo-k with k=5",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (map (lambda (mod $0 (#(lambda (+ 1 (+ 1 $0))) (#(lambda (+ 1 (+ 1 $0))) 1)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold $0 empty (lambda (lambda (cons (mod $1 (#(lambda (+ 1 (+ 1 $0))) (#(lambda (+ 1 (+ 1 $0))) 1))) $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "pop",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (map (lambda (index $0 $1)) (range (length (cdr $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (map (lambda (index $0 $1)) (range (- (length $0) 1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "prepend-index-k with k=1",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (cons (car $0) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (cons (index 0 $0) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "prepend-index-k with k=4",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (cons (index (#(lambda (+ 1 (+ 1 $0))) 1) $0) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (cons (car (cdr (cdr (cdr $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "replace-all-with-index-k with k=1",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (map (lambda (car $1)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (map (lambda (index 0 $1)) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "slice-k-n with k=2 and n=2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (cdr (map (lambda (index $0 $1)) (range (#(lambda (+ 1 (+ 1 $0))) 1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (map (lambda (index $0 $1)) (cdr (range (#(lambda (+ 1 (+ 1 $0))) 1)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "slice-k-n with k=5 and n=4",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (map (lambda (index (#(lambda (+ 1 (+ 1 $0))) (#(lambda (+ 1 (+ 1 $0))) $0)) $1)) (range (#(lambda (+ 1 (+ 1 $0))) (#(lambda (+ 1 (+ 1 $0))) 0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (map (lambda (index (#(lambda (+ 1 (+ 1 $0))) (#(lambda (+ 1 (+ 1 $0))) $0)) $1)) (range (#(lambda (+ 1 (+ 1 $0))) (+ 1 1)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "take-k with k=2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "int",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (map (lambda (index $0 $1)) (range (#(lambda (+ 1 (+ 1 $0))) 0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (map (lambda (index $0 $1)) (range (+ 1 1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        }
+    ],
+    "info": {
+        "iteration": 1,
+        "num_learned": 2,
+        "new_grammar": {
+            "logVariable": -0.430224,
+            "productions": [
+                {
+                    "expression": "eq?",
+                    "logProbability": -0.218259
+                },
+                {
+                    "expression": "is-prime",
+                    "logProbability": -0.222732
+                },
+                {
+                    "expression": "is-square",
+                    "logProbability": -0.230424
+                },
+                {
+                    "expression": "gt?",
+                    "logProbability": -0.252595
+                },
+                {
+                    "expression": "empty?",
+                    "logProbability": -0.284845
+                },
+                {
+                    "expression": "cdr",
+                    "logProbability": -0.632697
+                },
+                {
+                    "expression": "map",
+                    "logProbability": -0.702527
+                },
+                {
+                    "expression": "cons",
+                    "logProbability": -0.734333
+                },
+                {
+                    "expression": "range",
+                    "logProbability": -0.777476
+                },
+                {
+                    "expression": "empty",
+                    "logProbability": -0.826421
+                },
+                {
+                    "expression": "unfold",
+                    "logProbability": -0.828985
+                },
+                {
+                    "expression": "0",
+                    "logProbability": -0.836298
+                },
+                {
+                    "expression": "1",
+                    "logProbability": -0.896748
+                },
+                {
+                    "expression": "+",
+                    "logProbability": -0.952975
+                },
+                {
+                    "expression": "length",
+                    "logProbability": -0.95618
+                },
+                {
+                    "expression": "mod",
+                    "logProbability": -0.958718
+                },
+                {
+                    "expression": "-",
+                    "logProbability": -1.019377
+                },
+                {
+                    "expression": "*",
+                    "logProbability": -1.023947
+                },
+                {
+                    "expression": "fold",
+                    "logProbability": -1.357429
+                },
+                {
+                    "expression": "index",
+                    "logProbability": -1.369233
+                },
+                {
+                    "expression": "car",
+                    "logProbability": -1.377228
+                },
+                {
+                    "expression": "if",
+                    "logProbability": -1.388482
+                },
+                {
+                    "expression": "#(lambda (lambda (map (lambda (index $0 $2)) (range $0))))",
+                    "logProbability": -0.733693
+                },
+                {
+                    "expression": "#(lambda (+ 1 (+ 1 $0)))",
+                    "logProbability": -0.815892
+                },
+                {
+                    "expression": "#(#(lambda (+ 1 (+ 1 $0))) 1)",
+                    "logProbability": -0.873627
+                }
+            ]
+        }
+    }
+}

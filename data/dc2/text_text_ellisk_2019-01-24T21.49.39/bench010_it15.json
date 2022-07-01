@@ -1,0 +1,4233 @@
+{
+    "verbose": false,
+    "arity": 3,
+    "topK": 2,
+    "pseudoCounts": 30.0,
+    "aic": 1.0,
+    "bs": 1000000,
+    "topI": 300,
+    "structurePenalty": 1.5,
+    "CPUs": 8,
+    "lc_score": 0.0,
+    "DSL": {
+        "logVariable": -0.500809,
+        "productions": [
+            {
+                "expression": "char-eq?",
+                "logProbability": -0.000109
+            },
+            {
+                "expression": "empty?",
+                "logProbability": -0.000118
+            },
+            {
+                "expression": "range",
+                "logProbability": -0.227651
+            },
+            {
+                "expression": "1",
+                "logProbability": -0.285801
+            },
+            {
+                "expression": "length",
+                "logProbability": -0.304988
+            },
+            {
+                "expression": "-",
+                "logProbability": -0.337373
+            },
+            {
+                "expression": "+",
+                "logProbability": -0.368549
+            },
+            {
+                "expression": "0",
+                "logProbability": -0.370195
+            },
+            {
+                "expression": "'.'",
+                "logProbability": -0.860933
+            },
+            {
+                "expression": "SPACE",
+                "logProbability": -0.877346
+            },
+            {
+                "expression": "','",
+                "logProbability": -0.905463
+            },
+            {
+                "expression": "'-'",
+                "logProbability": -0.950677
+            },
+            {
+                "expression": "LPAREN",
+                "logProbability": -0.955128
+            },
+            {
+                "expression": "RPAREN",
+                "logProbability": -1.021309
+            },
+            {
+                "expression": "cdr",
+                "logProbability": -2.000794
+            },
+            {
+                "expression": "map",
+                "logProbability": -2.105659
+            },
+            {
+                "expression": "cons",
+                "logProbability": -2.110616
+            },
+            {
+                "expression": "STRING",
+                "logProbability": -2.112713
+            },
+            {
+                "expression": "empty",
+                "logProbability": -2.11351
+            },
+            {
+                "expression": "unfold",
+                "logProbability": -2.11485
+            },
+            {
+                "expression": "car",
+                "logProbability": -2.430866
+            },
+            {
+                "expression": "fold",
+                "logProbability": -2.430944
+            },
+            {
+                "expression": "if",
+                "logProbability": -2.430952
+            },
+            {
+                "expression": "index",
+                "logProbability": -2.430961
+            },
+            {
+                "expression": "#(+ 1)",
+                "logProbability": -0.272741
+            },
+            {
+                "expression": "#(#(+ 1) (#(+ 1) (#(+ 1) 1)))",
+                "logProbability": -0.29467
+            },
+            {
+                "expression": "#(lambda (length (cdr (cdr (cdr (cdr $0))))))",
+                "logProbability": -0.30734
+            },
+            {
+                "expression": "#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0))))",
+                "logProbability": -1.817477
+            },
+            {
+                "expression": "#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty))))))",
+                "logProbability": -1.852417
+            },
+            {
+                "expression": "#(lambda (lambda (map (lambda (index $0 $2)) (range $0))))",
+                "logProbability": -1.878191
+            },
+            {
+                "expression": "#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0)))))",
+                "logProbability": -1.878361
+            },
+            {
+                "expression": "#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0)))",
+                "logProbability": -1.902976
+            },
+            {
+                "expression": "#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0))))))",
+                "logProbability": -1.927248
+            },
+            {
+                "expression": "#(lambda (lambda (cons (car $1) (cons $0 empty))))",
+                "logProbability": -1.932106
+            },
+            {
+                "expression": "#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1))))",
+                "logProbability": -1.932795
+            },
+            {
+                "expression": "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons $0 $1))))",
+                "logProbability": -1.934388
+            },
+            {
+                "expression": "#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0)))))))",
+                "logProbability": -1.940804
+            },
+            {
+                "expression": "#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING))",
+                "logProbability": -1.961386
+            },
+            {
+                "expression": "#(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0) SPACE))",
+                "logProbability": -1.961709
+            },
+            {
+                "expression": "#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0))))))))))",
+                "logProbability": -1.973419
+            },
+            {
+                "expression": "#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0))",
+                "logProbability": -1.989829
+            },
+            {
+                "expression": "#(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 RPAREN))))",
+                "logProbability": -2.01794
+            }
+        ]
+    },
+    "iterations": 20,
+    "frontiers": [
+        {
+            "name": "Replace ',' w/ '('",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) LPAREN ',' $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) LPAREN ',' (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Replace '.' w/ ')'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) RPAREN '.' $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) RPAREN '.' (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Replace '-' w/ ','",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) ',' '-' $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) ',' '-' (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Replace '(' w/ '.'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) '.' LPAREN $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) '.' LPAREN (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Replace ',' w/ '.'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) '.' ',' $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) '.' ',' (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Replace '(' w/ ')'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) RPAREN LPAREN $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) RPAREN LPAREN (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Replace '-' w/ ' '",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) SPACE '-' $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) SPACE '-' (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Replace ' ' w/ '('",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) LPAREN SPACE $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) LPAREN SPACE (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Replace '(' w/ ' '",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) SPACE LPAREN $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0))))) SPACE LPAREN (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "drop first word delimited by '.'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0) (lambda ($0 '.')) RPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0)) (lambda ($0 '.')) RPAREN))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=0) word delimited by '.'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 '.'))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $0) '.'))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=1) word delimited by '.'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 ',' '.'))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr (fold (cdr (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 '.')) $0 (lambda (lambda (cdr $0))))) SPACE)) '.'))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "drop first word delimited by ','",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0) (lambda ($0 ',')) RPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0)) (lambda ($0 ',')) RPAREN))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=0) word delimited by ','",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 ','))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (fold (cdr $0) 0 (lambda (lambda (#(+ 1) (if (char-eq? ',' $1) 0 $0)))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=1) word delimited by ','",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' ','))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 SPACE ','))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=0) word delimited by ' '",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 SPACE))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $0) SPACE))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=1) word delimited by ' '",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' SPACE))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 ',' SPACE))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=0) word delimited by '('",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 LPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold $0 empty (lambda (lambda (if (char-eq? LPAREN $1) empty (cons $1 $0))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=1) word delimited by '('",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 SPACE LPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 LPAREN)) LPAREN))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "drop first word delimited by ')'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 RPAREN)))) (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 '.' $0) '.'))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 RPAREN)))) (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 SPACE $0) SPACE))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=0) word delimited by ')'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 RPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $0) RPAREN))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=1) word delimited by ')'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' RPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 SPACE RPAREN))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "drop first word delimited by '-'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0) (lambda ($0 '-')) RPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda (cdr (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) ($0 '-')))) RPAREN))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=0) word delimited by '-'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 '-'))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 '.') '-'))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "nth (n=1) word delimited by '-'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' '-'))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 SPACE '-'))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by '.'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 '.' $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 '.' (map (lambda $0) $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by ','",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 ',' $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons ',' $0) $1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by ' '",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 SPACE $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons SPACE $0) $1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by '('",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 LPAREN $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 (fold $0 ',' (lambda (lambda LPAREN))) $1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by ')'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 RPAREN $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons RPAREN $0) $1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by '-'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 '-' $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons '-' $0) $1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by '  '",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons $0 $1)))) $0 SPACE SPACE $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons $0 $1)))) $0 SPACE SPACE (map (lambda $0) $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by '. '",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons $0 $1)))) $0 SPACE '.' $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons SPACE $0) '.' $1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by '(,'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons $0 $1)))) $0 ',' LPAREN $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons $0 $1)))) $0 ',' LPAREN (map (lambda $0) $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by '..'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons $0 $1)))) $0 '.' '.' $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) $0 '.' (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty '.' $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by '.-'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons $0 $1)))) $0 '-' '.' $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons '-' $0) '.' $1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append two words delimited by ' -'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons $0 $1)))) $0 '-' SPACE $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons '-' $0) SPACE $1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Drop last 1 characters",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (length (cdr $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (- (length $0) 1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Drop last 2 characters",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (length (cdr (cdr $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (- (length (cdr $0)) 1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Take first 2 characters",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (#(+ 1) 1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (#(+ 1) (length (range 1)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Drop last 3 characters",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (#(lambda (length (cdr (cdr (cdr (cdr $0)))))) (range (#(+ 1) (length $0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (#(+ 1) (- (length $0) #(#(+ 1) (#(+ 1) (#(+ 1) 1)))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Take first 3 characters",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (#(+ 1) (#(+ 1) 1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (- #(#(+ 1) (#(+ 1) (#(+ 1) 1))) 1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Drop last 4 characters",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (#(lambda (length (cdr (cdr (cdr (cdr $0)))))) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (- (length $0) (length (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Take first 4 characters",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 #(#(+ 1) (#(+ 1) (#(+ 1) 1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (#(+ 1) (#(+ 1) (fold (cdr $0) (#(+ 1) 1) (lambda (lambda $0)))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Drop last 5 characters",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (#(lambda (length (cdr (cdr (cdr (cdr $0)))))) (cdr $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $0) (#(lambda (length (cdr (cdr (cdr (cdr $0)))))) (cdr $0))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Take first 5 characters",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (#(+ 1) #(#(+ 1) (#(+ 1) (#(+ 1) 1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 (#(+ 1) (length (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Extract word delimited by ',' - '.'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 ',')) '.'))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 '.') '.' ','))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Extract word delimited by '(' - '('",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' LPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 SPACE LPAREN))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Extract word delimited by ',' - ','",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' ','))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 SPACE ','))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Extract word delimited by ')' - '-'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 RPAREN)))) $0 '-'))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 RPAREN)))) (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0) '-'))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Extract word delimited by '-' - ')'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 '-')) RPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' '-') RPAREN))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Extract word delimited by ')' - ','",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 RPAREN)))) $0 ','))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr (cdr (fold (cdr (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 RPAREN)) $0 (lambda (lambda (cdr $0)))))) ','))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Take first character and append '.'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons $0 empty)))) $0 '.'))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (cdr (cdr (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 $0))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Take first character and append ','",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons $0 empty)))) $0 ','))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons $0 empty)))) (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 '.') ','))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Take first character and append ' '",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons $0 empty)))) $0 SPACE))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty SPACE (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $0 1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Take first character and append '('",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons $0 empty)))) $0 LPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons $0 empty)))) (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 '.') LPAREN))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Take first character and append ')'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons $0 empty)))) $0 RPAREN))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons $0 empty)))) (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 '.') RPAREN))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Take first character and append '-'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons $0 empty)))) $0 '-'))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (cons (car $0) (map (lambda '-') (range 1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate separate words (I)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $1 (#(lambda (lambda (cons (car $1) (cons $0 empty)))) $0 '.'))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate words separated by '.'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 '.')) '.')))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 '.')) SPACE)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate separate words (II)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $1 (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 LPAREN))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate words separated by ','",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' ',')))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 SPACE ',')))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate separate words (III)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) (cons '.' empty) 1))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate words separated by ' '",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' SPACE)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 ',' SPACE)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate separate words (IIII)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $1 (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 '.'))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate separate words (IIIII)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (#(lambda (lambda (cons (car $1) (cons $0 empty)))) $0 '.') '.' (#(lambda (lambda (map (lambda (index $0 $2)) (range $0)))) $1 1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate words separated by ')'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 (#(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 RPAREN)))) $0 '.')))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 (#(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 RPAREN)))) $0 SPACE)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate separate words (IIIIII)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $1 (#(lambda (lambda (cons (car $1) (cons $0 empty)))) $0 '.'))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Abbreviate words separated by '-'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' '-')))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty)))))) $0 (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 SPACE '-')))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 2 strings (I)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 (map (lambda $0) $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 2 strings (II)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 (map (lambda $0) $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 2 strings (III)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 (map (lambda $0) $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 2 strings (IIII)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 (map (lambda $0) $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 2 strings (IIIII)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 (map (lambda $0) $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 2 strings (IIIIII)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "char",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 (map (lambda $0) $1))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend 'Hornak'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 'Cornell'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (map (lambda $0) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0)) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend '+167' to first word",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0) SPACE)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 SPACE)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend '+174'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append '636'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (map (lambda $0) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0)) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend 'UCLA'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append '+138'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend '170' to first word",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0) SPACE)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0) SPACE)) (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend 'Sergienko'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 'Beata'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend 'Carlene' to first word",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0) SPACE)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0) SPACE)) (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend 'Jani'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 'Angeles'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (map (lambda $0) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0)) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend '177' to first word",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0) SPACE)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 SPACE)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend 'Spell'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 'Dermody'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (map (lambda $0) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0)) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend '086' to first word",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0) SPACE)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $0 SPACE)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "parentheses around a single word (I)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "parentheses around a single word (II)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "parentheses around a single word (III)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN (cons LPAREN $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "parentheses around a single word (IIII)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) (map (lambda $0) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "parentheses around a single word (IIIII)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN (cons LPAREN $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "parentheses around second word",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 '.' SPACE)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) (#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0)))) $0 ',' SPACE)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        }
+    ],
+    "info": {
+        "iteration": 15,
+        "num_learned": 1,
+        "new_grammar": {
+            "logVariable": -0.512724,
+            "productions": [
+                {
+                    "expression": "char-eq?",
+                    "logProbability": -0.00013
+                },
+                {
+                    "expression": "empty?",
+                    "logProbability": -0.000134
+                },
+                {
+                    "expression": "range",
+                    "logProbability": -0.256121
+                },
+                {
+                    "expression": "length",
+                    "logProbability": -0.348374
+                },
+                {
+                    "expression": "1",
+                    "logProbability": -0.351587
+                },
+                {
+                    "expression": "-",
+                    "logProbability": -0.389036
+                },
+                {
+                    "expression": "+",
+                    "logProbability": -0.435167
+                },
+                {
+                    "expression": "0",
+                    "logProbability": -0.436661
+                },
+                {
+                    "expression": "'.'",
+                    "logProbability": -0.900318
+                },
+                {
+                    "expression": "SPACE",
+                    "logProbability": -0.917825
+                },
+                {
+                    "expression": "','",
+                    "logProbability": -0.928375
+                },
+                {
+                    "expression": "'-'",
+                    "logProbability": -0.971351
+                },
+                {
+                    "expression": "LPAREN",
+                    "logProbability": -0.995846
+                },
+                {
+                    "expression": "RPAREN",
+                    "logProbability": -1.112046
+                },
+                {
+                    "expression": "cdr",
+                    "logProbability": -2.104923
+                },
+                {
+                    "expression": "map",
+                    "logProbability": -2.20959
+                },
+                {
+                    "expression": "cons",
+                    "logProbability": -2.215179
+                },
+                {
+                    "expression": "STRING",
+                    "logProbability": -2.216179
+                },
+                {
+                    "expression": "empty",
+                    "logProbability": -2.220552
+                },
+                {
+                    "expression": "unfold",
+                    "logProbability": -2.221949
+                },
+                {
+                    "expression": "car",
+                    "logProbability": -2.539657
+                },
+                {
+                    "expression": "fold",
+                    "logProbability": -2.539853
+                },
+                {
+                    "expression": "if",
+                    "logProbability": -2.539865
+                },
+                {
+                    "expression": "index",
+                    "logProbability": -2.53987
+                },
+                {
+                    "expression": "#(+ 1)",
+                    "logProbability": -0.316658
+                },
+                {
+                    "expression": "#(#(+ 1) (#(+ 1) (#(+ 1) 1)))",
+                    "logProbability": -0.347792
+                },
+                {
+                    "expression": "#(lambda (length (cdr (cdr (cdr (cdr $0))))))",
+                    "logProbability": -0.356427
+                },
+                {
+                    "expression": "#(lambda (lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $2 (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) ($0 $1) $2)) $0))))",
+                    "logProbability": -1.875453
+                },
+                {
+                    "expression": "#(lambda (lambda (cons (car $1) (cons '.' (cons (car $0) (cons '.' empty))))))",
+                    "logProbability": -1.909508
+                },
+                {
+                    "expression": "#(lambda (lambda (map (lambda (index $0 $2)) (range $0))))",
+                    "logProbability": -1.959331
+                },
+                {
+                    "expression": "#(lambda (lambda (map (lambda (if (char-eq? $0 $1) $2 $0)))))",
+                    "logProbability": -1.959495
+                },
+                {
+                    "expression": "#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1))))",
+                    "logProbability": -2.013207
+                },
+                {
+                    "expression": "#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0)))))))",
+                    "logProbability": -2.019929
+                },
+                {
+                    "expression": "#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0)))",
+                    "logProbability": -2.027916
+                },
+                {
+                    "expression": "#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0))))))",
+                    "logProbability": -2.029257
+                },
+                {
+                    "expression": "#(lambda (lambda (cons (car $1) (cons $0 empty))))",
+                    "logProbability": -2.038577
+                },
+                {
+                    "expression": "#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) STRING $0))",
+                    "logProbability": -2.041388
+                },
+                {
+                    "expression": "#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING))",
+                    "logProbability": -2.041861
+                },
+                {
+                    "expression": "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) (cons $0 $1))))",
+                    "logProbability": -2.042155
+                },
+                {
+                    "expression": "#(lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (#(lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) $0 STRING)) $0) SPACE))",
+                    "logProbability": -2.068653
+                },
+                {
+                    "expression": "#(lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) $0 (lambda ($0 RPAREN))))",
+                    "logProbability": -2.095671
+                },
+                {
+                    "expression": "#(lambda (lambda (#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0)))))))))) (#(lambda (cons LPAREN (#(lambda (lambda (#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0)))))) (cons $0 $1)))) empty RPAREN $0))) $1) (lambda ($0 $1)) RPAREN)))",
+                    "logProbability": -2.126641
+                },
+                {
+                    "expression": "#(lambda (lambda (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) (cdr ($0 (lambda (fold (#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $2 $1) empty (cons $1 $0))))))) $2 $0) $2 (lambda (lambda (cdr $0))))))))))",
+                    "logProbability": -2.140704
+                }
+            ]
+        }
+    }
+}

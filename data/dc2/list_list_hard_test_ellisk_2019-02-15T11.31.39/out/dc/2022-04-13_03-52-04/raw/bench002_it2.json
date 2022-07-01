@@ -1,0 +1,689 @@
+{
+  "DSL": {
+    "logVariable": -0.42574550240952025,
+    "productions": [
+      {
+        "expression":
+          "#(lambda (lambda (#(lambda (map (lambda (mod $0 $1)))) $0 (#(lambda (map (lambda (+ $0 $1)))) 1 $1))))",
+        "logProbability": -0.9466039741121706
+      },
+      {
+        "expression": "#(+ #(+ 1 #(+ 1 (+ 1 1))) 1)",
+        "logProbability": -0.7686890573311693
+      },
+      {
+        "expression":
+          "#(lambda (lambda (fold $0 (cons $1 empty) (lambda (lambda (cons $1 $0))))))",
+        "logProbability": -0.962556029289229
+      },
+      { "expression": "gt?", "logProbability": -0.09244649274813321 },
+      { "expression": "eq?", "logProbability": -0.09244751935311823 },
+      { "expression": "is-prime", "logProbability": -0.09244751935311823 },
+      { "expression": "empty?", "logProbability": -0.12523734217610905 },
+      { "expression": "is-square", "logProbability": -0.09244751935311823 },
+      { "expression": "1", "logProbability": -0.7807007131956141 },
+      { "expression": "+", "logProbability": -0.7528751822956816 },
+      { "expression": "length", "logProbability": -0.7682177533996684 },
+      { "expression": "-", "logProbability": -0.8466192721316346 },
+      { "expression": "0", "logProbability": -0.8307385853645073 },
+      { "expression": "mod", "logProbability": -0.8635268723788601 },
+      { "expression": "*", "logProbability": -0.8635279332039931 },
+      { "expression": "map", "logProbability": -0.9623159480681402 },
+      { "expression": "range", "logProbability": -1.006147493210825 },
+      { "expression": "cdr", "logProbability": -0.9922433403088591 },
+      { "expression": "cons", "logProbability": -0.9948500317799556 },
+      { "expression": "empty", "logProbability": -1.0258693026391899 },
+      { "expression": "unfold", "logProbability": -1.0877187129361237 },
+      { "expression": "fold", "logProbability": -1.4333364465127012 },
+      { "expression": "index", "logProbability": -1.3727302332675353 },
+      { "expression": "if", "logProbability": -1.4978939816974566 },
+      { "expression": "car", "logProbability": -1.4651041588744658 },
+      {
+        "expression": "#(lambda (map (lambda (eq? (mod $0 $1) 0))))",
+        "logProbability": -0.295768593976272
+      },
+      {
+        "expression": "#(+ 1 #(+ 1 (+ 1 1)))",
+        "logProbability": -0.653047720780576
+      },
+      {
+        "expression": "#(+ 1 (+ 1 1))",
+        "logProbability": -0.6400749173577291
+      },
+      {
+        "expression": "#(lambda (map (lambda (+ $0 $1))))",
+        "logProbability": -0.9437676191464397
+      },
+      {
+        "expression": "#(lambda (map (lambda (mod $0 $1))))",
+        "logProbability": -0.9769931644547731
+      },
+      {
+        "expression":
+          "#(lambda (map (lambda (index $0 $1)) (range #(+ 1 #(+ 1 (+ 1 1))))))",
+        "logProbability": -1.023180835117114
+      }
+    ]
+  },
+  "frontiers": [
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program": "(lambda (#(lambda (map (lambda (+ $0 $1)))) 1 $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program": "(lambda (map (lambda (+ 1 $0)) $0))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (map (lambda (+ $0 $1)))) #(+ 1 (+ 1 1)) $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program": "(lambda (map (lambda (+ 1 (+ $0 (+ 1 1)))) $0))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (map (lambda (+ $0 $1)))) #(+ 1 #(+ 1 (+ 1 1))) $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program": "(lambda (map (lambda (+ 1 (+ $0 #(+ 1 (+ 1 1))))) $0))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (fold $0 (cdr (cdr (cdr (#(lambda (map (lambda (index $0 $1)) (range #(+ 1 #(+ 1 (+ 1 1)))))) $0)))) (lambda (lambda (cons $1 $0)))))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (#(lambda (lambda (fold $0 (cons $1 empty) (lambda (lambda (cons $1 $0)))))) (index #(+ 1 (+ 1 1)) $0) $0))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (fold $0 (range 1) (lambda (lambda (cons $1 $0)))))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (#(lambda (lambda (fold $0 (cons $1 empty) (lambda (lambda (cons $1 $0)))))) 0 $0))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (lambda (fold $0 (cons $1 empty) (lambda (lambda (cons $1 $0)))))) #(+ 1 #(+ 1 (+ 1 1))) $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (fold $0 (cons #(+ 1 #(+ 1 (+ 1 1))) (cdr (range 1))) (lambda (lambda (cons $1 $0)))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (lambda (fold $0 (cons $1 empty) (lambda (lambda (cons $1 $0)))))) #(+ #(+ 1 #(+ 1 (+ 1 1))) 1) $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (fold $0 (#(lambda (map (lambda (+ $0 $1)))) #(+ 1 (+ 1 1)) (cdr (cdr (range #(+ 1 (+ 1 1)))))) (lambda (lambda (cons $1 $0)))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "bool", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program": "(lambda (map (lambda (gt? $0 #(+ 1 (+ 1 1)))) $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (fold $0 empty (lambda (lambda (cons (gt? $1 #(+ 1 (+ 1 1))) $0)))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "bool", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (map (lambda (eq? (mod $0 $1) 0)))) #(+ 1 (+ 1 1)) $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (map (lambda (gt? 1 (mod $0 #(+ 1 (+ 1 1))))) $0))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "bool", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (map (lambda (eq? (mod $0 $1) 0)))) #(+ 1 #(+ 1 (+ 1 1))) $0))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "bool", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (map (lambda (eq? #(+ 1 #(+ 1 (+ 1 1))) $0)) $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (map (lambda (eq? $0 #(+ 1 #(+ 1 (+ 1 1))))) $0))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (map (lambda (mod $0 $1)))) #(+ 1 (+ 1 1)) (#(lambda (map (lambda (+ $0 $1)))) #(+ 1 #(+ 1 (+ 1 1))) $0)))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (#(lambda (lambda (#(lambda (map (lambda (mod $0 $1)))) $0 (#(lambda (map (lambda (+ $0 $1)))) 1 $1)))) $0 #(+ 1 (+ 1 1))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (lambda (#(lambda (map (lambda (mod $0 $1)))) $0 (#(lambda (map (lambda (+ $0 $1)))) 1 $1)))) $0 #(+ #(+ 1 #(+ 1 (+ 1 1))) 1)))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (#(lambda (lambda (#(lambda (map (lambda (mod $0 $1)))) $0 (#(lambda (map (lambda (+ $0 $1)))) 1 $1)))) $0 (+ 1 #(+ 1 #(+ 1 (+ 1 1))))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (lambda (#(lambda (map (lambda (mod $0 $1)))) $0 (#(lambda (map (lambda (+ $0 $1)))) 1 $1)))) $0 #(+ 1 #(+ 1 (+ 1 1)))))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (#(lambda (map (lambda (mod $0 $1)))) #(+ 1 #(+ 1 (+ 1 1))) (#(lambda (map (lambda (+ $0 $1)))) #(+ 1 #(+ 1 (+ 1 1))) (#(lambda (map (lambda (+ $0 $1)))) 1 $0))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          { "constructor": "bool", "arguments": [] }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (is-prime (+ (index (length $0) (cons #(+ 1 #(+ 1 (+ 1 1))) $0)) #(+ 1 (+ 1 1)))))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (is-prime (+ #(+ 1 (+ 1 1)) (index (length $0) (cons #(+ 1 #(+ 1 (+ 1 1))) $0)))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          { "constructor": "bool", "arguments": [] }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (is-square (fold (#(lambda (map (lambda (mod $0 $1)))) #(+ 1 (+ 1 1)) $0) #(+ 1 #(+ 1 (+ 1 1))) (lambda (lambda (+ $0 $1))))))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (is-square (fold (#(lambda (map (lambda (mod $0 $1)))) #(+ 1 (+ 1 1)) $0) #(+ 1 #(+ 1 (+ 1 1))) (lambda (lambda (+ $1 $0))))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          { "constructor": "int", "arguments": [] }
+        ]
+      },
+      "programs": [
+        { "program": "(lambda (length $0))", "logLikelihood": 0.0 },
+        {
+          "program":
+            "(lambda (length (#(lambda (map (lambda (+ $0 $1)))) #(+ 1 #(+ 1 (+ 1 1))) $0)))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (map (lambda (mod $0 $1)))) (+ 1 1) $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (#(lambda (map (lambda (mod $0 $1)))) (- #(+ 1 (+ 1 1)) 1) $0))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program": "(lambda (map (lambda (+ $0 $0)) $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program": "(lambda (map (lambda (+ $0 $0)) (map (lambda $0) $0)))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (fold $0 empty (lambda (lambda (cons (index (length $0) $2) $0)))))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (fold $0 (cdr (range 1)) (lambda (lambda (cons (index (length $0) $2) $0)))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        { "program": "(lambda (cons (car $0) empty))", "logLikelihood": 0.0 },
+        {
+          "program":
+            "(lambda (#(lambda (map (lambda (+ $0 $1)))) (car $0) (range 1)))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (cdr (#(lambda (map (lambda (index $0 $1)) (range #(+ 1 #(+ 1 (+ 1 1)))))) $0)))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (map (lambda (index $0 $1)) (cdr (range #(+ 1 #(+ 1 (+ 1 1)))))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (map (lambda (index $0 (cdr (cdr $1)))) (range #(+ #(+ 1 #(+ 1 (+ 1 1))) 1))))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (map (lambda (index $0 (cdr (cdr $1)))) (range (+ 1 #(+ 1 #(+ 1 (+ 1 1)))))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    },
+    {
+      "request": {
+        "constructor": "->",
+        "arguments": [
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          },
+          {
+            "constructor": "list",
+            "arguments": [ { "constructor": "int", "arguments": [] } ]
+          }
+        ]
+      },
+      "programs": [
+        {
+          "program":
+            "(lambda (#(lambda (map (lambda (index $0 $1)) (range #(+ 1 #(+ 1 (+ 1 1)))))) $0))",
+          "logLikelihood": 0.0
+        },
+        {
+          "program":
+            "(lambda (fold (range #(+ 1 #(+ 1 (+ 1 1)))) empty (lambda (lambda (cons (index $1 $2) $0)))))",
+          "logLikelihood": 0.0
+        }
+      ]
+    }
+  ]
+}

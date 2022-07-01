@@ -1,0 +1,53 @@
+{
+    "bench_group": "physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12",
+    "bench": "bench000_it0",
+    "mode": "dreamcoder",
+    "run": "benches/physics_scientific_unsolved_4h_ellisk_2019-07-20T18.13.12/out/dc/2022-04-13_02-18-11",
+    "metrics": {
+        "time_binary_seconds": 764.11,
+        "time_per_inv_with_rewrite": 82842.16666666667,
+        "time_per_inv_no_rewrite": 45493.833333333336,
+        "mem_peak_kb": 1107500,
+        "compression_ratio": 1.1298671297476421,
+        "absolute_compression": 16303
+    },
+    "num_inventions": 6,
+    "inventions": [
+        {
+            "name": "fn_0",
+            "stitch_uncanonical": "(/. 1. #0)",
+            "stitch_canonical": "(/. 1. #0)",
+            "dreamcoder": "#(lambda (/. 1. $0))"
+        },
+        {
+            "name": "fn_1",
+            "stitch_uncanonical": "(map (lam (*. #0 $0)))",
+            "stitch_canonical": "(map (lam (*. #0 $0)))",
+            "dreamcoder": "#(lambda (map (lambda (*. $1 $0))))"
+        },
+        {
+            "name": "fn_2",
+            "stitch_uncanonical": "(/. #1 (/. (+. 1. 1.) #0))",
+            "stitch_canonical": "(/. #0 (/. (+. 1. 1.) #1))",
+            "dreamcoder": "#(lambda (lambda (/. $0 (/. (+. 1. 1.) $1))))"
+        },
+        {
+            "name": "fn_3",
+            "stitch_uncanonical": "(fold #0 0. (lam (lam (+. $0 $1))))",
+            "stitch_canonical": "(fold #0 0. (lam (lam (+. $0 $1))))",
+            "dreamcoder": "#(lambda (fold $0 0. (lambda (lambda (+. $0 $1)))))"
+        },
+        {
+            "name": "fn_4",
+            "stitch_uncanonical": "(/. #1 (fold #0 0. (lam (lam (+. (*. $1 $1) $0)))))",
+            "stitch_canonical": "(/. #0 (fold #1 0. (lam (lam (+. (*. $1 $1) $0)))))",
+            "dreamcoder": "#(lambda (lambda (/. $0 (fold $1 0. (lambda (lambda (+. (*. $1 $1) $0)))))))"
+        },
+        {
+            "name": "fn_5",
+            "stitch_uncanonical": "(fn_3 (zip #1 #0 (lam (lam (*. $0 $1)))))",
+            "stitch_canonical": "(fn_3 (zip #0 #1 (lam (lam (*. $0 $1)))))",
+            "dreamcoder": "#(lambda (lambda (#(lambda (fold $0 0. (lambda (lambda (+. $0 $1))))) (zip $0 $1 (lambda (lambda (*. $0 $1)))))))"
+        }
+    ]
+}

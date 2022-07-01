@@ -1,0 +1,35 @@
+{
+    "bench_group": "list_list_hard_test_ellisk_2019-02-15T11.35.48",
+    "bench": "bench006_it6",
+    "mode": "dreamcoder",
+    "run": "benches/list_list_hard_test_ellisk_2019-02-15T11.35.48/out/dc/2022-04-13_02-37-14",
+    "metrics": {
+        "time_binary_seconds": 271.14,
+        "time_per_inv_with_rewrite": 50581.0,
+        "time_per_inv_no_rewrite": 26194.0,
+        "mem_peak_kb": 411728,
+        "compression_ratio": 1.0497550224128431,
+        "absolute_compression": 3341
+    },
+    "num_inventions": 3,
+    "inventions": [
+        {
+            "name": "fn_0",
+            "stitch_uncanonical": "(+ fn_0 1)",
+            "stitch_canonical": "(+ fn_0 1)",
+            "dreamcoder": "#(+ #(+ 1 1) 1)"
+        },
+        {
+            "name": "fn_1",
+            "stitch_uncanonical": "(map (lam (mod $0 #0)))",
+            "stitch_canonical": "(map (lam (mod $0 #0)))",
+            "dreamcoder": "#(lambda (map (lambda (mod $0 $1))))"
+        },
+        {
+            "name": "fn_2",
+            "stitch_uncanonical": "(fn_9 (fn_8 (cdr #0)) (fn_11 #0))",
+            "stitch_canonical": "(fn_9 (fn_8 (cdr #0)) (fn_11 #0))",
+            "dreamcoder": "#(lambda (#(lambda (lambda (fold $1 $0 (lambda (lambda (cons $1 $0)))))) (#(lambda (cons (car $0) (cons (car (cdr $0)) empty))) (cdr $0)) (#(lambda (fold (cdr (cdr (cdr $0))) $0 (lambda (lambda (cons $1 (#(lambda (cons (car $0) (cons (car (cdr $0)) empty))) $0)))))) $0)))"
+        }
+    ]
+}

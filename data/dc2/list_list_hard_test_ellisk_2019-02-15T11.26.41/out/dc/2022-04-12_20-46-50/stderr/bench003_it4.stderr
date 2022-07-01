@@ -1,0 +1,115 @@
+Stitch mode: none
+Will write compression messages to cm_out_dir:  compressionMessages
+Compression backend will run for most 20 iterations
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Found 0 alignments; 
+Total number of candidates: 27736
+Constructed version spaces and coalesced candidates in 19.1543s.
+Timing point -1 right before normalizing: 21.6407s.
+Trimmed down the beam, have only 298 best candidates
+Timing point 1 (from start of compression_step_master to having topI candidates): 21.6431s.
+Timing Comparison Point A (vspace+beam) (millis): 21643
+Rewrote topK in 17.4541s.
+Timing point 2 (from having topI candidates to BatchedRewrite under them): 17.4543s.
+sanity check for timing comparison, should be same as comparison point: 39.0975s.
+Timing Comparison Point B (vspace+beam+batched_rewrite) (millis): 39097
+Initial score: -579.554155
+Initial language score: 0.000000
+Initial joint score: -579.554155 using LC of 0.000000
+Here in the master worker: we still have 0 language alignments;
+Scored candidates in 1.19764s.
+Best MDL score: -568.352241 with (is-prime (- $0 (if (is-square $0) 1 $0)))
+Scored candidates with language and grammar in 1.31774s.
+Best joint score: -568.352241 with (is-prime (- $0 (if (is-square $0) 1 $0)))
+Timing point 3 (all scoring): 2.52516s.
+Improved score to -568.352241 (dScore=11.201914) w/ new primitive
+	#(lambda (is-prime (- $0 (if (is-square $0) 1 $0)))) : int -> bool
+rewrote all of the frontiers in 11.3797s.
+Timing point 4 (rewrite final frontiers): 11.3797s.
+Completed one step of memory consolidation in 53.0121s.
+New primitive is used 2 times in the best programs in each of the frontiers.
+Here is where it is used:
+  (lambda (map (lambda (#(lambda (is-prime (- $0 (if (is-square $0) 1 $0)))) $0)) $0))
+  (lambda (map (lambda (if (#(lambda (is-prime (- $0 (if (is-square $0) 1 $0)))) $0) 0 (+ $0 1))) $0))
+Total number of candidates: 17182
+Constructed version spaces and coalesced candidates in 8.90213s.
+Timing point -1 right before normalizing: 10.0604s.
+Trimmed down the beam, have only 300 best candidates
+Timing point 1 (from start of compression_step_master to having topI candidates): 10.0621s.
+Timing Comparison Point A (vspace+beam) (millis): 10062
+Rewrote topK in 8.00798s.
+Timing point 2 (from having topI candidates to BatchedRewrite under them): 8.00819s.
+sanity check for timing comparison, should be same as comparison point: 18.0703s.
+Timing Comparison Point B (vspace+beam+batched_rewrite) (millis): 18070
+Initial score: -568.924336
+Initial language score: 0.000000
+Initial joint score: -568.924336 using LC of 0.000000
+Here in the master worker: we still have 0 language alignments;
+Scored candidates in 1.28696s.
+Best MDL score: -568.682392 with (#(lambda (lambda (map (lambda (index $0 $1)) (range (+ 1 ($1 (+ 1))))))) (lambda ($0 ($0 1))))
+Scored candidates with language and grammar in 1.2708s.
+Best joint score: -568.682392 with (#(lambda (lambda (map (lambda (index $0 $1)) (range (+ 1 ($1 (+ 1))))))) (lambda ($0 ($0 1))))
+Timing point 3 (all scoring): 2.56792s.
+Improved score to -568.682392 (dScore=0.241944) w/ new primitive
+	#(#(lambda (lambda (map (lambda (index $0 $1)) (range (+ 1 ($1 (+ 1))))))) (lambda ($0 ($0 1)))) : list(t0) -> list(t0)
+rewrote all of the frontiers in 4.78257s.
+Timing point 4 (rewrite final frontiers): 4.78261s.
+Completed one step of memory consolidation in 25.4316s.
+New primitive is used 3 times in the best programs in each of the frontiers.
+Here is where it is used:
+  (lambda (#(#(lambda (lambda (map (lambda (index $0 $1)) (range (+ 1 ($1 (+ 1))))))) (lambda ($0 ($0 1)))) $0))
+  (lambda (cdr (#(#(lambda (lambda (map (lambda (index $0 $1)) (range (+ 1 ($1 (+ 1))))))) (lambda ($0 ($0 1)))) (cdr $0))))
+  (lambda (#(#(lambda (lambda (map (lambda (index $0 $1)) (range (+ 1 ($1 (+ 1))))))) (lambda ($0 ($0 1)))) (#(lambda (cdr (cdr (cdr $0)))) (cdr $0))))
+Total number of candidates: 16102
+Constructed version spaces and coalesced candidates in 8.92328s.
+Timing point -1 right before normalizing: 10.2268s.
+Trimmed down the beam, have only 300 best candidates
+Timing point 1 (from start of compression_step_master to having topI candidates): 10.2285s.
+Timing Comparison Point A (vspace+beam) (millis): 10228
+Rewrote topK in 8.69631s.
+Timing point 2 (from having topI candidates to BatchedRewrite under them): 8.69653s.
+sanity check for timing comparison, should be same as comparison point: 18.9251s.
+Timing Comparison Point B (vspace+beam+batched_rewrite) (millis): 18925
+Initial score: -569.094629
+Initial language score: 0.000000
+Initial joint score: -569.094629 using LC of 0.000000
+Here in the master worker: we still have 0 language alignments;
+Scored candidates in 1.30669s.
+Best MDL score: -570.133417 with (lambda (gt? $0 0))
+No improvement possible with MDL.
+Scored candidates with language and grammar in 1.31293s.
+Best joint score: -570.133417 with (lambda (gt? $0 0))
+Timing point 3 (all scoring): 2.6279s.
+No improvement possible with joint score.
+Completed one step of memory consolidation in 21.5538s.
+completed ocaml compression in 1.66676m.
+	Command being timed: "/scratch/mlbowers/proj/stitch/experiments/compression benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/bench003_it4.json"
+	User time (seconds): 15.17
+	System time (seconds): 0.49
+	Percent of CPU this job got: 15%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:40.08
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 430812
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 533730
+	Voluntary context switches: 341
+	Involuntary context switches: 1581
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 56
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

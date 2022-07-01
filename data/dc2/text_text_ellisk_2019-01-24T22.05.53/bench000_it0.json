@@ -1,0 +1,369 @@
+{
+    "verbose": false,
+    "arity": 3,
+    "topK": 2,
+    "pseudoCounts": 30.0,
+    "aic": 1.0,
+    "bs": 1000000,
+    "topI": 300,
+    "structurePenalty": 1.5,
+    "CPUs": 8,
+    "lc_score": 0.0,
+    "DSL": {
+        "logVariable": 0.0,
+        "productions": [
+            {
+                "expression": "char-eq?",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "length",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "+",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "-",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "0",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "1",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "empty?",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "range",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "'.'",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "','",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "'-'",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "SPACE",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "RPAREN",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "LPAREN",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "STRING",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "unfold",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "cdr",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "cons",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "empty",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "map",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "car",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "fold",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "if",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "index",
+                "logProbability": 0.0
+            }
+        ]
+    },
+    "iterations": 20,
+    "frontiers": [
+        {
+            "name": "nth (n=0) word delimited by '.'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (unfold $0 (lambda (char-eq? '.' (car $0))) (lambda (car $0)) (lambda (cdr $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold $0 $0 (lambda (lambda (cons $1 (if (char-eq? '.' (car $0)) empty $0))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend 'Hornak'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (fold STRING $0 (lambda (lambda (cons $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold STRING (map (lambda $0) $0) (lambda (lambda (cons $1 $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Append 'Beata'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (fold $0 STRING (lambda (lambda (cons $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold $0 (map (lambda $0) STRING) (lambda (lambda (cons $1 $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Prepend 'Jani'",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "char",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (fold STRING $0 (lambda (lambda (cons $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold STRING (map (lambda $0) $0) (lambda (lambda (cons $1 $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        }
+    ],
+    "info": {
+        "iteration": 0,
+        "num_learned": 1,
+        "new_grammar": {
+            "logVariable": -0.201432,
+            "productions": [
+                {
+                    "expression": "char-eq?",
+                    "logProbability": -0.058931
+                },
+                {
+                    "expression": "length",
+                    "logProbability": -0.060836
+                },
+                {
+                    "expression": "+",
+                    "logProbability": -0.060836
+                },
+                {
+                    "expression": "-",
+                    "logProbability": -0.060836
+                },
+                {
+                    "expression": "0",
+                    "logProbability": -0.060836
+                },
+                {
+                    "expression": "1",
+                    "logProbability": -0.060836
+                },
+                {
+                    "expression": "empty?",
+                    "logProbability": -0.09172
+                },
+                {
+                    "expression": "range",
+                    "logProbability": -0.093965
+                },
+                {
+                    "expression": "'.'",
+                    "logProbability": -0.119074
+                },
+                {
+                    "expression": "','",
+                    "logProbability": -0.151863
+                },
+                {
+                    "expression": "'-'",
+                    "logProbability": -0.151863
+                },
+                {
+                    "expression": "SPACE",
+                    "logProbability": -0.151863
+                },
+                {
+                    "expression": "RPAREN",
+                    "logProbability": -0.151863
+                },
+                {
+                    "expression": "LPAREN",
+                    "logProbability": -0.151863
+                },
+                {
+                    "expression": "STRING",
+                    "logProbability": -0.313718
+                },
+                {
+                    "expression": "unfold",
+                    "logProbability": -0.378169
+                },
+                {
+                    "expression": "cdr",
+                    "logProbability": -0.378169
+                },
+                {
+                    "expression": "cons",
+                    "logProbability": -0.407036
+                },
+                {
+                    "expression": "empty",
+                    "logProbability": -0.407037
+                },
+                {
+                    "expression": "map",
+                    "logProbability": -0.407708
+                },
+                {
+                    "expression": "car",
+                    "logProbability": -0.432006
+                },
+                {
+                    "expression": "fold",
+                    "logProbability": -0.492682
+                },
+                {
+                    "expression": "if",
+                    "logProbability": -0.492683
+                },
+                {
+                    "expression": "index",
+                    "logProbability": -0.494674
+                },
+                {
+                    "expression": "#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0))))))",
+                    "logProbability": -0.313718
+                }
+            ]
+        }
+    }
+}

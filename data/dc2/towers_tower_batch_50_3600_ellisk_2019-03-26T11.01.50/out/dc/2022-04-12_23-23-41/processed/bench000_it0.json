@@ -1,0 +1,35 @@
+{
+    "bench_group": "towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50",
+    "bench": "bench000_it0",
+    "mode": "dreamcoder",
+    "run": "benches/towers_tower_batch_50_3600_ellisk_2019-03-26T11.01.50/out/dc/2022-04-12_23-23-41",
+    "metrics": {
+        "time_binary_seconds": 715.58,
+        "time_per_inv_with_rewrite": 146840.33333333334,
+        "time_per_inv_no_rewrite": 89111.66666666667,
+        "mem_peak_kb": 1541908,
+        "compression_ratio": 1.5253458682762673,
+        "absolute_compression": 9835
+    },
+    "num_inventions": 3,
+    "inventions": [
+        {
+            "name": "fn_0",
+            "stitch_uncanonical": "(tower_loopM #1 (lam (lam (1x3 (moveHand 4 (1x3 (reverseHand $0)))))) (moveHand 2 (3x1 #0)))",
+            "stitch_canonical": "(tower_loopM #0 (lam (lam (1x3 (moveHand 4 (1x3 (reverseHand $0)))))) (moveHand 2 (3x1 #1)))",
+            "dreamcoder": "#(lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 (1x3 (reverseHand $0)))))) (moveHand 2 (3x1 $1)))))"
+        },
+        {
+            "name": "fn_1",
+            "stitch_uncanonical": "(tower_loopM #1 (lam (lam (reverseHand (tower_embed (lam (moveHand 2 (1x3 $0))) $0)))) (3x1 #0))",
+            "stitch_canonical": "(tower_loopM #0 (lam (lam (reverseHand (tower_embed (lam (moveHand 2 (1x3 $0))) $0)))) (3x1 #1))",
+            "dreamcoder": "#(lambda (lambda (tower_loopM $0 (lambda (lambda (reverseHand (tower_embed (lambda (moveHand 2 (1x3 $0))) $0)))) (3x1 $1))))"
+        },
+        {
+            "name": "fn_2",
+            "stitch_uncanonical": "(tower_loopM #1 (lam (lam (moveHand 3 (reverseHand (tower_loopM #0 (lam (lam (moveHand 6 (3x1 $0)))) $0))))))",
+            "stitch_canonical": "(tower_loopM #0 (lam (lam (moveHand 3 (reverseHand (tower_loopM #1 (lam (lam (moveHand 6 (3x1 $0)))) $0))))))",
+            "dreamcoder": "#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0))))))))"
+        }
+    ]
+}

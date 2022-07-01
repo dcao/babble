@@ -1,0 +1,35 @@
+{
+    "bench_group": "text_text_ellisk_2019-01-24T22.01.57",
+    "bench": "bench000_it1",
+    "mode": "dreamcoder",
+    "run": "benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03",
+    "metrics": {
+        "time_binary_seconds": 144.31,
+        "time_per_inv_with_rewrite": 30889.666666666668,
+        "time_per_inv_no_rewrite": 18750.333333333332,
+        "mem_peak_kb": 582760,
+        "compression_ratio": 1.2607778510217535,
+        "absolute_compression": 3956
+    },
+    "num_inventions": 3,
+    "inventions": [
+        {
+            "name": "fn_0",
+            "stitch_uncanonical": "(cons (car #0) (cons #1 empty))",
+            "stitch_canonical": "(cons (car #0) (cons #1 empty))",
+            "dreamcoder": "#(lambda (lambda (cons (car $1) (cons $0 empty))))"
+        },
+        {
+            "name": "fn_1",
+            "stitch_uncanonical": "(map (lam (index $0 #1)) (range #0))",
+            "stitch_canonical": "(map (lam (index $0 #0)) (range #1))",
+            "dreamcoder": "#(lambda (lambda (map (lambda (index $0 $1)) (range $1))))"
+        },
+        {
+            "name": "fn_2",
+            "stitch_uncanonical": "(fold #1 #0 (lam (lam (cons $1 $0))))",
+            "stitch_canonical": "(fold #0 #1 (lam (lam (cons $1 $0))))",
+            "dreamcoder": "#(lambda (lambda (fold $0 $1 (lambda (lambda (cons $1 $0))))))"
+        }
+    ]
+}

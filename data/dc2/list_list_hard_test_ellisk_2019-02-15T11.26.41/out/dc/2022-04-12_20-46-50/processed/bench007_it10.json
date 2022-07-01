@@ -1,0 +1,29 @@
+{
+    "bench_group": "list_list_hard_test_ellisk_2019-02-15T11.26.41",
+    "bench": "bench007_it10",
+    "mode": "dreamcoder",
+    "run": "benches/list_list_hard_test_ellisk_2019-02-15T11.26.41/out/dc/2022-04-12_20-46-50",
+    "metrics": {
+        "time_binary_seconds": 275.34000000000003,
+        "time_per_inv_with_rewrite": 75195.5,
+        "time_per_inv_no_rewrite": 41642.5,
+        "mem_peak_kb": 1307492,
+        "compression_ratio": 1.047832240280463,
+        "absolute_compression": 5171
+    },
+    "num_inventions": 2,
+    "inventions": [
+        {
+            "name": "fn_0",
+            "stitch_uncanonical": "(fold #0 empty (lam (lam (if (#1 $1) (cons $1 $0) $0))))",
+            "stitch_canonical": "(fold #0 empty (lam (lam (if (#1 $1) (cons $1 $0) $0))))",
+            "dreamcoder": "#(lambda (lambda (fold $1 empty (lambda (lambda (if ($2 $1) (cons $1 $0) $0))))))"
+        },
+        {
+            "name": "fn_1",
+            "stitch_uncanonical": "(fold #1 #2 (lam (lam (map (lam #0) (fold (range $1) $0 (lam (lam (cdr $2))))))))",
+            "stitch_canonical": "(fold #0 #1 (lam (lam (map (lam #2) (fold (range $1) $0 (lam (lam (cdr $2))))))))",
+            "dreamcoder": "#(lambda (lambda (lambda (fold $1 $0 (lambda (lambda (map (lambda $5) (fold (range $1) $0 (lambda (lambda (cdr $2)))))))))))"
+        }
+    ]
+}

@@ -1,0 +1,2157 @@
+{
+    "verbose": false,
+    "arity": 3,
+    "topK": 5,
+    "pseudoCounts": 10.0,
+    "aic": 1.0,
+    "bs": 1000000,
+    "topI": 300,
+    "structurePenalty": 0.5,
+    "CPUs": 8,
+    "lc_score": 0.0,
+    "DSL": {
+        "logVariable": 0.0,
+        "productions": [
+            {
+                "expression": "map",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "zip",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "cdr",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "empty",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "cons",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "*.",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "/.",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "+.",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "-.",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "pi",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "0.",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "1.",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "power",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "fold",
+                "logProbability": 0.0
+            },
+            {
+                "expression": "car",
+                "logProbability": 0.0
+            }
+        ]
+    },
+    "iterations": 20,
+    "frontiers": [
+        {
+            "name": "vector addition (2)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (zip $0 $1 (lambda (lambda (+. $0 $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $1 (lambda (lambda (+. $1 $0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $1 $0 (lambda (lambda (+. $0 $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $1 $0 (lambda (lambda (+. $1 $0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (map (lambda $0) (zip $0 $1 (lambda (lambda (+. $0 $1)))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "a_r = v**2/R",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $1 (/. $1 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. (/. $1 $0) $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (/. $0 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. (*. $1 $1) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. (power $1 (+. 1. 1.)) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "e = mc^2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $0 (*. $0 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $0 (*. $1 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (*. $0 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. (*. $0 $0) $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. (*. $0 $1) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "density = mass/volume",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (/. $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (/. 1. $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (+. $0 0.))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (+. 0. $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (-. $0 0.))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "pressure = force/area",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (/. $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (/. 1. $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (+. $0 0.))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (+. 0. $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (-. $0 0.))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "P = I^2R",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $0 (*. $1 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (*. $0 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (*. $1 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. (*. $0 $1) $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. (*. $1 $0) $1)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "P = V^2/R",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $1 (/. $1 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. (/. $1 $0) $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (/. $0 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. (*. $1 $1) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. (power $1 (+. 1. 1.)) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "V_{rms} = V/sqrt2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (/. (+. $0 $0) (-. pi (/. 1. pi))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (+. $0 $0) (+. (-. 0. (/. 1. pi)) pi)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (+. $0 $0) (-. pi (/. $0 (*. pi $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (+. $0 $0) (-. pi (/. (*. $0 (/. 1. pi)) $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (+. (*. $0 $0) (*. $0 $0)) (-. (*. pi $0) (/. $0 pi))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "U = 1/2CV^2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $0 (/. (*. $0 $1) (+. 1. 1.)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $0 (/. (*. $1 $0) (+. 1. 1.)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (/. (*. $0 $0) (+. 1. 1.)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $0 (/. (+. 1. 1.) (*. $0 $1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $0 (/. (+. 1. 1.) (*. $1 $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "U = 1/2QV",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $0 (/. $1 (+. 1. 1.)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (/. $0 (+. 1. 1.)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $0 (/. (+. 1. 1.) $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (/. (+. 1. 1.) $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. (*. $0 $1) (+. 1. 1.))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "U = 1/2Q^2/C",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $1 (/. $1 (+. $0 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. (/. $1 (+. $0 $0)) $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (/. (+. $0 $0) $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. (*. $1 $1) (+. $0 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (/. (+. 1. 1.) (/. $1 $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "P = 1/f",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (/. 1. $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. $0 (*. $0 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (/. $0 $0) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. 1. (+. $0 0.)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. 1. (+. 0. $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "c = 1/2*r",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (/. $0 (+. 1. 1.)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (*. $0 (/. $0 (+. $0 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (*. $0 $0) (+. $0 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (-. $0 0.) (+. 1. 1.)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (/. $0 (+. 1. 1.)) 1.))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "work = F.d",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (fold (zip $0 $1 (lambda (lambda (*. $0 $1)))) 0. (lambda (lambda (+. $0 $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold (zip $0 $1 (lambda (lambda (*. $0 $1)))) 0. (lambda (lambda (+. $1 $0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold (zip $0 $1 (lambda (lambda (*. $1 $0)))) 0. (lambda (lambda (+. $0 $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold (zip $0 $1 (lambda (lambda (*. $1 $0)))) 0. (lambda (lambda (+. $1 $0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold (zip $1 $0 (lambda (lambda (*. $0 $1)))) 0. (lambda (lambda (+. $0 $1))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "P = F.v",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (fold (zip $0 $1 (lambda (lambda (*. $0 $1)))) 0. (lambda (lambda (+. $0 $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold (zip $0 $1 (lambda (lambda (*. $0 $1)))) 0. (lambda (lambda (+. $1 $0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold (zip $0 $1 (lambda (lambda (*. $1 $0)))) 0. (lambda (lambda (+. $0 $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold (zip $0 $1 (lambda (lambda (*. $1 $0)))) 0. (lambda (lambda (+. $1 $0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold (zip $1 $0 (lambda (lambda (*. $0 $1)))) 0. (lambda (lambda (+. $0 $1))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "F = qvxB (2d)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "->",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    },
+                                    {
+                                        "constructor": "->",
+                                        "arguments": [
+                                            {
+                                                "constructor": "real",
+                                                "arguments": []
+                                            },
+                                            {
+                                                "constructor": "->",
+                                                "arguments": [
+                                                    {
+                                                        "constructor": "real",
+                                                        "arguments": []
+                                                    },
+                                                    {
+                                                        "constructor": "real",
+                                                        "arguments": []
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (lambda (lambda (lambda (*. $4 (-. (*. $0 $3) (*. $1 $2))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (lambda (lambda (*. $4 (-. (*. $0 $3) (*. $2 $1))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (lambda (lambda (*. $4 (-. (*. $3 $0) (*. $1 $2))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (lambda (lambda (*. $4 (-. (*. $3 $0) (*. $2 $1))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (lambda (lambda (*. (-. (*. $3 $0) (*. $2 $1)) $4))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "tau = rxF (2d)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "->",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    },
+                                    {
+                                        "constructor": "->",
+                                        "arguments": [
+                                            {
+                                                "constructor": "real",
+                                                "arguments": []
+                                            },
+                                            {
+                                                "constructor": "real",
+                                                "arguments": []
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (lambda (lambda (-. (*. $0 $3) (*. $1 $2))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (lambda (-. (*. $0 $3) (*. $2 $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (lambda (-. (*. $3 $0) (*. $1 $2))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (lambda (-. (*. $3 $0) (*. $2 $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (lambda (+. (-. 0. (*. $1 $2)) (*. $0 $3))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "v(t)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "->",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    },
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (lambda (+. $2 (*. $0 $1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (+. $2 (*. $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (+. (*. $0 $1) $2))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (+. (*. $1 $0) $2))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (/. (+. $2 (*. $0 $1)) 1.))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "p=mv",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (map (lambda (*. $0 $2)) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (map (lambda (*. $2 $0)) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $0 $3))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $1 $3))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $3 $0))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "dp=Fdt",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (map (lambda (*. $0 $2)) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (map (lambda (*. $2 $0)) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $0 $3))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $1 $3))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $3 $0))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "K=1/2mv^2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (/. (*. $1 (fold $0 0. (lambda (lambda (+. $0 (*. $1 $1)))))) (+. 1. 1.))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. (*. (fold $0 0. (lambda (lambda (+. $0 (*. $1 $1))))) $1) (+. 1. 1.))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold $0 0. (lambda (lambda (+. $0 (*. $1 (/. (*. $1 $3) (+. 1. 1.)))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold $0 0. (lambda (lambda (+. $0 (*. $1 (/. (*. $3 $1) (+. 1. 1.)))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (fold $0 0. (lambda (lambda (+. $0 (*. $3 (/. (*. $1 $1) (+. 1. 1.)))))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "K=1/2Iw^2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $0 (/. (*. $1 $0) (+. 1. 1.)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (/. (*. $0 $0) (+. 1. 1.)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $0 (/. (+. 1. 1.) (*. $0 $1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $0 (/. (+. 1. 1.) (*. $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (/. (+. 1. 1.) (*. $0 $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "E=pJ",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (map (lambda (*. $0 $2)) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (map (lambda (*. $2 $0)) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $0 $3))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $1 $3))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $3 $0))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Fs=kx",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            },
+                            {
+                                "constructor": "list",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (map (lambda (*. $0 $2)) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (map (lambda (*. $2 $0)) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $0 $3))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $1 $3))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (zip $0 $0 (lambda (lambda (*. $3 $0))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "P=dE/dt",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (/. $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (/. 1. $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (+. $0 0.))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (+. 0. $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (-. $0 0.))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "omega(t)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "->",
+                                "arguments": [
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    },
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (lambda (+. $2 (*. $0 $1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (+. $2 (*. $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (+. (*. $0 $1) $2))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (+. (*. $1 $0) $2))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (/. (+. $2 (*. $0 $1)) 1.))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "T=2pi/w",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (/. (+. pi pi) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (*. pi (/. (+. 1. 1.) $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (-. (+. pi pi) 0.) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (-. pi (-. 0. pi)) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (/. (+. pi pi) $0) 1.))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Newtonian gravitation (scalar)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "->",
+                                "arguments": [
+                                    {
+                                        "constructor": "list",
+                                        "arguments": [
+                                            {
+                                                "constructor": "real",
+                                                "arguments": []
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (lambda (/. (*. $1 $2) (fold $0 0. (lambda (lambda (+. $0 (*. $1 $1)))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (/. (*. $1 $2) (fold $0 0. (lambda (lambda (+. (*. $1 $1) $0))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (/. (*. $1 $2) (fold $0 1. (lambda (lambda (+. $0 (*. $1 $1)))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (/. (*. $2 $1) (fold $0 0. (lambda (lambda (+. $0 (*. $1 $1)))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (/. (*. $2 $1) (fold $0 0. (lambda (lambda (+. (*. $1 $1) $0))))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Coulomb's law (scalar)",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "->",
+                                "arguments": [
+                                    {
+                                        "constructor": "list",
+                                        "arguments": [
+                                            {
+                                                "constructor": "real",
+                                                "arguments": []
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "constructor": "real",
+                                        "arguments": []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (lambda (*. $1 (/. $2 (fold $0 0. (lambda (lambda (+. $0 (*. $1 $1))))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (/. (*. $1 $2) (fold $0 0. (lambda (lambda (+. $0 (*. $1 $1)))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (/. (*. $1 $2) (fold $0 0. (lambda (lambda (+. (*. $1 $1) $0))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (/. (*. $2 $1) (fold $0 0. (lambda (lambda (+. $0 (*. $1 $1)))))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (lambda (/. (*. $2 $1) (fold $0 0. (lambda (lambda (+. (*. $1 $1) $0))))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Hook's law",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $0 (*. $1 (-. 0. $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $0 (*. (-. 0. $0) $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $0 (-. 0. (*. $0 $1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $0 (-. 0. (*. $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (*. $0 (-. 0. $0)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Ohm's law",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $0 $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (+. $0 0.))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (-. $0 0.))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (power $0 1.))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "power/current/voltage relation",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (*. $0 $1)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (+. $0 0.))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (-. $0 0.))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (power $0 1.))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "time/frequency relation",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (/. 1. $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. $0 (*. $0 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (/. $0 $0) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. 1. (+. $0 0.)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. 1. (+. 0. $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "Plank relation",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (/. 1. $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. $0 (*. $0 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. (/. $0 $0) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. 1. (+. $0 0.)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. 1. (+. 0. $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "capacitance from charge and voltage",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (/. $1 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (*. $1 (/. 1. $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (+. $0 0.))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (+. 0. $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (/. $1 (-. $0 0.))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "series resistors",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (fold $0 0. (lambda (lambda (+. $0 $1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold $0 0. (lambda (lambda (+. $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold (cdr $0) (car $0) (lambda (lambda (+. $0 $1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold (cdr $0) (car $0) (lambda (lambda (+. $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (*. (fold $0 0. (lambda (lambda (+. $1 $0)))) 1.))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "parallel capacitors",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (fold $0 0. (lambda (lambda (+. $0 $1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold $0 0. (lambda (lambda (+. $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold (cdr $0) (car $0) (lambda (lambda (+. $0 $1)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (fold (cdr $0) (car $0) (lambda (lambda (+. $1 $0)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (*. (fold $0 0. (lambda (lambda (+. $0 $1)))) 1.))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "series capacitors",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "list",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    },
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (/. 1. (fold $0 0. (lambda (lambda (+. $0 (/. 1. $1)))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. 1. (fold $0 0. (lambda (lambda (+. (/. 1. $1) $0))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. 1. (fold (map (lambda (/. 1. $0)) $0) 0. (lambda (lambda (+. $0 $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. 1. (fold $0 0. (lambda (lambda (/. (+. 1. (*. $0 $1)) $1))))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (/. 1. (fold $0 0. (lambda (lambda (/. (+. 1. (*. $1 $0)) $1))))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "A = pir^2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (*. $0 (*. $0 pi)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (*. $0 (*. pi $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (*. (*. $0 $0) pi))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (*. (*. $0 pi) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (*. (*. pi $0) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "c^2 = a^2 + b^2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "real",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "->",
+                        "arguments": [
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            },
+                            {
+                                "constructor": "real",
+                                "arguments": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (lambda (+. (*. $0 $0) (*. $1 $1))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (+. (*. $1 $1) (*. $0 $0))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (+. (*. $0 $0) (power $1 (+. 1. 1.)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (+. (*. $1 $1) (power $0 (+. 1. 1.)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (lambda (+. (power $1 (+. 1. 1.)) (*. $0 $0))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        }
+    ],
+    "info": {
+        "iteration": 0,
+        "num_learned": 8,
+        "new_grammar": {
+            "logVariable": -0.515628,
+            "productions": [
+                {
+                    "expression": "map",
+                    "logProbability": -1.06581
+                },
+                {
+                    "expression": "zip",
+                    "logProbability": -1.067631
+                },
+                {
+                    "expression": "cdr",
+                    "logProbability": -1.163609
+                },
+                {
+                    "expression": "empty",
+                    "logProbability": -1.163609
+                },
+                {
+                    "expression": "cons",
+                    "logProbability": -1.163609
+                },
+                {
+                    "expression": "*.",
+                    "logProbability": -1.439163
+                },
+                {
+                    "expression": "/.",
+                    "logProbability": -2.220917
+                },
+                {
+                    "expression": "+.",
+                    "logProbability": -2.410993
+                },
+                {
+                    "expression": "-.",
+                    "logProbability": -2.415544
+                },
+                {
+                    "expression": "pi",
+                    "logProbability": -2.416111
+                },
+                {
+                    "expression": "0.",
+                    "logProbability": -2.654429
+                },
+                {
+                    "expression": "1.",
+                    "logProbability": -2.747337
+                },
+                {
+                    "expression": "power",
+                    "logProbability": -2.752476
+                },
+                {
+                    "expression": "fold",
+                    "logProbability": -2.883756
+                },
+                {
+                    "expression": "car",
+                    "logProbability": -2.883913
+                },
+                {
+                    "expression": "#(lambda (map (lambda (*. $0 $1))))",
+                    "logProbability": -0.829395
+                },
+                {
+                    "expression": "#(lambda (/. 1. $0))",
+                    "logProbability": -2.263024
+                },
+                {
+                    "expression": "#(lambda (/. $0 (+. 1. 1.)))",
+                    "logProbability": -2.349529
+                },
+                {
+                    "expression": "#(lambda (fold $0 0. (lambda (lambda (+. $0 $1)))))",
+                    "logProbability": -2.490318
+                },
+                {
+                    "expression": "#(lambda (lambda (/. (+. $0 $0) $1)))",
+                    "logProbability": -2.491157
+                },
+                {
+                    "expression": "#(lambda (lambda (#(lambda (fold $0 0. (lambda (lambda (+. $0 $1))))) (zip $0 $1 (lambda (lambda (*. $0 $1)))))))",
+                    "logProbability": -2.570287
+                },
+                {
+                    "expression": "#(lambda (lambda (lambda (/. (*. $2 $1) (#(lambda (fold $0 0. (lambda (lambda (+. $0 (*. $1 $1)))))) $0)))))",
+                    "logProbability": -2.570486
+                },
+                {
+                    "expression": "#(lambda (fold $0 0. (lambda (lambda (+. $0 (*. $1 $1))))))",
+                    "logProbability": -2.65703
+                }
+            ]
+        }
+    }
+}

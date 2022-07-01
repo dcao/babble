@@ -1,0 +1,35 @@
+{
+    "bench_group": "text_text_ellisk_2019-01-25T20.19.06",
+    "bench": "bench002_it2",
+    "mode": "dreamcoder",
+    "run": "benches/text_text_ellisk_2019-01-25T20.19.06/out/dc/2022-04-12_20-46-48",
+    "metrics": {
+        "time_binary_seconds": 265.56,
+        "time_per_inv_with_rewrite": 53038.666666666664,
+        "time_per_inv_no_rewrite": 30066.0,
+        "mem_peak_kb": 727892,
+        "compression_ratio": 1.1762013729977117,
+        "absolute_compression": 5775
+    },
+    "num_inventions": 3,
+    "inventions": [
+        {
+            "name": "fn_0",
+            "stitch_uncanonical": "(fold #0 #0 (lam (lam (cdr (if (char-eq? $1 #1) #0 $0)))))",
+            "stitch_canonical": "(fold #0 #0 (lam (lam (cdr (if (char-eq? $1 #2) #0 $0)))))",
+            "dreamcoder": "#(lambda (lambda (fold $1 $1 (lambda (lambda (cdr (if (char-eq? $1 $2) $3 $0)))))))"
+        },
+        {
+            "name": "fn_1",
+            "stitch_uncanonical": "(fold #0 #0 (lam (lam (if (char-eq? $1 #1) empty (cons $1 $0)))))",
+            "stitch_canonical": "(fold #0 #0 (lam (lam (if (char-eq? $1 #2) empty (cons $1 $0)))))",
+            "dreamcoder": "#(lambda (lambda (fold $1 $1 (lambda (lambda (if (char-eq? $1 $2) empty (cons $1 $0)))))))"
+        },
+        {
+            "name": "fn_2",
+            "stitch_uncanonical": "(fold #0 #0 (lam (lam (fold $0 $0 (lam (lam (if (char-eq? $1 #1) (cdr $0) $0)))))))",
+            "stitch_canonical": "(fold #0 #0 (lam (lam (fold $0 $0 (lam (lam (if (char-eq? $1 #2) (cdr $0) $0)))))))",
+            "dreamcoder": "#(lambda (lambda (fold $1 $1 (lambda (lambda (fold $0 $0 (lambda (lambda (if (char-eq? $1 $4) (cdr $0) $0)))))))))"
+        }
+    ]
+}

@@ -1,0 +1,29 @@
+{
+    "bench_group": "text_text_ellisk_2019-01-24T22.01.57",
+    "bench": "bench001_it2",
+    "mode": "dreamcoder",
+    "run": "benches/text_text_ellisk_2019-01-24T22.01.57/out/dc/2022-04-13_08-45-03",
+    "metrics": {
+        "time_binary_seconds": 94.21000000000001,
+        "time_per_inv_with_rewrite": 25723.5,
+        "time_per_inv_no_rewrite": 13832.5,
+        "mem_peak_kb": 347080,
+        "compression_ratio": 1.1392399450135249,
+        "absolute_compression": 3140
+    },
+    "num_inventions": 2,
+    "inventions": [
+        {
+            "name": "fn_0",
+            "stitch_uncanonical": "(unfold #0 (lam (char-eq? (car $0) #1)) (lam (car $0)) (lam (cdr $0)))",
+            "stitch_canonical": "(unfold #0 (lam (char-eq? (car $0) #1)) (lam (car $0)) (lam (cdr $0)))",
+            "dreamcoder": "#(lambda (lambda (unfold $1 (lambda (char-eq? (car $0) $1)) (lambda (car $0)) (lambda (cdr $0)))))"
+        },
+        {
+            "name": "fn_1",
+            "stitch_uncanonical": "(cons (car #1) (cons '.' (fn_0 #0 '.')))",
+            "stitch_canonical": "(cons (car #0) (cons '.' (fn_0 #1 '.')))",
+            "dreamcoder": "#(lambda (lambda (cons (car $0) (cons '.' (#(lambda (lambda (cons (car $1) (cons $0 empty)))) $1 '.')))))"
+        }
+    ]
+}

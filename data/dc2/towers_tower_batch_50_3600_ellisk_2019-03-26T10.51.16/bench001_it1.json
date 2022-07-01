@@ -1,0 +1,1129 @@
+{
+    "verbose": false,
+    "arity": 3,
+    "topK": 2,
+    "pseudoCounts": 30.0,
+    "aic": 1.0,
+    "bs": 1000000,
+    "topI": 300,
+    "structurePenalty": 1.5,
+    "CPUs": 8,
+    "lc_score": 0.0,
+    "DSL": {
+        "logVariable": -0.504883,
+        "productions": [
+            {
+                "expression": "6",
+                "logProbability": -0.396882
+            },
+            {
+                "expression": "4",
+                "logProbability": -0.503723
+            },
+            {
+                "expression": "5",
+                "logProbability": -0.507629
+            },
+            {
+                "expression": "3",
+                "logProbability": -0.593441
+            },
+            {
+                "expression": "2",
+                "logProbability": -0.594707
+            },
+            {
+                "expression": "7",
+                "logProbability": -0.594707
+            },
+            {
+                "expression": "8",
+                "logProbability": -0.594707
+            },
+            {
+                "expression": "1",
+                "logProbability": -0.659246
+            },
+            {
+                "expression": "reverseHand",
+                "logProbability": -0.87141
+            },
+            {
+                "expression": "moveHand",
+                "logProbability": -0.909997
+            },
+            {
+                "expression": "tower_loopM",
+                "logProbability": -0.909997
+            },
+            {
+                "expression": "1x3",
+                "logProbability": -0.93717
+            },
+            {
+                "expression": "3x1",
+                "logProbability": -0.938623
+            },
+            {
+                "expression": "tower_embed",
+                "logProbability": -1.035161
+            },
+            {
+                "expression": "#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0))))))))",
+                "logProbability": -0.798772
+            },
+            {
+                "expression": "#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2))))))",
+                "logProbability": -0.909998
+            }
+        ],
+        "continuationType": {
+            "constructor": "tower",
+            "arguments": []
+        }
+    },
+    "iterations": 20,
+    "frontiers": [
+        {
+            "name": "arch leg 3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 6))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (reverseHand $0) (lambda (reverseHand $0)) 6))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "arch leg 4",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 8))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (1x3 (reverseHand $0))) 4))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "arch leg 5",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (1x3 (reverseHand $0))) 5))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand (1x3 $0))) 5))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "arch leg 7",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (1x3 (reverseHand $0))) 7))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand (1x3 $0))) 7))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "h row 4, spacing 7",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (3x1 (moveHand 7 $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (moveHand 7 (3x1 $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "v row 5, spacing 3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 5 (lambda (lambda (1x3 (moveHand 3 $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 5 (lambda (lambda (moveHand 3 (1x3 $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (2) of arch 1",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 2 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 2))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 2 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 2)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (3) of arch 2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 3 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 4))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 3 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 4)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (3) of arch 4",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 3 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 8))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 3 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 8)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (4) of arch 2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 4))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 4)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (4) of arch 3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 6))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 6)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (4) of arch 5",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (reverseHand (moveHand 4 $0)) (lambda (1x3 (reverseHand $0))) 5))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (reverseHand (moveHand 4 $0)) (lambda (reverseHand (1x3 $0))) 5))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (5) of arch 1",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 5 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 2))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 5 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 2)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (5) of arch 2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 5 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 4))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 5 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 4)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (6) of arch 2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 6 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 4))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 6 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 4)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (6) of arch 3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 6 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 6))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 6 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 6)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (7) of arch 2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 7 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 4))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 7 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 4)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (7) of arch 3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 7 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 6))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 7 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 6)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (7) of arch 5",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 7 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (reverseHand (moveHand 4 $0)) (lambda (1x3 (reverseHand $0))) 5))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 7 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (reverseHand (moveHand 4 $0)) (lambda (reverseHand (1x3 $0))) 5))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "arch stack 6",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 6 (lambda (lambda (tower_embed (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 2)) $0))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (reverseHand (tower_loopM 6 (lambda (lambda (tower_embed (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 2)) $0))) $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "aqueduct: 6x3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 6 (lambda (lambda (tower_embed (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (reverseHand $0) (lambda (reverseHand $0)) 6)) (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 2)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 6 (lambda (lambda (tower_embed (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 6)) (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 4 $0) (lambda (reverseHand $0)) 2)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (3) of arch, spaced 7",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 3 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 5 $0) (lambda (reverseHand $0)) 2))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 3 (lambda (lambda (moveHand 5 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 2)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "bridge (4) of arch, spaced 8",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 6 $0) (lambda (reverseHand $0)) 2))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (moveHand 6 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 2)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "H pyramid 4",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (moveHand 6 (tower_embed (lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 4 1 $0)) $0)))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (tower_embed (lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 4 1 $0)) (moveHand 6 $0)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "brickwall, 3x2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 3 4 $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 4 (lambda (lambda (reverseHand (moveHand 3 (3x1 (moveHand 6 (3x1 (moveHand 6 (3x1 $0))))))))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "brickwall, 4x1",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 4 2 $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 4 2 (reverseHand $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "brickwall, 4x3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 4 6 $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 4 6 (reverseHand $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "brickwall, 5x1",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 5 2 $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 5 2 (reverseHand $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "brickwall, 5x3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 5 6 $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 5 6 (reverseHand $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "brickwall, 5x4",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 5 8 $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 5 8 (reverseHand $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "brickwall, 6x2",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 6 4 $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 6 4 (reverseHand $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "brickwall, 6x3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 6 6 $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 6 6 (reverseHand $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "brickwall, 6x5",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 6 4 (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 6 6 $0)))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 6 6 (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 6 4 $0)))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "L staircase 3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 3 (lambda (lambda (reverseHand (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 2))))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 3 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand 8 (reverseHand $0)) (lambda (reverseHand $0)) 2))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "R staircase 3",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (tower_loopM 3 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (reverseHand (moveHand 4 $0)) (lambda (reverseHand $0)) 2))) $0))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (tower_loopM 3 (lambda (lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (reverseHand $0) (lambda (reverseHand $0)) 2)))) $0))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        },
+        {
+            "name": "4 tower on top of 1x3 bricks",
+            "request": {
+                "constructor": "->",
+                "arguments": [
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    },
+                    {
+                        "constructor": "tower",
+                        "arguments": []
+                    }
+                ]
+            },
+            "programs": [
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 3 2 (reverseHand (moveHand 5 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 8)))))",
+                    "logLikelihood": 0.0
+                },
+                {
+                    "program": "(lambda (#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0)))))))) 3 2 (reverseHand (moveHand 5 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (1x3 (reverseHand $0))) 4)))))",
+                    "logLikelihood": 0.0
+                }
+            ]
+        }
+    ],
+    "info": {
+        "iteration": 1,
+        "num_learned": 7,
+        "new_grammar": {
+            "logVariable": -0.585992,
+            "productions": [
+                {
+                    "expression": "4",
+                    "logProbability": -0.682251
+                },
+                {
+                    "expression": "6",
+                    "logProbability": -0.766171
+                },
+                {
+                    "expression": "5",
+                    "logProbability": -0.914719
+                },
+                {
+                    "expression": "2",
+                    "logProbability": -0.950686
+                },
+                {
+                    "expression": "3",
+                    "logProbability": -0.967898
+                },
+                {
+                    "expression": "7",
+                    "logProbability": -1.023389
+                },
+                {
+                    "expression": "8",
+                    "logProbability": -1.121303
+                },
+                {
+                    "expression": "1",
+                    "logProbability": -1.153199
+                },
+                {
+                    "expression": "reverseHand",
+                    "logProbability": -1.30858
+                },
+                {
+                    "expression": "moveHand",
+                    "logProbability": -1.331302
+                },
+                {
+                    "expression": "tower_loopM",
+                    "logProbability": -1.396272
+                },
+                {
+                    "expression": "tower_embed",
+                    "logProbability": -1.396785
+                },
+                {
+                    "expression": "3x1",
+                    "logProbability": -1.45943
+                },
+                {
+                    "expression": "1x3",
+                    "logProbability": -1.459992
+                },
+                {
+                    "expression": "#(lambda (lambda (tower_loopM $0 (lambda (lambda (moveHand 3 (reverseHand (tower_loopM $3 (lambda (lambda (moveHand 6 (3x1 $0)))) $0))))))))",
+                    "logProbability": -1.156338
+                },
+                {
+                    "expression": "#(#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand $4 $0) (lambda (reverseHand $0)) $3))))))) 4)",
+                    "logProbability": -1.181443
+                },
+                {
+                    "expression": "#(lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (1x3 (reverseHand $0))) $1)))",
+                    "logProbability": -1.338956
+                },
+                {
+                    "expression": "#(lambda (tower_loopM 6 (lambda ($1 (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 2))))))",
+                    "logProbability": -1.428272
+                },
+                {
+                    "expression": "#(lambda (tower_loopM $0 (lambda (lambda (#(lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (1x3 (reverseHand $0))) $1))) 5 (reverseHand (moveHand 4 $0)))))))",
+                    "logProbability": -1.428272
+                },
+                {
+                    "expression": "#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) (moveHand $4 $0) (lambda (reverseHand $0)) $3)))))))",
+                    "logProbability": -1.428272
+                },
+                {
+                    "expression": "#(tower_loopM 3 (lambda (lambda (#(lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 2))) (reverseHand $0)))))",
+                    "logProbability": -1.428286
+                },
+                {
+                    "expression": "#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2))))))",
+                    "logProbability": -1.45965
+                },
+                {
+                    "expression": "#(lambda (moveHand 4 (#(lambda (lambda (lambda (tower_loopM $0 (lambda (lambda (1x3 (moveHand 4 ($3 $0))))) (moveHand 2 (3x1 $2)))))) $0 (lambda (reverseHand $0)) 2)))",
+                    "logProbability": -1.491423
+                }
+            ],
+            "continuationType": {
+                "constructor": "tower",
+                "arguments": []
+            }
+        }
+    }
+}
