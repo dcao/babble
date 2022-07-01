@@ -6,8 +6,10 @@ import csv
 
 def main():
     costs = {
+        "first eqsat": [],
         "first none": [],
         "first dsrs": [],
+        "all eqsat": [],
         "all none": [],
         "all dsrs": [],
     }

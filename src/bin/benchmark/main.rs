@@ -47,7 +47,7 @@ struct Opts {
 }
 const BENCHMARK_PATH: &str = "harness/data/dreamcoder-benchmarks/benches";
 const DSR_PATH: &str = "harness/data/benchmark-dsrs";
-const BEAM_SIZE: usize = 200;
+const BEAM_SIZE: usize = 400;
 const LPS: usize = 20;
 const ROUNDS: usize = 1;
 const MAX_ARITY: Option<usize> = Some(3);
@@ -90,17 +90,29 @@ impl<'a, Op> From<&'a Summary<Op>> for Compression {
     }
 }
 
+impl<'a, Op> From<&'a Option<Summary<Op>>> for Compression {
+    fn from(summary: &'a Option<Summary<Op>>) -> Self {
+        Self {
+            initial_size: summary
+                .as_ref()
+                .map(|x| x.initial_cost)
+                .unwrap_or_else(|| 1),
+            final_size: summary.as_ref().map(|x| x.final_cost).unwrap_or_else(|| 1),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct BenchResults {
     domain: String,
     benchmark: String,
     file: String,
-    summary_first_eqsat: Summary<DreamCoderOp>,
-    summary_all_eqsat: Summary<DreamCoderOp>,
-    summary_first_none: Summary<DreamCoderOp>,
-    summary_all_none: Summary<DreamCoderOp>,
-    summary_first_dsrs: Summary<DreamCoderOp>,
-    summary_all_dsrs: Summary<DreamCoderOp>,
+    summary_first_eqsat: Option<Summary<DreamCoderOp>>,
+    summary_all_eqsat: Option<Summary<DreamCoderOp>>,
+    summary_first_none: Option<Summary<DreamCoderOp>>,
+    summary_all_none: Option<Summary<DreamCoderOp>>,
+    summary_first_dsrs: Option<Summary<DreamCoderOp>>,
+    summary_all_dsrs: Option<Summary<DreamCoderOp>>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -241,7 +253,7 @@ where
                 }
 
                 for use_dsrs in [true, false] {
-                    for (lps, rounds) in [(LPS, ROUNDS), (ROUNDS, LPS)] {
+                    for (lps, rounds) in [(ROUNDS, LPS)] {
                         let experiment_id = format!(
                             "{}-{}-{}-{}-{}-{}lps-{}rounds",
                             &domain,
@@ -308,12 +320,12 @@ where
                 domain: domain.to_string(),
                 benchmark: benchmark.name.to_string(),
                 file: file.to_string(),
-                summary_first_eqsat: summaries.remove(&(false, true, false, true)).unwrap(),
-                summary_all_eqsat: summaries.remove(&(true, true, false, true)).unwrap(),
-                summary_first_none: summaries.remove(&(false, false, true, false)).unwrap(),
-                summary_all_none: summaries.remove(&(true, false, true, false)).unwrap(),
-                summary_first_dsrs: summaries.remove(&(false, true, true, false)).unwrap(),
-                summary_all_dsrs: summaries.remove(&(true, true, true, false)).unwrap(),
+                summary_first_eqsat: summaries.remove(&(false, true, false, true)),
+                summary_all_eqsat: summaries.remove(&(true, true, false, true)),
+                summary_first_none: summaries.remove(&(false, false, true, false)),
+                summary_all_none: summaries.remove(&(true, false, true, false)),
+                summary_first_dsrs: summaries.remove(&(false, true, true, false)),
+                summary_all_dsrs: summaries.remove(&(true, true, true, false)),
             };
 
             results.push(bench_results);
@@ -356,12 +368,36 @@ fn plot_raw_data(results: &[BenchResults]) -> anyhow::Result<()> {
             format!("{}_{}/{}", result.domain, result.benchmark, result.file),
             dc_compression.initial_size,
             dc_compression.final_size,
-            result.summary_first_eqsat.final_cost,
-            result.summary_all_eqsat.final_cost,
-            result.summary_first_none.final_cost,
-            result.summary_first_dsrs.final_cost,
-            result.summary_all_none.final_cost,
-            result.summary_all_dsrs.final_cost,
+            result
+                .summary_first_eqsat
+                .as_ref()
+                .map(|x| x.final_cost)
+                .unwrap_or_else(|| 0),
+            result
+                .summary_all_eqsat
+                .as_ref()
+                .map(|x| x.final_cost)
+                .unwrap_or_else(|| 0),
+            result
+                .summary_first_none
+                .as_ref()
+                .map(|x| x.final_cost)
+                .unwrap_or_else(|| 0),
+            result
+                .summary_first_dsrs
+                .as_ref()
+                .map(|x| x.final_cost)
+                .unwrap_or_else(|| 0),
+            result
+                .summary_all_none
+                .as_ref()
+                .map(|x| x.final_cost)
+                .unwrap_or_else(|| 0),
+            result
+                .summary_all_dsrs
+                .as_ref()
+                .map(|x| x.final_cost)
+                .unwrap_or_else(|| 0),
         ))?;
     }
 
@@ -373,6 +409,8 @@ fn plot_costs(results: &[BenchResults]) -> anyhow::Result<()> {
     let mut csv_writer = csv::Writer::from_path("harness/data_gen/costs.csv")?;
     csv_writer.serialize((
         "benchmark",
+        "first eqsat",
+        "all eqsat",
         "first none",
         "first dsrs",
         "all none",
@@ -380,14 +418,38 @@ fn plot_costs(results: &[BenchResults]) -> anyhow::Result<()> {
     ))?;
 
     for result in results {
-        let initial_first = result.summary_first_none.initial_cost as isize;
-        let initial_all = result.summary_all_none.initial_cost as isize;
         csv_writer.serialize((
             format!("{}_{}/{}", result.domain, result.benchmark, result.file),
-            result.summary_first_none.space_saving_percentage(),
-            result.summary_first_dsrs.space_saving_percentage(),
-            result.summary_all_none.space_saving_percentage(),
-            result.summary_all_dsrs.space_saving_percentage(),
+            result
+                .summary_first_eqsat
+                .as_ref()
+                .map(|x| x.space_saving_percentage())
+                .unwrap_or_else(|| 0.0),
+            result
+                .summary_all_eqsat
+                .as_ref()
+                .map(|x| x.space_saving_percentage())
+                .unwrap_or_else(|| 0.0),
+            result
+                .summary_first_none
+                .as_ref()
+                .map(|x| x.space_saving_percentage())
+                .unwrap_or_else(|| 0.0),
+            result
+                .summary_first_dsrs
+                .as_ref()
+                .map(|x| x.space_saving_percentage())
+                .unwrap_or_else(|| 0.0),
+            result
+                .summary_all_none
+                .as_ref()
+                .map(|x| x.space_saving_percentage())
+                .unwrap_or_else(|| 0.0),
+            result
+                .summary_all_dsrs
+                .as_ref()
+                .map(|x| x.space_saving_percentage())
+                .unwrap_or_else(|| 0.0),
         ))?;
     }
 
@@ -400,10 +462,12 @@ fn plot_dsr_impact(results: &[BenchResults]) -> anyhow::Result<()> {
     csv_writer.serialize(("benchmark", "percent improvement"))?;
 
     for (i, result) in results.iter().enumerate() {
-        let percent_improved = result
-            .summary_first_dsrs
-            .percent_improved(&result.summary_first_none);
-        csv_writer.serialize((i, percent_improved))?;
+        if let Some(x) = &result.summary_first_dsrs {
+            if let Some(y) = &result.summary_first_none {
+                let percent_improved = x.percent_improved(&y);
+                csv_writer.serialize((i, percent_improved))?;
+            }
+        }
     }
 
     csv_writer.flush()?;
