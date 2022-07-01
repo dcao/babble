@@ -492,6 +492,7 @@ fn plot_compression(results: &[BenchResults]) -> anyhow::Result<()> {
         "first dsrs/first none",
         "all dsrs/first dsrs",
         "all none/first none",
+        "first dsrs/dc",
         "all dsrs/dc",
         "all none/dc",
     ))?;
@@ -515,6 +516,7 @@ fn plot_compression(results: &[BenchResults]) -> anyhow::Result<()> {
             first_dsrs.percent_improvement(first_none),
             all_dsrs.percent_improvement(first_dsrs),
             all_none.percent_improvement(first_none),
+            first_dsrs.percent_improvement(dc_compression),
             all_dsrs.percent_improvement(dc_compression),
             all_none.percent_improvement(dc_compression),
         ))?;

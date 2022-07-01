@@ -10,6 +10,7 @@ def main():
         "first dsrs/first none": [],
         "all dsrs/first dsrs": [],
         "all none/first none": [],
+        "first dsrs/dc": [],
         "all dsrs/dc": [],
         "all none/dc": [],
     }
