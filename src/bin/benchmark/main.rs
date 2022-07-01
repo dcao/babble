@@ -45,7 +45,7 @@ struct Opts {
 }
 const BENCHMARK_PATH: &str = "data/dreamcoder-benchmarks/benches";
 const DSR_PATH: &str = "data/benchmark-dsrs";
-const BEAM_SIZE: usize = 200;
+const BEAM_SIZE: usize = 400;
 const LPS: usize = 20;
 const ROUNDS: usize = 1;
 const MAX_ARITY: Option<usize> = Some(3);
@@ -187,9 +187,9 @@ where
             let input = fs::read_to_string(input)?;
             let input: CompressionInput = serde_json::from_str(&input)?;
 
-            for use_all in [true, false] {
-                for use_dsrs in [true, false] {
-                    for (lps, rounds) in [(LPS, ROUNDS), (ROUNDS, LPS)] {
+            for use_all in [false, true] {
+                for use_dsrs in [false, true] {
+                    for (lps, rounds) in [(ROUNDS, LPS)] {
                         let experiment_id = format!(
                             "{}-{}-{}-{}-{}-{}lps-{}rounds",
                             &domain,
@@ -286,6 +286,41 @@ where
     plot_dsr_impact(&results)?;
     plot_compression(&results)?;
 
+    Ok(())
+}
+
+fn plot_raw_costs(results: &[BenchResults]) -> anyhow::Result<()> {
+    let mut csv_writer = csv::Writer::from_path("plot/data/raw_costs.csv")?;
+    csv_writer.serialize((
+        "benchmark",
+        "dc",
+        "first none",
+        "first dsrs",
+        "all none",
+        "all dsrs",
+    ))?;
+
+    let dc_results = get_dc_results()?;
+
+    for result in results {
+        let iteration = Iteration {
+            domain: result.domain.clone(),
+            benchmark: result.benchmark.clone(),
+            file: result.file.clone(),
+        };
+        let dc_compression = dc_results[&iteration];
+
+        csv_writer.serialize((
+            format!("{}_{}/{}", result.domain, result.benchmark, result.file),
+            dc_compression.final_size,
+            result.summary_first_none.final_cost,
+            result.summary_first_dsrs.final_cost,
+            result.summary_all_none.final_cost,
+            result.summary_all_dsrs.final_cost,
+        ))?;
+    }
+
+    csv_writer.flush()?;
     Ok(())
 }
 

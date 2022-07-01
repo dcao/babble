@@ -28,6 +28,7 @@ pub struct Summary<Op> {
     pub initial_cost: usize,
     pub final_expr: Expr<Op>,
     pub final_cost: usize,
+    pub num_libs: usize,
     pub run_time: Duration,
 }
 
@@ -97,11 +98,22 @@ where
         let final_expr = self.run_multi(expr_groups);
         let final_cost = final_expr.len();
 
+        let num_libs = plumbing::libs(RecExpr::from(final_expr.clone()).as_ref()).len();
+
+        println!(
+            "        {} -> {} (r {}) with {} fns",
+            initial_cost,
+            final_cost,
+            initial_cost as f32 / final_cost as f32,
+            num_libs,
+        );
+
         Summary {
             initial_expr_groups,
             initial_cost,
             final_expr,
             final_cost,
+            num_libs,
             run_time: start_time.elapsed(),
         }
     }
