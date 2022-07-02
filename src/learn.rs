@@ -21,7 +21,7 @@ use crate::{
 };
 use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Searcher, Var};
 use itertools::Itertools;
-use log::debug;
+use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -345,6 +345,14 @@ where
                 });
 
             self.nontrivial_aus.extend(nontrivial_aus);
+        }
+
+        if aus.len() > 10_000 {
+            warn!(
+                "Large number of antiunifications for state {:?}: {}",
+                state,
+                aus.len()
+            );
         }
 
         *self.aus_by_state.get_mut(state).unwrap() = aus;

@@ -102,7 +102,7 @@ where
         let aeg = runner.egraph;
 
         info!(
-            "Finished in {}ms; final egrpah size: {}",
+            "Finished in {}ms; final egraph size: {}",
             start_time.elapsed().as_millis(),
             aeg.total_size()
         );
