@@ -5,7 +5,7 @@ use std::{
 };
 
 use egg::{AstSize, CostFunction, EGraph, Id, RecExpr, Rewrite, Runner};
-use log::debug;
+use log::{debug, info};
 use serde::ser::Serialize;
 
 use crate::{
@@ -90,49 +90,50 @@ where
         let start_time = Instant::now();
         let timeout = Duration::from_secs(60 * 100000);
 
-        debug!("Initial egraph size: {}", egraph.total_size());
-        debug!("Running {} DSRs... ", self.dsrs.len());
+        info!("Initial egraph size: {}", egraph.total_size());
+        info!("Running {} DSRs... ", self.dsrs.len());
 
         let runner = Runner::<_, _, ()>::new(PartialLibCost::empty())
             .with_egraph(egraph)
             .with_time_limit(timeout)
+            .with_iter_limit(3)
             .run(&self.dsrs);
 
         let aeg = runner.egraph;
 
-        debug!(
+        info!(
             "Finished in {}ms; final egrpah size: {}",
             start_time.elapsed().as_millis(),
             aeg.total_size()
         );
 
-        debug!("Running co-occurrence analysis... ");
+        info!("Running co-occurrence analysis... ");
         let co_time = Instant::now();
         let co_ext = COBuilder::new(&aeg, roots);
         let co_occurs = co_ext.run();
-        debug!("Finished in {}ms", co_time.elapsed().as_millis());
+        info!("Finished in {}ms", co_time.elapsed().as_millis());
 
-        debug!("Running anti-unification... ");
+        info!("Running anti-unification... ");
         let au_time = Instant::now();
         let mut learned_lib =
             LearnedLibrary::new(&aeg, self.learn_constants, self.max_arity, co_occurs);
-        debug!(
+        info!(
             "Found {} patterns in {}ms",
             learned_lib.size(),
             au_time.elapsed().as_millis()
         );
 
-        debug!("Deduplicating patterns... ");
+        info!("Deduplicating patterns... ");
         let dedup_time = Instant::now();
         learned_lib.deduplicate(&aeg);
         let lib_rewrites: Vec<_> = learned_lib.rewrites().collect();
-        debug!(
+        info!(
             "Reduced to {} patterns in {}ms",
             learned_lib.size(),
             dedup_time.elapsed().as_millis()
         );
 
-        debug!("Adding libs and running beam search... ");
+        info!("Adding libs and running beam search... ");
         let lib_rewrite_time = Instant::now();
         let runner = Runner::<_, _, ()>::new(PartialLibCost::new(
             self.final_beams,
@@ -151,9 +152,9 @@ where
         let mut cs = egraph[egraph.find(root)].data.clone();
         cs.set.sort_unstable_by_key(|elem| elem.full_cost);
 
-        debug!("Finished in {}ms", lib_rewrite_time.elapsed().as_millis());
-        debug!("Stop reason: {:?}", runner.stop_reason.unwrap());
-        debug!("Number of nodes: {}", egraph.total_size());
+        info!("Finished in {}ms", lib_rewrite_time.elapsed().as_millis());
+        info!("Stop reason: {:?}", runner.stop_reason.unwrap());
+        info!("Number of nodes: {}", egraph.total_size());
 
         debug!("learned libs");
         let all_libs: Vec<_> = learned_lib.libs().collect();
@@ -166,14 +167,14 @@ where
         debug!("upper bound ('full') cost: {}", cs.set[0].full_cost);
 
         let ex_time = Instant::now();
-        debug!("Extracting... ");
+        info!("Extracting... ");
         let lifted = apply_libs(aeg.clone(), &roots, &chosen_rewrites);
         let final_cost = AstSize.cost_rec(&lifted);
 
-        debug!("Finished in {}ms", ex_time.elapsed().as_millis());
-        debug!("final cost: {}", final_cost);
+        info!("Finished in {}ms", ex_time.elapsed().as_millis());
+        info!("final cost: {}", final_cost);
         debug!("{}", Pretty(&Expr::from(lifted.clone())));
-        debug!("round time: {}ms", start_time.elapsed().as_millis());
+        info!("round time: {}ms", start_time.elapsed().as_millis());
 
         ExperimentResult {
             final_expr: lifted.into(),
