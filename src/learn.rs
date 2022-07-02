@@ -21,7 +21,7 @@ use crate::{
 };
 use egg::{Analysis, EGraph, Id, Language, Pattern, Rewrite, Searcher, Var};
 use itertools::Itertools;
-use log::debug;
+use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -255,6 +255,14 @@ where
             Self::deduplicate_with_vars(&mut aus, egraph);
         }
 
+        if aus.len() > 10_000 {
+            warn!(
+                "Large number of antiunifications for state {:?}: {}",
+                state,
+                aus.len()
+            );
+        }
+
         *self.aus_by_state.get_mut(state).unwrap() = aus;
     }
 }
@@ -469,8 +477,8 @@ where
 /// would be converted to the partial expression
 ///
 /// ```text
-/// (lib (lambda (lambda (* $0 (+ $1 1))))
-///  (apply (apply $0 ?y) ?x))
+/// (lib l_i (lambda (lambda (* $0 (+ $1 1))))
+///  (apply (apply l_i ?y) ?x))
 /// ```
 ///
 /// assuming `name` is "foo".

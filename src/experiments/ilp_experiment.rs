@@ -1,4 +1,4 @@
-use super::Experiment;
+use super::{CsvWriter, Experiment, ExperimentResult};
 use crate::{
     ast_node::{Arity, AstNode, Expr, Printable},
     extract::beam::PartialLibCost,
@@ -24,8 +24,6 @@ where
     dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
     /// The timeout length to use
     timeout: u64,
-    /// Number of rounds to do
-    rounds: usize,
     /// Any extra data associated with this experiment
     extra_data: Extra,
     /// Whether to learn "library functions" without any arguments.
@@ -36,20 +34,13 @@ impl<Op, Extra> IlpExperiment<Op, Extra>
 where
     Op: Display + Hash + Clone + Ord + 'static,
 {
-    pub fn new<I>(
-        dsrs: I,
-        timeout: u64,
-        rounds: usize,
-        extra_data: Extra,
-        learn_constants: bool,
-    ) -> Self
+    pub fn new<I>(dsrs: I, timeout: u64, extra_data: Extra, learn_constants: bool) -> Self
     where
         I: IntoIterator<Item = Rewrite<AstNode<Op>, PartialLibCost>>,
     {
         Self {
             dsrs: dsrs.into_iter().collect(),
             timeout,
-            rounds,
             extra_data,
             learn_constants,
         }
@@ -71,13 +62,18 @@ where
         + 'static,
     Extra: Serialize + Debug + Clone,
 {
+    /// The list of domain-specific rewrites used in this experiment.
+    fn dsrs(&self) -> &[Rewrite<AstNode<Op>, PartialLibCost>] {
+        &self.dsrs
+    }
+
     #[cfg(not(feature = "grb"))]
-    fn run(&self, exprs: Vec<Expr<Op>>) -> Expr<Op> {
+    fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
         unimplemented!("feature `grb` not enabled");
     }
 
     #[cfg(feature = "grb")]
-    fn run(&self, exprs: Vec<Expr<Op>>) -> Expr<Op> {
+    fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
         use crate::{
             ast_node::Pretty,
             extract::{ilp::LpExtractor, lift_libs},
@@ -176,14 +172,25 @@ where
         println!("round time: {}ms", start_time.elapsed().as_millis());
         println!();
 
-        return lifted.into();
+        return ExperimentResult {
+            final_expr: lifted.into(),
+            num_libs: todo!(),
+            rewrites: vec![],
+        };
+    }
+
+    fn total_rounds(&self) -> usize {
+        1
     }
 
     fn write_to_csv(
         &self,
-        writer: &mut csv::Writer<File>,
+        writer: &mut CsvWriter,
+        round: usize,
         initial_cost: usize,
         final_cost: usize,
+        compression: f64,
+        num_libs: usize,
         time_elapsed: Duration,
     ) {
         writer
@@ -192,12 +199,14 @@ where
                 self.timeout,
                 0,
                 0,
-                "Unlimited",
-                self.rounds,
+                0,
                 false,
                 self.extra_data.clone(),
+                round,
                 initial_cost,
                 final_cost,
+                compression,
+                num_libs,
                 time_elapsed.as_secs_f64(),
             ))
             .unwrap();
@@ -210,5 +219,9 @@ where
             "ilp | timeout: {}, extra_data: {:?}",
             self.timeout, self.extra_data
         )
+    }
+
+    fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> ExperimentResult<Op> {
+        unimplemented!()
     }
 }

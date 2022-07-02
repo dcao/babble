@@ -16,6 +16,7 @@ use crate::lang::ListOp;
 use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     experiments::Experiments,
+    rewrites,
     sexp::Program,
 };
 use clap::Clap;
@@ -44,6 +45,10 @@ struct Opts {
     #[clap(long)]
     max_arity: Option<usize>,
 
+    /// Optional file with domain-specific rewrites.
+    #[clap(long)]
+    dsr: Option<PathBuf>,
+
     /// The number of programs to anti-unify
     #[clap(long)]
     limit: Vec<usize>,
@@ -61,8 +66,8 @@ struct Opts {
     lps: Vec<usize>,
 
     /// The number of rounds of lib learning to run
-    #[clap(long)]
-    rounds: Vec<usize>,
+    #[clap(long, default_value_t = 1)]
+    rounds: usize,
 
     /// Whether to use the additional partial order reduction step
     #[clap(long)]
@@ -105,12 +110,26 @@ fn main() {
         println!();
     }
 
+    // If dsr file is specified, read it:
+    let dsrs = if let Some(dsr_path) = opts.dsr {
+        match rewrites::from_file(dsr_path) {
+            Ok(dsrs) => dsrs,
+            Err(e) => {
+                eprintln!("Error reading dsr file: {}", e);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        vec![]
+    };
+
     let exps = Experiments::gen(
         prog,
-        vec![], // TODO
+        vec![],
+        dsrs,
         opts.beams.clone(),
         opts.lps.clone(),
-        opts.rounds.clone(),
+        opts.rounds,
         opts.extra_por.clone(),
         opts.timeout.clone(),
         (),
@@ -119,5 +138,5 @@ fn main() {
     );
 
     println!("running...");
-    exps.run("target/res_list.csv");
+    exps.run("harness/data_gen/res_list.csv");
 }

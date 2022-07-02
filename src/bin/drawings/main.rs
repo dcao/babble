@@ -16,6 +16,7 @@ use crate::lang::Drawing;
 use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     experiments::Experiments,
+    rewrites,
     sexp::Program,
 };
 use clap::Clap;
@@ -34,9 +35,13 @@ mod svg;
 #[derive(Clap)]
 #[clap(version, author, about)]
 struct Opts {
-    /// The input file. If no file is specified, reads from stdin.
+    /// The file with training programs. If no file is specified, reads from stdin.
     #[clap(parse(from_os_str))]
     file: Option<PathBuf>,
+
+    /// The file with test programs. If no file is specified, just compresses training data.
+    #[clap(parse(from_os_str))]
+    test_file: Option<PathBuf>,
 
     /// Evaluate the input file and output it as an SVG.
     #[clap(long)]
@@ -46,13 +51,13 @@ struct Opts {
     #[clap(long)]
     learn_constants: bool,
 
+    /// Optional file with domain-specific rewrites.
+    #[clap(long)]
+    dsr: Option<PathBuf>,
+
     /// Maximum arity of functions to learn.
     #[clap(long)]
     max_arity: Option<usize>,
-
-    /// The number of programs to anti-unify
-    #[clap(long)]
-    limit: usize,
 
     /// The beam sizes to use for the beam extractor
     #[clap(long)]
@@ -63,8 +68,8 @@ struct Opts {
     lps: Vec<usize>,
 
     /// The number of rounds of lib learning to run
-    #[clap(long)]
-    rounds: Vec<usize>,
+    #[clap(long, default_value_t = 1)]
+    rounds: usize,
 
     /// Whether to use the additional partial order reduction step
     #[clap(long)]
@@ -88,15 +93,28 @@ fn main() {
 
     // Parse a list of exprs
     let prog: Vec<Expr<Drawing>> = Program::parse(&input)
-        .expect("Failed to parse program")
+        .expect("Failed to parse training set")
         .0
         .into_iter()
         .map(|x| {
             x.try_into()
-                .expect("Input is not a valid list of expressions")
+                .expect("Training input is not a valid list of expressions")
         }) // Vec<Sexp> -> Vec<Expr>
-        .take(opts.limit)
         .collect();
+
+    // If test file is specified, parse it as a list of exprs:
+    let test_prog: Option<Vec<Expr<Drawing>>> = opts.test_file.map(|f| {
+        let input = fs::read_to_string(&f).expect("Error reading test file");
+        Program::parse(&input)
+            .expect("Failed to parse test set")
+            .0
+            .into_iter()
+            .map(|x| {
+                x.try_into()
+                    .expect("Test input is not a valid list of expressions")
+            })
+            .collect()
+    });
 
     if opts.svg {
         let expr: Expr<_> = combine_exprs(prog).into();
@@ -111,17 +129,40 @@ fn main() {
             let initial_expr: RecExpr<_> = combine_exprs(prog.clone());
             let initial_cost = AstSize.cost_rec(&initial_expr);
 
-            println!("Initial expression (cost {}):", initial_cost);
+            println!("Training expression (cost {}):", initial_cost);
             println!("{}", Pretty(&Expr::from(initial_expr.clone())));
             println!();
+
+            // If test expressions are specified, print them too:
+            if let Some(test_prog) = test_prog.clone() {
+                let test_expr: RecExpr<_> = combine_exprs(test_prog);
+                let test_cost = AstSize.cost_rec(&test_expr);
+                println!("Test expression (cost {}):", test_cost);
+                println!("{}", Pretty(&Expr::from(test_expr.clone())));
+                println!();
+            }
         }
+
+        // If dsr file is specified, read it:
+        let dsrs = if let Some(dsr_path) = opts.dsr {
+            match rewrites::from_file(dsr_path) {
+                Ok(dsrs) => dsrs,
+                Err(e) => {
+                    eprintln!("Error reading dsr file: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        } else {
+            vec![]
+        };
 
         let exps = Experiments::gen(
             prog,
-            vec![],
+            test_prog.unwrap_or_default(),
+            dsrs,
             opts.beams.clone(),
             opts.lps.clone(),
-            opts.rounds.clone(),
+            opts.rounds,
             opts.extra_por.clone(),
             vec![],
             (),
@@ -130,6 +171,6 @@ fn main() {
         );
 
         println!("running...");
-        exps.run("target/res_drawing.csv");
+        exps.run("harness/data_gen/res_drawing.csv");
     }
 }

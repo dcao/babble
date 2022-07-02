@@ -7,13 +7,43 @@ pub mod ilp;
 
 use std::collections::HashMap;
 
-use egg::{Id, Language, RecExpr};
+use egg::{Analysis, EGraph, Id, Language, RecExpr, Rewrite, Runner};
 
 use crate::{
-    ast_node::{AstNode, Expr},
+    ast_node::{Arity, AstNode, Expr},
     learn::LibId,
     teachable::{BindingExpr, Teachable},
 };
+
+/// Given an `egraph` that contains the original expression at `roots`,
+/// and a set of library `rewrites`, extract the programs rewritten using the library.
+pub fn apply_libs<Op, A>(
+    egraph: EGraph<AstNode<Op>, A>,
+    roots: &[Id],
+    rewrites: &[Rewrite<AstNode<Op>, A>],
+) -> RecExpr<AstNode<Op>>
+where
+    Op: Clone
+        + Teachable
+        + Ord
+        + std::fmt::Debug
+        + std::fmt::Display
+        + std::hash::Hash
+        + Arity
+        + Send
+        + Sync,
+    A: Analysis<AstNode<Op>> + Default + Clone,
+{
+    let mut fin = Runner::<_, _, ()>::new(Default::default())
+        .with_egraph(egraph)
+        .run(rewrites.iter())
+        .egraph;
+    let root = fin.add(AstNode::new(Op::list(), roots.iter().copied()));
+
+    let mut extractor = beam::LibExtractor::new(&fin);
+    let best = extractor.best(root);
+    lift_libs(best)
+}
 
 /// Lifts libs
 pub fn lift_libs<Op>(expr: RecExpr<AstNode<Op>>) -> RecExpr<AstNode<Op>>

@@ -1,0 +1,14 @@
+map_id_l: (@ (@ map (lambda $0)) ?xs) => ?xs
+length_range_l: (@ length (@ range ?xs)) => ?xs
+length_empty_l: (@ length empty) => 0
+sub_zero_l: (@ (@ - ?n) 0) => ?n
+add_n_zero_l: (@ (@ + ?n) 0) => ?n
+add_zero_n_l: (@ (@ + 0) ?n) => ?n
+sub_n_n: (@ (@ - ?n) ?n) => 0
+sub_add: (@ (@ - (@ (@ + ?n) ?m)) ?m) => ?n
+add_sub: (@ (@ + (@ (@ - ?n) ?m)) ?m) => ?n
+index_car_l: (@ (@ index 0) ?xs) => (@ car ?xs)
+index_car_r: (@ car ?xs) => (@ (@ index 0) ?xs)
+car_cons: (@ car (@ (@ cons ?x) ?xs)) => ?x
+cdr_cons: (@ cdr (@ (@ cons ?x) ?xs)) => ?xs
+eq_commute: (@ (@ eq? ?x) ?y) => (@ (@ eq? ?y) ?x)

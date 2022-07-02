@@ -63,7 +63,10 @@ where
     let mut rewrites = Vec::new();
     for line in file
         .lines()
-        .map(|line| line.trim())
+        .map(|line| {
+            let line = line.split_once("//").map_or(line, |(line, _comment)| line);
+            line.trim()
+        })
         .filter(|line| !line.is_empty())
     {
         let (name, rewrite) = line.split_once(':').ok_or(anyhow!("missing colon"))?;
