@@ -75,6 +75,10 @@ struct Opts {
     #[clap(long, default_value_t = 1)]
     rounds: usize,
 
+    /// The number of programs to use
+    #[clap(long)]
+    limit: Option<usize>,
+
     /// Whether to use the additional partial order reduction step
     #[clap(long)]
     extra_por: Vec<bool>,
@@ -165,7 +169,7 @@ fn main() {
         .expect("Error reading input");
 
     // Parse a list of exprs
-    let prog: Vec<Expr<Drawing>> = Program::parse(&input)
+    let mut prog: Vec<Expr<Drawing>> = Program::parse(&input)
         .expect("Failed to parse training set")
         .0
         .into_iter()
@@ -174,6 +178,12 @@ fn main() {
                 .expect("Training input is not a valid list of expressions")
         }) // Vec<Sexp> -> Vec<Expr>
         .collect();
+
+    if let Some(limit) = opts.limit {
+        if limit < prog.len() {
+            prog.truncate(limit);
+        }
+    }
 
     // If test file is specified, parse it as a list of exprs:
     let test_prog: Option<Vec<Expr<Drawing>>> = opts.test_file.map(|f| {

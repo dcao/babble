@@ -65,10 +65,11 @@ struct Iteration {
     file: String,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct Compression {
     initial_size: usize,
     final_size: usize,
+    run_time: f32,
 }
 
 impl Compression {
@@ -86,6 +87,7 @@ impl<'a, Op> From<&'a Summary<Op>> for Compression {
         Self {
             initial_size: summary.initial_cost,
             final_size: summary.final_cost,
+            run_time: summary.run_time.as_secs_f32(),
         }
     }
 }
@@ -98,6 +100,7 @@ impl<'a, Op> From<&'a Option<Summary<Op>>> for Compression {
                 .map(|x| x.initial_cost)
                 .unwrap_or_else(|| 1),
             final_size: summary.as_ref().map(|x| x.final_cost).unwrap_or_else(|| 1),
+            run_time: summary.as_ref().map(|x| x.run_time.as_secs_f32()).unwrap_or_else(|| 0.0),
         }
     }
 }
@@ -355,12 +358,19 @@ fn plot_raw_data(results: &[BenchResults]) -> anyhow::Result<()> {
         "benchmark",
         "initial",
         "dc",
+        "dc time",
         "first eqsat",
+        "first eqsat time",
         "all eqsat",
+        "all eqsat time",
         "first none",
+        "first none time",
         "first dsrs",
+        "first dsrs time",
         "all none",
+        "all none time",
         "all dsrs",
+        "all dsrs time",
     ))?;
 
     let dc_results = get_dc_results()?;
@@ -377,36 +387,67 @@ fn plot_raw_data(results: &[BenchResults]) -> anyhow::Result<()> {
             format!("{}_{}/{}", result.domain, result.benchmark, result.file),
             dc_compression.initial_size,
             dc_compression.final_size,
+            dc_compression.run_time,
             result
                 .summary_first_eqsat
                 .as_ref()
                 .map(|x| x.final_cost)
                 .unwrap_or_else(|| 0),
             result
+                .summary_first_eqsat
+                .as_ref()
+                .map(|x| x.run_time.as_secs_f32())
+                .unwrap_or_else(|| 0.0),
+            result
                 .summary_all_eqsat
                 .as_ref()
                 .map(|x| x.final_cost)
                 .unwrap_or_else(|| 0),
+            result
+                .summary_all_eqsat
+                .as_ref()
+                .map(|x| x.run_time.as_secs_f32())
+                .unwrap_or_else(|| 0.0),
             result
                 .summary_first_none
                 .as_ref()
                 .map(|x| x.final_cost)
                 .unwrap_or_else(|| 0),
             result
+                .summary_first_none
+                .as_ref()
+                .map(|x| x.run_time.as_secs_f32())
+                .unwrap_or_else(|| 0.0),
+            result
                 .summary_first_dsrs
                 .as_ref()
                 .map(|x| x.final_cost)
                 .unwrap_or_else(|| 0),
+            result
+                .summary_first_dsrs
+                .as_ref()
+                .map(|x| x.run_time.as_secs_f32())
+                .unwrap_or_else(|| 0.0),
             result
                 .summary_all_none
                 .as_ref()
                 .map(|x| x.final_cost)
                 .unwrap_or_else(|| 0),
             result
+                .summary_all_none
+                .as_ref()
+                .map(|x| x.run_time.as_secs_f32())
+                .unwrap_or_else(|| 0.0),
+            result
                 .summary_all_dsrs
                 .as_ref()
                 .map(|x| x.final_cost)
                 .unwrap_or_else(|| 0),
+            result
+                .summary_all_dsrs
+                .as_ref()
+                .map(|x| x.run_time.as_secs_f32())
+                .unwrap_or_else(|| 0.0),
         ))?;
     }
 
@@ -537,6 +578,7 @@ fn get_dc_results() -> anyhow::Result<HashMap<Iteration, Compression>> {
         let file = record[1].to_string();
         let initial_size: usize = record[2].parse()?;
         let final_size: usize = record[3].parse()?;
+        let run_time: f32 = record[4].parse()?;
 
         dc_results.insert(
             Iteration {
@@ -547,6 +589,7 @@ fn get_dc_results() -> anyhow::Result<HashMap<Iteration, Compression>> {
             Compression {
                 initial_size,
                 final_size,
+                run_time,
             },
         );
     }
