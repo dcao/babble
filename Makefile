@@ -33,3 +33,22 @@ bench:
 	cargo bench --workspace --all-targets
 
 .PHONY: all check fmt check-fmt clippy doc build test bench
+
+
+### plots
+
+define CSVS
+	harness/data_gen/list-beam-400-lps-1-rounds-20.csv
+    harness/data_gen/physics-beam-400-lps-1-rounds-20.csv
+endef
+
+PDFS = $(patsubst harness/data_gen/%.csv,harness/plots/%.pdf,$(CSVS))
+
+.PHONY: plots
+plots: $(PDFS)
+
+harness/plots/%.pdf: harness/scripts/plot-lines.py harness/data_gen/%.csv
+	$^ $@
+
+
+
