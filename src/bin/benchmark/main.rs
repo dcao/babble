@@ -578,7 +578,7 @@ fn get_dc_results() -> anyhow::Result<HashMap<Iteration, Compression>> {
         let file = record[1].to_string();
         let initial_size: usize = record[2].parse()?;
         let final_size: usize = record[3].parse()?;
-        let run_time: f32 = record[4].parse()?;
+        let run_time: f32 = record[5].parse()?;
 
         dc_results.insert(
             Iteration {
