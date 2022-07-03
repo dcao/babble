@@ -250,6 +250,11 @@ where
         // exclude any antiunifications that would come from looping sequences
         // of rules.
         self.aus_by_state.insert(*state, BTreeSet::new());
+
+        if !self.co_occurrences.may_co_occur(state.0, state.1) {
+            return;
+        }
+
         let mut aus: BTreeSet<PartialExpr<Op, (Id, Id)>> = BTreeSet::new();
 
         let mut same = false;
@@ -297,7 +302,7 @@ where
 
         if aus.is_empty() {
             aus.insert(PartialExpr::Hole(state.clone()));
-        } else if self.co_occurrences.may_co_occur(state.0, state.1) {
+        } else {
             // If the two e-classes cannot co-occur in the same program, do not produce an AU for them!
             // We filter out the anti-unifications which are just concrete
             // expressions with no variables, and then convert the contained
