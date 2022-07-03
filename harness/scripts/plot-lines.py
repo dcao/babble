@@ -31,7 +31,10 @@ def plot_lines(data, keys, sort=False):
         plt.plot(xs, ys, label=label, linestyle=line)
         plt.xlabel('number of benchmarks')
         plt.ylabel('with compression ratio at least')
-        xticks = list(range(0, len(data), 5)) + [len(data)]
+        xticks = list(range(0, len(data), 5))
+        if abs(xticks[-1] - len(data)) <= 2:
+            xticks.pop()
+        xticks.append(len(data))
         xticks[0] = 1
         plt.xticks(xticks, xticks)
         # ax = plt.gca()
@@ -67,6 +70,6 @@ if __name__ == "__main__":
 
     # plt.ylim((0.9, None))
     plt.legend()
-    plt.savefig(output)
+    plt.savefig(output, bbox_inches="tight")
 
     print(list(data[0].keys()))

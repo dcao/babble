@@ -26,7 +26,10 @@ use std::{
     collections::{BTreeMap, HashMap},
     fs,
     path::{Path, PathBuf},
+    sync::Mutex,
 };
+
+use rayon::prelude::*;
 
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Clap)]
@@ -44,12 +47,16 @@ struct Opts {
 
     #[clap(long)]
     cache: Option<PathBuf>,
+
+    /// File to dump the raw costs into
+    #[clap(long, short)]
+    output: PathBuf,
 }
 const BENCHMARK_PATH: &str = "harness/data/dreamcoder-benchmarks/benches";
 const DSR_PATH: &str = "harness/data/benchmark-dsrs";
 const BEAM_SIZE: usize = 400;
-const LPS: usize = 12;
-const ROUNDS: usize = 1;
+const LPS: usize = 1;
+const ROUNDS: usize = 20;
 const MAX_ARITY: Option<usize> = Some(3);
 
 #[derive(Debug)]
@@ -100,7 +107,10 @@ impl<'a, Op> From<&'a Option<Summary<Op>>> for Compression {
                 .map(|x| x.initial_cost)
                 .unwrap_or_else(|| 1),
             final_size: summary.as_ref().map(|x| x.final_cost).unwrap_or_else(|| 1),
-            run_time: summary.as_ref().map(|x| x.run_time.as_secs_f32()).unwrap_or_else(|| 0.0),
+            run_time: summary
+                .as_ref()
+                .map(|x| x.run_time.as_secs_f32())
+                .unwrap_or_else(|| 0.0),
         }
     }
 }
@@ -122,13 +132,16 @@ fn main() -> anyhow::Result<()> {
     env_logger::init();
     let opts: Opts = Opts::parse();
 
-    let mut cache = opts
+    let cache = opts
         .cache
+        .clone()
         .map_or_else(ExperimentCache::new, ExperimentCache::from_dir)?;
 
     println!("using cache: {}", cache.path().to_str().unwrap());
 
-    let benchmark_path = opts.file.unwrap_or(PathBuf::from(BENCHMARK_PATH));
+    let cache = Mutex::new(cache);
+
+    let benchmark_path = opts.file.clone().unwrap_or(PathBuf::from(BENCHMARK_PATH));
 
     let mut benchmark_dirs = Vec::new();
     for entry in fs::read_dir(&benchmark_path)? {
@@ -157,24 +170,22 @@ fn main() -> anyhow::Result<()> {
     }
 
     if let Some(domain) = &opts.domain {
-        run_domain(domain, &domains[domain.as_str()], &mut cache)?;
+        run_domain(domain, &opts, &domains[domain.as_str()], &cache)?;
     } else {
         for (domain, benchmarks) in domains {
-            run_domain(domain, &benchmarks, &mut cache)?;
+            run_domain(domain, &opts, &benchmarks, &cache)?;
         }
     }
 
     Ok(())
 }
 
-fn run_domain<'a, I>(
-    domain: &'a str,
-    benchmarks: I,
-    cache: &mut ExperimentCache<DreamCoderOp>,
-) -> anyhow::Result<()>
-where
-    I: IntoIterator<Item = &'a Benchmark<'a>>,
-{
+fn run_domain(
+    domain: &str,
+    opts: &Opts,
+    benchmarks: &[Benchmark<'_>],
+    cache: &Mutex<ExperimentCache<DreamCoderOp>>,
+) -> anyhow::Result<()> {
     let mut results = Vec::new();
 
     println!("domain: {}", domain);
@@ -195,82 +206,35 @@ where
             }
         }
 
-        inputs.sort_unstable();
+        inputs.sort();
 
-        for input in &inputs {
-            let file = input.file_name().unwrap().to_str().unwrap();
+        let these_results = inputs
+            .par_iter()
+            .map(|input| {
+                let file = input.file_name().unwrap().to_str().unwrap();
 
-            println!("    file: {}", file);
+                println!("    file: {}", file);
 
-            let mut summaries = BTreeMap::new();
+                let mut summaries = BTreeMap::new();
 
-            let input = fs::read_to_string(input)?;
-            let input: CompressionInput = serde_json::from_str(&input)?;
+                let input = fs::read_to_string(input).unwrap();
+                let input: CompressionInput = serde_json::from_str(&input).unwrap();
 
-            for use_all in [false] {
-                // eqsat!
-                if false {
-                    let experiment_id = format!(
-                        "{}-{}-{}-{}-eqsat",
-                        &domain,
-                        &benchmark.name,
-                        file.strip_suffix(".json").unwrap(),
-                        if use_all { "all" } else { "first" },
-                    );
-
-                    println!(
-                        "      experiment{}: {}",
-                        if cache.contains(&experiment_id) {
-                            " [cached]"
-                        } else {
-                            ""
-                        },
-                        experiment_id
-                    );
-
-                    let program_groups: Vec<Vec<Expr<_>>> = input
-                        .frontiers
-                        .iter()
-                        .cloned()
-                        .map(|frontier| -> Vec<Expr<DreamCoderOp>> {
-                            let programs = frontier
-                                .programs
-                                .into_iter()
-                                .map(|program| program.program.into());
-
-                            if use_all {
-                                programs.collect()
-                            } else {
-                                programs.take(1).collect()
-                            }
-                        })
-                        .collect();
-
-                    let experiment = Rounds::new(1, EqsatExperiment::new(rewrites.clone(), ()));
-
-                    let summary = cache.get_or_insert_with(&experiment_id, || {
-                        experiment.run_multi_summary(program_groups)
-                    })?;
-
-                    summaries.insert((use_all, true, false, true), summary);
-                }
-
-                for use_dsrs in [false] {
-                    for (lps, rounds) in [(LPS, ROUNDS)] {
+                for use_all in [true] {
+                    // eqsat!
+                    if true {
                         let experiment_id = format!(
-                            "{}-{}-{}-{}-{}-{}lps-{}rounds",
+                            "{}-{}-{}-{}-eqsat",
                             &domain,
                             &benchmark.name,
                             file.strip_suffix(".json").unwrap(),
                             if use_all { "all" } else { "first" },
-                            if use_dsrs { "dsrs" } else { "none" },
-                            lps,
-                            rounds
                         );
 
+                        let mut locked_cache = cache.lock().unwrap();
                         println!(
                             "      experiment{}: {}",
-                            if cache.contains(&experiment_id) {
+                            if locked_cache.contains(&experiment_id) {
                                 " [cached]"
                             } else {
                                 ""
@@ -296,64 +260,137 @@ where
                             })
                             .collect();
 
-                        let experiment = Rounds::new(
-                            rounds,
-                            BeamExperiment::new(
-                                if use_dsrs { rewrites.clone() } else { vec![] },
-                                BEAM_SIZE,
-                                BEAM_SIZE,
+                        let experiment = Rounds::new(1, EqsatExperiment::new(rewrites.clone(), ()));
+
+                        let summary = if let Some(s) = locked_cache.get(&experiment_id).unwrap() {
+                            s
+                        } else {
+                            // drop the lock to run the experiment in parallel
+                            std::mem::drop(locked_cache);
+                            let s = experiment.run_multi_summary(program_groups);
+                            let mut locked_cache = cache.lock().unwrap();
+                            locked_cache
+                                .get_or_insert_with(&experiment_id, || s)
+                                .unwrap()
+                        };
+
+                        summaries.insert((use_all, true, false, true), summary);
+                    }
+
+                    for use_dsrs in [false, true] {
+                        if use_dsrs && rewrites.is_empty() {
+                            println!("Skipping use_dsrs, there aren't any...");
+                            continue;
+                        }
+                        for (lps, rounds) in [(LPS, ROUNDS)] {
+                            let experiment_id = format!(
+                                "{}-{}-{}-{}-{}-{}lps-{}rounds",
+                                &domain,
+                                &benchmark.name,
+                                file.strip_suffix(".json").unwrap(),
+                                if use_all { "all" } else { "first" },
+                                if use_dsrs { "dsrs" } else { "none" },
                                 lps,
-                                false,
-                                (),
-                                true,
-                                MAX_ARITY,
-                            ),
-                        );
+                                rounds
+                            );
 
-                        let summary = cache.get_or_insert_with(&experiment_id, || {
-                            experiment.run_multi_summary(program_groups)
-                        })?;
+                            let mut locked_cache = cache.lock().unwrap();
+                            println!(
+                                "      experiment{}: {}",
+                                if locked_cache.contains(&experiment_id) {
+                                    " [cached]"
+                                } else {
+                                    ""
+                                },
+                                experiment_id
+                            );
 
-                        println!(
-                            "        {} -> {} (r {:.3}), with {:>3} libs in {:>8.3}s",
-                            summary.initial_cost,
-                            summary.final_cost,
-                            summary.compression_ratio(),
-                            summary.num_libs,
-                            summary.run_time.as_secs_f32(),
-                        );
+                            let program_groups: Vec<Vec<Expr<_>>> = input
+                                .frontiers
+                                .iter()
+                                .cloned()
+                                .map(|frontier| -> Vec<Expr<DreamCoderOp>> {
+                                    let programs = frontier
+                                        .programs
+                                        .into_iter()
+                                        .map(|program| program.program.into());
 
-                        summaries.insert((use_all, use_dsrs, lps == 1, false), summary);
+                                    if use_all {
+                                        programs.collect()
+                                    } else {
+                                        programs.take(1).collect()
+                                    }
+                                })
+                                .collect();
+
+                            let experiment = Rounds::new(
+                                rounds,
+                                BeamExperiment::new(
+                                    if use_dsrs { rewrites.clone() } else { vec![] },
+                                    BEAM_SIZE,
+                                    BEAM_SIZE,
+                                    lps,
+                                    false,
+                                    (),
+                                    true,
+                                    MAX_ARITY,
+                                ),
+                            );
+
+                            let summary = if let Some(s) = locked_cache.get(&experiment_id).unwrap()
+                            {
+                                s
+                            } else {
+                                // drop the lock to run the experiment in parallel
+                                std::mem::drop(locked_cache);
+                                let s = experiment.run_multi_summary(program_groups);
+                                let mut locked_cache = cache.lock().unwrap();
+                                locked_cache
+                                    .get_or_insert_with(&experiment_id, || s)
+                                    .unwrap()
+                            };
+
+                            println!(
+                                "        {} -> {} (r {:.3}), with {:>3} libs in {:>8.3}s",
+                                summary.initial_cost,
+                                summary.final_cost,
+                                summary.compression_ratio(),
+                                summary.num_libs,
+                                summary.run_time.as_secs_f32(),
+                            );
+
+                            summaries.insert((use_all, use_dsrs, lps == 1, false), summary);
+                        }
                     }
                 }
-            }
 
-            let bench_results = BenchResults {
-                domain: domain.to_string(),
-                benchmark: benchmark.name.to_string(),
-                file: file.to_string(),
-                summary_first_eqsat: summaries.remove(&(false, true, false, true)),
-                summary_all_eqsat: summaries.remove(&(true, true, false, true)),
-                summary_first_none: summaries.remove(&(false, false, true, false)),
-                summary_all_none: summaries.remove(&(true, false, true, false)),
-                summary_first_dsrs: summaries.remove(&(false, true, true, false)),
-                summary_all_dsrs: summaries.remove(&(true, true, true, false)),
-            };
-
-            results.push(bench_results);
-        }
+                let bench_results = BenchResults {
+                    domain: domain.to_string(),
+                    benchmark: benchmark.name.to_string(),
+                    file: file.to_string(),
+                    summary_first_eqsat: summaries.remove(&(false, true, false, true)),
+                    summary_all_eqsat: summaries.remove(&(true, true, false, true)),
+                    summary_first_none: summaries.remove(&(false, false, true, false)),
+                    summary_all_none: summaries.remove(&(true, false, true, false)),
+                    summary_first_dsrs: summaries.remove(&(false, true, true, false)),
+                    summary_all_dsrs: summaries.remove(&(true, true, true, false)),
+                };
+                bench_results
+            })
+            .collect::<Vec<BenchResults>>();
+        results.extend(these_results);
     }
 
-    plot_raw_data(&results)?;
-    plot_costs(&results)?;
-    plot_dsr_impact(&results)?;
-    plot_compression(&results)?;
+    plot_raw_data(&results, opts)?;
+    // plot_costs(&results)?;
+    // plot_dsr_impact(&results)?;
+    // plot_compression(&results)?;
 
     Ok(())
 }
 
-fn plot_raw_data(results: &[BenchResults]) -> anyhow::Result<()> {
-    let mut csv_writer = csv::Writer::from_path("harness/data_gen/raw_costs.csv")?;
+fn plot_raw_data(results: &[BenchResults], opts: &Opts) -> anyhow::Result<()> {
+    let mut csv_writer = csv::Writer::from_path(&opts.output)?;
     csv_writer.serialize((
         "benchmark",
         "initial",

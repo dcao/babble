@@ -37,16 +37,16 @@ bench:
 
 ### plots
 
-define CSVS
-	harness/data_gen/list-beam-400-lps-1-rounds-20.csv
-    harness/data_gen/physics-beam-400-lps-1-rounds-20.csv
-endef
-
-PDFS = $(patsubst harness/data_gen/%.csv,harness/plots/%.pdf,$(CSVS))
+DOMAINS=list physics text logo origami towers
+PDFS = $(patsubst %,harness/plots/%.pdf,$(DOMAINS))
+CSVS = $(patsubst %,harness/data_gen/%.csv,$(DOMAINS))
+RUST_SRC = $(shell find src -name "*.rs")
 
 .PHONY: plots
 plots: $(PDFS)
 
+harness/data_gen/%.csv: $(RUST_SRC)
+	cargo run --bin=benchmark --release -- --domain=$* -o $@
 harness/plots/%.pdf: harness/scripts/plot-lines.py harness/data_gen/%.csv
 	$^ $@
 
