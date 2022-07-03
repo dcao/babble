@@ -223,6 +223,7 @@ fn main() {
 
         // Recombine and eval
         let fin = plumbing::combine(libs, new_progs);
+
         let value = eval::eval(&fin).expect(&format!("lib {} doesn't produce pictures", l));
         let picture = value
             .into_picture()

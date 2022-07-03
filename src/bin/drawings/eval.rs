@@ -97,7 +97,7 @@ impl<'a> Context<'a> {
             (Drawing::Empty, []) => Ok(Value::Shapes(vec![])),
             (&Drawing::Var(index), []) => Ok(self.get_index(index.0).clone()),
             (&Drawing::LibVar(name), []) => Ok(self.get_lib(name).clone()),
-            (Drawing::Lambda, [body]) => Ok(Value::Lambda(body)),
+            (Drawing::Lambda, [body]) => Ok(Value::Lambda(body, self.args.clone())),
             (Drawing::Transform, [expr, mat]) => {
                 let val = self.eval(expr)?;
                 match self.eval(mat) {
@@ -173,11 +173,17 @@ impl<'a> Context<'a> {
                 context.eval(body)
             }
             (Drawing::Apply, [fun, arg]) => {
-                let body = self.eval(fun)?.to_body()?;
-                let arg = self.eval(arg)?;
-                let context = self.clone().with_arg(arg);
-
-                context.eval(body)
+                if let Value::Lambda(body, mut args) = self.eval(fun)? {
+                    let arg = self.eval(arg)?;
+                    let mut context = self.clone();
+                    args.push(arg);
+                    context.args = args;
+                    context.eval(body)
+                } else {
+                    Err(TypeError {
+                        expected: "function".to_string(),
+                    })
+                }
             }
             (Drawing::Connect, exprs) => {
                 let mut shapes = Vec::with_capacity(exprs.len());
@@ -286,7 +292,8 @@ pub(crate) enum Value<'a> {
     /// A floating-point number
     Num(f64),
     /// A function and a reference to its body
-    Lambda(&'a Expr<Drawing>),
+    /// Also contains bound vars at this point
+    Lambda(&'a Expr<Drawing>, Vec<Value<'a>>),
     /// A collection of shapes
     Shapes(Vec<Shape>),
     Matrix(Entries),
@@ -342,21 +349,12 @@ impl BoundingBox {
     }
 }
 
-impl<'a> Value<'a> {
+impl Value<'_> {
     fn to_float(&self) -> Result<f64, TypeError> {
         match *self {
             Self::Num(f) => Ok(f),
             _ => Err(TypeError {
                 expected: "number".to_string(),
-            }),
-        }
-    }
-
-    fn to_body(&self) -> Result<&'a Expr<Drawing>, TypeError> {
-        match self {
-            Self::Lambda(node) => Ok(node),
-            _ => Err(TypeError {
-                expected: "function".to_string(),
             }),
         }
     }
