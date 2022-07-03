@@ -322,7 +322,7 @@ where
 /// These runs return a single RecExpr, but when running library learning multiple times in
 /// a row, we need to get the defined libs and individual expressions out from this single RecExpr;
 /// this is what the functions in this module are for.
-mod plumbing {
+pub mod plumbing {
     use std::collections::HashMap;
 
     use egg::{Id, Language, RecExpr};
@@ -337,10 +337,7 @@ mod plumbing {
     type LLRes<'a, Op> = &'a [AstNode<Op>];
 
     /// At the end of all rounds, combine libs hashmap, and list of exprs back into one big recexpr
-    pub(crate) fn combine<Op>(
-        libs: HashMap<LibId, Vec<AstNode<Op>>>,
-        exprs: Vec<Expr<Op>>,
-    ) -> Expr<Op>
+    pub fn combine<Op>(libs: HashMap<LibId, Vec<AstNode<Op>>>, exprs: Vec<Expr<Op>>) -> Expr<Op>
     where
         Op: Teachable + std::fmt::Debug + std::hash::Hash + Clone + Arity + Ord,
     {
@@ -364,7 +361,7 @@ mod plumbing {
     /// Gets all of the libs and their defns out of the result of a lib learning pass.
     /// We take into account the current number of libs defined so that we don't overwrite existing
     /// libs from previous runs.
-    pub(crate) fn libs<Op>(llr: LLRes<'_, Op>) -> HashMap<LibId, Vec<AstNode<Op>>>
+    pub fn libs<Op>(llr: LLRes<'_, Op>) -> HashMap<LibId, Vec<AstNode<Op>>>
     where
         Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
     {
@@ -425,7 +422,7 @@ mod plumbing {
     }
 
     /// Returns a list of rewritten expressions from the result of a lib learning pass.
-    pub(crate) fn exprs<Op>(llr: LLRes<'_, Op>) -> Vec<Expr<Op>>
+    pub fn exprs<Op>(llr: LLRes<'_, Op>) -> Vec<Expr<Op>>
     where
         Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
     {
@@ -533,7 +530,7 @@ where
 
 impl<Op, T: Experiment<Op>> Experiment<Op> for Rounds<Op, T>
 where
-    Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord,
+    Op: Printable + Teachable + Hash + Clone + Debug + Arity + Ord + Display,
 {
     /// The list of domain-specific rewrites used in this experiment.
     fn dsrs(&self) -> &[Rewrite<AstNode<Op>, PartialLibCost>] {
@@ -592,9 +589,19 @@ where
 
         let ll = libs.len();
 
+        let final_expr = plumbing::combine(libs, current_exprs);
+
+        // FIXME: make this more robust or smth idk lmao
+        // Print out the raw recexpr of the results to a file
+        std::fs::write(
+            "target/rec_expr",
+            format!("{}", RecExpr::from(final_expr.clone()).pretty(100)),
+        )
+        .unwrap();
+
         // Combine back into one big recexpr at the end
         ExperimentResult {
-            final_expr: plumbing::combine(libs, current_exprs),
+            final_expr,
             num_libs: ll,
             rewrites: current_rewrites,
         }
@@ -631,7 +638,7 @@ where
                 compression,
                 libs.len(),
                 start.elapsed(),
-                );
+            );
 
             log::info!(
                 "round {}/{} results: {}/{} (r {})",
@@ -640,7 +647,7 @@ where
                 inter_cost,
                 initial_cost,
                 compression
-                );
+            );
 
             log::debug!("{}", Pretty(&inter_expr));
         }

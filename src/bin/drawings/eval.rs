@@ -169,12 +169,14 @@ impl<'a> Context<'a> {
             (&Drawing::Lib(name), [bound_value, body]) => {
                 let bound_value = self.eval(bound_value)?;
                 let context = self.clone().with_lib(name, bound_value);
+
                 context.eval(body)
             }
             (Drawing::Apply, [fun, arg]) => {
                 let body = self.eval(fun)?.to_body()?;
                 let arg = self.eval(arg)?;
                 let context = self.clone().with_arg(arg);
+
                 context.eval(body)
             }
             (Drawing::Connect, exprs) => {

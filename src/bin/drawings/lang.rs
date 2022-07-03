@@ -113,7 +113,7 @@ impl Display for Drawing {
             Self::Var(i) => write!(f, "{}", i),
             Self::Lambda => f.write_str("λ"),
             Self::LibVar(ix) => write!(f, "{}", ix),
-            Self::Lib(ix) => write!(f, "lib {}", ix),
+            Self::Lib(ix) => write!(f, "lib-{}", ix),
             Self::Apply => f.write_str("@"),
             Self::Shift => f.write_str("shift"),
             Self::List => f.write_str(":"),
@@ -168,13 +168,14 @@ impl FromStr for Drawing {
             "T" => Self::Transform,
             "repeat" => Self::Repeat,
             "C" => Self::Connect,
+            ":" => Self::List,
             _ => {
                 if let Ok(index) = s.parse::<DeBruijnIndex>() {
                     Self::Var(index)
                 } else if let Ok(lv) = s.parse::<LibId>() {
                     Self::LibVar(lv)
                 } else if let Ok(lv) = s
-                    .strip_prefix("lib ")
+                    .strip_prefix("lib-")
                     .ok_or(ParseLibIdError::NoLeadingL)
                     .and_then(|x| x.parse())
                 {
