@@ -31,6 +31,18 @@ def read_dict(filename):
             data.append(row)
     return data
 
+def read_list(filename):
+    data = []
+    with open(filename) as f:
+        for row in csv.reader(f):
+            for i, v in enumerate(row):
+                try:
+                    row[i] = float(v)
+                except Exception:
+                    pass
+            data.append(row)
+    return data
+
 def plot_scatter(data, **kwargs):
     xs = [r['initial cost'] / r['final cost'] for r in data]
     ys = [r['total time'] for r in data]
@@ -39,10 +51,10 @@ def plot_scatter(data, **kwargs):
 SRC_TIME = max(os.path.getmtime(f) for f in glob("src/**/*.rs", recursive=True))
 DC_DATA = read_dict("harness/data_gen/dc_res.csv")
 
-def get_data_wrapped(kwargs):
-    return get_data(**kwargs)
+def get_dc_data_wrapped(kwargs):
+    return get_dc_data(**kwargs)
 
-def get_data(
+def get_dc_data(
     domain, *, 
     beam_size=400, 
     lps=1,
@@ -68,19 +80,23 @@ def get_data(
     fname = outdir / fname
     cmd = f"cargo run --release --bin=benchmark -- {args} --output={fname}"
 
+    run_and_cache(cmd, fname)
+
+    data = read_dict(fname)
+    return data
+
+def run_and_cache(cmd, fname, *other_inputs):
     try:
         mtime = os.path.getmtime(fname)
     except FileNotFoundError:
         mtime = 0
         print(f"{fname} not present")
     
-    if mtime < SRC_TIME:
+    input_mtimes = [SRC_TIME] + [os.path.getmtime(f) for f in other_inputs]
+    if mtime < max(input_mtimes):
         subprocess.run(shlex.split(cmd))
     else:
         print(f"Cache hit on {fname}: {mtime} < {SRC_TIME}")
-    
-    data = read_dict(fname)
-    return data
 
 # foobar_list = { 
 #     # "Babble1first": dict(domain="physics", lps=1, rounds=20, beam_size=1, use_all=False),
@@ -109,7 +125,7 @@ def plot(domain, request, name=None):
         d["domain"] = domain
     
     with Pool() as p:
-        values = p.map(get_data_wrapped, data_params)
+        values = p.map(get_dc_data_wrapped, data_params)
 
     # markers = cycle("xo^v")
     for (params, data) in zip(plot_params, values):

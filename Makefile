@@ -32,7 +32,10 @@ test:
 bench:
 	cargo bench --workspace --all-targets
 
-.PHONY: all check fmt check-fmt clippy doc build test bench plots
+.PHONY: all check fmt check-fmt clippy doc build test bench plots cogsci-table
 
 plots: harness/scripts/plot.py
+	$^
+
+cogsci-table: harness/scripts/cogsci-table.py
 	$^

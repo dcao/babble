@@ -39,6 +39,10 @@ struct Opts {
     #[clap(parse(from_os_str))]
     file: Option<PathBuf>,
 
+    /// CSV path to output stuff to
+    #[clap(long, default_value = "harness/data_gen/res_drawing.csv")]
+    output: String,
+
     /// The file with test programs. If no file is specified, just compresses training data.
     #[clap(parse(from_os_str))]
     test_file: Option<PathBuf>,
@@ -234,7 +238,10 @@ fn main() {
         }
 
         // Hack to pretty print the fn
-        log::info!("{}", Pretty(&Expr::from(RecExpr::from(libs[&tgt.unwrap()].clone()))));
+        log::info!(
+            "{}",
+            Pretty(&Expr::from(RecExpr::from(libs[&tgt.unwrap()].clone())))
+        );
 
         // Recombine and eval
         let fin = plumbing::combine(libs, new_progs);
@@ -292,6 +299,6 @@ fn main() {
         );
 
         println!("running...");
-        exps.run("harness/data_gen/res_drawing.csv");
+        exps.run(&opts.output);
     }
 }
