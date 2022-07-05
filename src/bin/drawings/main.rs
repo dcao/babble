@@ -206,7 +206,7 @@ fn main() {
             }
         }
 
-        let expr: Expr<_> = combine_exprs(prog[20..=25].to_vec()).into();
+        let expr: Expr<_> = combine_exprs(prog).into();
         let value = eval::eval(&expr).expect("Failed to evaluate expression");
         let picture = value
             .into_picture()
