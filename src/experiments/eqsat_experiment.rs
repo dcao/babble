@@ -1,6 +1,5 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    fs::File,
     hash::Hash,
     time::{Duration, Instant},
 };

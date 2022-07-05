@@ -19,7 +19,7 @@ use babble::{
     rewrites,
     sexp::Program,
 };
-use clap::Clap;
+use clap::Parser;
 use egg::{AstSize, CostFunction, RecExpr};
 use std::{
     convert::TryInto,
@@ -32,7 +32,7 @@ mod eval;
 mod lang;
 mod svg;
 
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(version, author, about)]
 struct Opts {
     /// The file with training programs. If no file is specified, reads from stdin.

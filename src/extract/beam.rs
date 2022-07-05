@@ -119,7 +119,7 @@ impl CostSet {
                 match ls2.add_lib(lib, ls1, lps) {
                     None => continue,
                     Some(ls) => match set.binary_search(&ls) {
-                        Ok(pos) => (), // set.insert(pos, ls), // TODO: why did we used to insert it again?
+                        Ok(_pos) => (), // set.insert(pos, ls), // TODO: why did we used to insert it again?
                         Err(pos) => set.insert(pos, ls),
                     },
                 }
@@ -147,7 +147,7 @@ impl CostSet {
             panic!("extra_por unimplemented for new pruning");
         }
 
-        let mut old_set = std::mem::take(&mut self.set);
+        let old_set = std::mem::take(&mut self.set);
 
         // First, we create a table from # of libs to a list of LibSels
         let mut table: HashMap<usize, BinaryHeap<Reverse<LibSelFC>>> = HashMap::new();
@@ -171,7 +171,7 @@ impl CostSet {
         let mut set = Vec::new();
         let beams_per_size = std::cmp::max(1, n / lps);
 
-        for (sz, mut h) in table {
+        for (_sz, mut h) in table {
             // Take the first n items from the heap
             let mut i = 0;
             while i < beams_per_size {

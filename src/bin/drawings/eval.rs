@@ -18,6 +18,7 @@ impl<'a> Context<'a> {
         }
     }
 
+    #[allow(dead_code)]
     fn with_arg(mut self, value: Value<'a>) -> Self {
         self.args.push(value);
         self

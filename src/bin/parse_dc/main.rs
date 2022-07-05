@@ -18,20 +18,17 @@ use babble::{
         expr::DreamCoderOp,
         json::{CompressionInput, CompressionOutput, CompressionSummary},
     },
-    experiments::{cache::ExperimentCache, BeamExperiment, Experiment, Summary},
-    rewrites,
 };
-use clap::Clap;
+use clap::Parser;
 use egg::RecExpr;
-use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     fs,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(version, author, about)]
 struct Opts {
     /// The input directory. If none is specified, defaults to `"harness/data/dreamcoder-benchmarks/benches"`.

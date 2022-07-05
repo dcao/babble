@@ -4,11 +4,10 @@ use crate::{
     extract::beam::PartialLibCost,
     teachable::Teachable,
 };
-use egg::{RecExpr, Rewrite};
+use egg::Rewrite;
 use serde::ser::Serialize;
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    fs::File,
     hash::Hash,
     time::Duration,
 };
@@ -26,6 +25,7 @@ where
     timeout: u64,
     /// Any extra data associated with this experiment
     extra_data: Extra,
+    #[allow(dead_code)]
     /// Whether to learn "library functions" without any arguments.
     learn_constants: bool,
 }
@@ -68,7 +68,7 @@ where
     }
 
     #[cfg(not(feature = "grb"))]
-    fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
+    fn run(&self, _exprs: Vec<Expr<Op>>, _writer: &mut CsvWriter) -> ExperimentResult<Op> {
         unimplemented!("feature `grb` not enabled");
     }
 
@@ -221,7 +221,7 @@ where
         )
     }
 
-    fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> ExperimentResult<Op> {
+    fn run_multi(&self, _expr_groups: Vec<Vec<Expr<Op>>>) -> ExperimentResult<Op> {
         unimplemented!()
     }
 }

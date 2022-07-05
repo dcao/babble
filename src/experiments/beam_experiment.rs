@@ -31,6 +31,8 @@ where
     final_beams: usize,
     /// The inter beam size to use
     inter_beams: usize,
+    /// The number of times to apply library rewrites
+    lib_iter_limit: usize,
     /// The number of libs to learn at a time
     lps: usize,
     /// Whether to use the extra partial order reduction or not
@@ -66,6 +68,7 @@ where
         extra_data: Extra,
         learn_constants: bool,
         max_arity: Option<usize>,
+        lib_iter_limit: usize,
     ) -> Self
     where
         I: IntoIterator<Item = Rewrite<AstNode<Op>, PartialLibCost>>,
@@ -79,6 +82,7 @@ where
             extra_data,
             learn_constants,
             max_arity,
+            lib_iter_limit,
         }
     }
 
@@ -142,7 +146,7 @@ where
             self.extra_por,
         ))
         .with_egraph(aeg.clone())
-        .with_iter_limit(1)
+        .with_iter_limit(self.lib_iter_limit)
         .with_time_limit(timeout)
         .with_node_limit(1_000_000)
         .run(lib_rewrites.iter());

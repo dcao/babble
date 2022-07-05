@@ -19,7 +19,7 @@ use babble::{
     rewrites,
     sexp::Program,
 };
-use clap::Clap;
+use clap::Parser;
 use egg::{AstSize, CostFunction, RecExpr};
 use std::{
     convert::TryInto,
@@ -30,7 +30,7 @@ use std::{
 
 pub mod lang;
 
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(version, author, about)]
 struct Opts {
     /// The input file. If no file is specified, reads from stdin.

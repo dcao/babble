@@ -235,8 +235,8 @@ where
         exprs: Vec<Expr<Op>>,
         test_exprs: Vec<Expr<Op>>,
         dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
-        mut beams: Vec<usize>,
-        mut lpss: Vec<usize>,
+        beams: Vec<usize>,
+        lpss: Vec<usize>,
         rounds: usize,
         mut extra_pors: Vec<bool>,
         timeouts: Vec<u64>,
@@ -281,6 +281,7 @@ where
                         extra.clone(),
                         learn_constants,
                         max_arity,
+                        1,
                     );
                     let te = test_exprs.clone();
                     if !te.is_empty() {
@@ -500,7 +501,7 @@ pub mod plumbing {
         }
 
         // finally, add the root node and create the expression
-        let mut nodes: Vec<L> = set.into_iter().collect();
+        let nodes: Vec<L> = set.into_iter().collect();
         RecExpr::from(nodes)
     }
 }
@@ -909,7 +910,7 @@ where
         );
     }
 
-    fn run_multi(&self, expr_groups: Vec<Vec<Expr<Op>>>) -> ExperimentResult<Op> {
+    fn run_multi(&self, _expr_groups: Vec<Vec<Expr<Op>>>) -> ExperimentResult<Op> {
         unimplemented!()
     }
 }
