@@ -154,7 +154,7 @@ impl FromStr for Drawing {
             "-" => Self::Sub,
             "/" => Self::Div,
             "*" => Self::Mul,
-            "pow" => Self::Pow,
+            "pow" | "^" => Self::Pow,
             "max" => Self::Max,
             "sin" => Self::Sin,
             "cos" => Self::Cos,
