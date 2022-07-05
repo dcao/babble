@@ -57,27 +57,27 @@ def make_table(row_configs):
     with Pool() as p:
         results = p.map(lambda d: get_cogsci_row(**d), row_configs)
 
-    template = "{:30} & {:8} & {:8} & {:11} \\\\"
-    print(template.format("Benchmark", "Time", "\# Libs", "Compression"))
+    template = "{:30} & {:15} & {:15} & {:15} \\\\"
+    print(template.format("\\bf Benchmark", "\\bf Time (s)", "\\bf \# Libs", "\\bf Compression"))
     for conf, res in zip(row_configs, results):
-        row = "{:30} & {:8.2f} & {:8} & {:11.2f} \\\\"
+        row = "{:30} & {:15.2f} & {:15} & {:15.2f} \\\\"
         print(row.format(
               conf["name"], res["time"], res["num_libs"], res["compression"]))
 
 if __name__ == "__main__":
     make_table([
         dict(
-            name="Nuts and Bolts",
+            name="Nuts \& Bolts",
             input="harness/data/cogsci/nuts-bolts.bab",
             dsrs="harness/data/benchmark-dsrs/drawings.nuts.rewrites"
         ),
         dict(
-            name="Wheels",
+            name="Vehicles",
             input="harness/data/cogsci/wheels.bab",
             dsrs="harness/data/benchmark-dsrs/drawings.wheels.rewrites"
         ),
         dict(
-            name="Dials",
+            name="Gadgets",
             input="harness/data/cogsci/dials.bab",
             dsrs="harness/data/benchmark-dsrs/drawings.dials.rewrites"
         ),
