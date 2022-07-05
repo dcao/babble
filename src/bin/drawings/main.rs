@@ -200,7 +200,13 @@ fn main() {
     });
 
     if opts.svg {
-        let expr: Expr<_> = combine_exprs(prog).into();
+        if let Some(limit) = opts.limit {
+            if limit > prog.len() {
+                prog.truncate(limit);
+            }
+        }
+
+        let expr: Expr<_> = combine_exprs(prog[20..=25].to_vec()).into();
         let value = eval::eval(&expr).expect("Failed to evaluate expression");
         let picture = value
             .into_picture()
@@ -219,7 +225,16 @@ fn main() {
 
         // With the progs, find apps
         let tgt = Some(babble::learn::LibId(usize::from_str_radix(&l, 10).unwrap()));
-        let new_progs = find_apps(progs, tgt);
+        let mut new_progs = find_apps(progs, tgt);
+
+        if let Some(limit) = opts.limit {
+            if limit > prog.len() {
+                new_progs.truncate(limit);
+            }
+        }
+
+        // Hack to pretty print the fn
+        log::info!("{}", Pretty(&Expr::from(RecExpr::from(libs[&tgt.unwrap()].clone()))));
 
         // Recombine and eval
         let fin = plumbing::combine(libs, new_progs);

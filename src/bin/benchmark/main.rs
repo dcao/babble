@@ -54,10 +54,10 @@ struct Opts {
 }
 const BENCHMARK_PATH: &str = "harness/data/dreamcoder-benchmarks/benches";
 const DSR_PATH: &str = "harness/data/benchmark-dsrs";
-const BEAM_SIZE: usize = 400;
-const LPS: usize = 1;
+const BEAM_SIZE: usize = 100;
+const LPS: usize = 2;
 const ROUNDS: usize = 20;
-const MAX_ARITY: Option<usize> = Some(3);
+const MAX_ARITY: Option<usize> = Some(2);
 
 #[derive(Debug)]
 struct Benchmark<'a> {
