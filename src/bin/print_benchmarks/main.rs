@@ -15,14 +15,14 @@ use babble::{
     ast_node::{Expr, Pretty},
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
 };
-use clap::Clap;
+use clap::Parser;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     path::Path,
 };
 
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(version, author, about)]
 struct Opts {
     #[clap(long)]
@@ -50,7 +50,10 @@ fn main() -> anyhow::Result<()> {
     for benchmark_dir in &benchmark_dirs {
         let dir_name = benchmark_dir.file_name().unwrap().to_str().unwrap();
         let (domain, _benchmark_name) = dir_name.split_once('_').unwrap();
-        domains.entry(domain).or_default().push(benchmark_dir.as_path());
+        domains
+            .entry(domain)
+            .or_default()
+            .push(benchmark_dir.as_path());
     }
 
     if let Some(domain) = &opts.domain {

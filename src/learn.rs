@@ -389,6 +389,7 @@ fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> (PartialExpr<Op, Var>, usize)
     (normalized, metavars.len())
 }
 
+#[allow(dead_code)]
 fn patternize<Op>(au: &PartialExpr<Op, (Id, Id)>) -> Pattern<AstNode<Op>>
 where
     Op: Arity + Clone + Display + Ord + Send + Sync + 'static,

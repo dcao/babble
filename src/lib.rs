@@ -8,11 +8,9 @@
     anonymous_parameters,
     elided_lifetimes_in_paths,
     missing_copy_implementations,
-    missing_debug_implementations,
     trivial_casts,
     unreachable_pub,
-    unused_lifetimes,
-    missing_docs
+    unused_lifetimes
 )]
 #![allow(clippy::non_ascii_literal)]
 

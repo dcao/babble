@@ -111,6 +111,7 @@ pub enum DreamCoderOp {
 }
 
 impl DreamCoderOp {
+    #[allow(unreachable_code, unused_variables)]
     pub fn to_rewrite<A>(self) -> Option<Rewrite<AstNode<Self>, A>>
     where
         A: Analysis<AstNode<Self>>,

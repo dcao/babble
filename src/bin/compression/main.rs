@@ -17,7 +17,7 @@ use babble::{
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
     experiments::Experiments,
 };
-use clap::Clap;
+use clap::Parser;
 use egg::{AstSize, CostFunction, RecExpr};
 // use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::{
@@ -27,7 +27,7 @@ use std::{
 };
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Clap)]
+#[derive(Parser)]
 #[clap(version, author, about)]
 struct Opts {
     /// The input file. If no file is specified, reads from stdin.
