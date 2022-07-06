@@ -51,6 +51,14 @@ struct Opts {
     #[clap(long)]
     svg: bool,
 
+    /// If outputting an image - the images to display
+    #[clap(long, value_delimiter=',')]
+    select: Vec<usize>,
+
+    /// ix of program to start at
+    #[clap(long)]
+    start: Option<usize>,
+
     /// Evaluate the input file and output all evaluations of that lib
     #[clap(long)]
     eval_lib: Option<String>,
@@ -183,6 +191,10 @@ fn main() {
         }) // Vec<Sexp> -> Vec<Expr>
         .collect();
 
+    if let Some(start) = opts.start {
+        prog = prog[start..].to_vec();
+    }
+
     if let Some(limit) = opts.limit {
         if limit < prog.len() {
             prog.truncate(limit);
@@ -204,10 +216,15 @@ fn main() {
     });
 
     if opts.svg {
-        if let Some(limit) = opts.limit {
-            if limit > prog.len() {
-                prog.truncate(limit);
+        if !opts.select.is_empty() {
+            // Take from new_progs
+            let mut tmp_progs = vec![];
+
+            for n in opts.select {
+                tmp_progs.push(prog[n].clone());
             }
+
+            prog = tmp_progs;
         }
 
         let expr: Expr<_> = combine_exprs(prog).into();
@@ -230,6 +247,21 @@ fn main() {
         // With the progs, find apps
         let tgt = Some(babble::learn::LibId(usize::from_str_radix(&l, 10).unwrap()));
         let mut new_progs = find_apps(progs, tgt);
+
+        if !opts.select.is_empty() {
+            // Take from new_progs
+            let mut tmp_progs = vec![];
+
+            for n in opts.select {
+                tmp_progs.push(new_progs[n].clone());
+            }
+
+            new_progs = tmp_progs;
+        }
+
+        if let Some(start) = opts.start {
+            new_progs = new_progs[start..].to_vec();
+        }
 
         if let Some(limit) = opts.limit {
             if limit > prog.len() {

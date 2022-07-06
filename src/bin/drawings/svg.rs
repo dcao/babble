@@ -40,8 +40,9 @@ impl Picture {
             r#"
             svg {
               width: 100vmin;
-              height: 100vmin;
-              margin: 0 auto;
+              height: 85vmin;
+              margin: 0.5em auto;
+              padding: 0.5em;
             }
 
             circle, line {
