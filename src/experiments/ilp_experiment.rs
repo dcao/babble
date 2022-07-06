@@ -86,7 +86,7 @@ where
         let timeout = Duration::from_secs(self.timeout);
 
         // First, let's turn our list of exprs into a list of recexprs
-        let recexprs: Vec<RecExpr<AstNode<Op>>> =
+        let recexprs: Vec<egg::RecExpr<AstNode<Op>>> =
             exprs.clone().into_iter().map(|x| x.into()).collect();
 
         // Add one to account for root node, not added yet
