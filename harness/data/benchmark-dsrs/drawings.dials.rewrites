@@ -28,3 +28,12 @@ cf4: (* 12.5 (^ 0.5 0)) => 12.5
 // reroll new
 r3roll_2_x: (C (C ?a (T (T ?s (M 1 0 (- 0 ?x) ?y1)) (M 1 0 0 ?y2))) (T (T ?s (M 1 0 ?x ?y1)) (M 1 0 0 ?y2))) => (repeat (T ?s (M 1 0 (- 0 ?x) ?y1)) 2 (M 1 0 (* 2 ?x) ?y2))
 r3roll_3_x: (C (C (C ?a (T (T ?s (M 1 0 (- 0 ?x) ?y1)) (M 1 0 0 ?y2))) (T (T ?s (M 1 0 ?x ?y1)) (M 1 0 0 ?y2))) (T (T ?s (M 1 0 ?x ?y1)) (M 1 0 0 ?y2))) => (repeat (T ?s (M 1 0 (- 0 ?x) ?y1)) 3 (M 1 0 ?x ?y2))
+
+
+scale_1_c: c => (T c (M 1.0 0 0 0))        
+scale_1_l: l => (T l (M 1.0 0 0 0))
+scale_1_r: r => (T r (M 1.0 0 0 0))
+scale_1_r_s: (r_s ?w ?h) => (T (r_s ?w ?h) (M 1.0 0 0 0))
+scale_1_T: (T ?x ?m) => (T (T ?x ?m) (M 1.0 0 0 0))
+scale_1_C: (C ?x ?y) => (T (C ?x ?y) (M 1.0 0 0 0))
+scale_1_repeat: (repeat ?x ?n ?m) => (T (repeat ?x ?n ?m) (M 1.0 0 0 0))
