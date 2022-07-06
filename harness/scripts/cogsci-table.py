@@ -69,7 +69,7 @@ if __name__ == "__main__":
         dict(
             name="Nuts \& Bolts",
             input="harness/data/cogsci/nuts-bolts.bab",
-            dsrs="harness/data/benchmark-dsrs/drawings.nuts.rewrites"
+            dsrs="harness/data/benchmark-dsrs/drawings.nuts-bolts.rewrites"
         ),
         dict(
             name="Vehicles",
