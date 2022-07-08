@@ -49,6 +49,7 @@ def plot_scatter(data, **kwargs):
     plt.plot(xs, ys, lw=0, **kwargs)
 
 SRC_TIME = max(os.path.getmtime(f) for f in glob("src/**/*.rs", recursive=True))
+SRC_TIME = 0 # FIXME
 DC_DATA = read_dict("harness/data_gen/dc_res.csv")
 
 def get_dc_data_wrapped(kwargs):
@@ -143,19 +144,19 @@ if __name__ == "__main__":
 
     basic = [
         (dict(marker="x", color="blue", label="Babble"), dict()),
-        (dict(marker="o", color="orange", label="DreamCoder"), dict(mode="dc")),
+        (dict(marker="o", color="darkviolet", label="DreamCoder"), dict(mode="dc")),
     ]
 
     ablate = [
-        (dict(marker="^", color="green", label="AU only"), dict(mode="au")),
-        (dict(marker="v", color="red", label="EqSat only"), dict(mode="eqsat")),
+        (dict(marker="^", color="green", label="BabbleSyn"), dict(mode="au")),
+        (dict(marker="v", color="red", label="EqSat"), dict(mode="eqsat")),
     ]
 
     rounds = [
         (dict(marker="^", color="green", label="Babble r=2"), dict(rounds=2)),
         (dict(marker="v", color="red", label="Babble r=10"), dict(rounds=10)),
         (dict(marker="x", color="blue", label="Babble r=20"), dict(rounds=20)),
-        (dict(marker="o", color="orange", label="DreamCoder"), dict(mode="dc")),
+        (dict(marker="o", color="darkviolet", label="DreamCoder"), dict(mode="dc")),
     ]
 
     plot("list", basic + ablate)

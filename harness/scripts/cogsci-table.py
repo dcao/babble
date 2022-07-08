@@ -15,6 +15,7 @@ def get_cogsci_row(
     rounds=20,
     max_arity=2,
     dsrs=None,
+    **kwargs,
 ):
     args = f"{input} --beams={beam_size} --lps={lps} --rounds={rounds} --max-arity={max_arity}"
     dsr_inputs = []
@@ -59,96 +60,98 @@ def make_table(row_configs):
     with Pool() as p:
         results = p.map(lambda d: get_cogsci_row(**d), row_configs)
 
-    template = "{:30} & {:15} & {:15} & {:15} & {:10} & {:10} \\\\"
-    print(template.format("\\bf Benchmark", "\\bf Time (s)", "\\bf \# Libs", "\\bf Compression", "in", "out"))
-    for conf, res in zip(row_configs, results):
-        row = "{:30} & {:15.2f} & {:15} & {:15.2f} & {:10} & {:10} \\\\"
-        print(row.format(
-              conf["name"], res["time"], res["num_libs"], res["compression"], res["initial_cost"], res["final_cost"]))
+    # template = "{:30} & {:10} & {:10} & {:15} & {:15} \\\\"
+    # print(template.format(
+    #     "\\bf Benchmark", 
+    #     "\\bf Input Size", 
+    #     "\\bf Output Size",
+    #     "\\bf Compression", 
+    #     "\\bf Time (s)", 
+    # ))
+    # for conf, res in zip(row_configs, results):
+    #     row = "{:30} & {:10} & {:10} & {:10.2f} & {:10.2f} \\\\"
+    #     print(row.format(
+    #         conf["name"], 
+    #         res["initial_cost"], 
+    #         res["final_cost"],
+    #         res["compression"], 
+    #         res["time"], 
+    #     ))
 
-    made_legend = False
-    def bar3(a, b, c, **kwargs):
-        nonlocal made_legend
-        assert a >= b >= c
-        if not made_legend:
-            kwargs['label'] = 'Improvement without eqs'
-        plt.bar(height = a - b, bottom = b, width = 1,
-                color="orange", edgecolor="black", **kwargs)
-        if not made_legend:
-            kwargs['label'] = 'Additional improvement with eqs'
-        plt.bar(height = b - c, bottom = c, width = 1,
-                color="none", edgecolor="black", hatch="///", **kwargs)
-        made_legend = True
+    for i in range(0, len(results), 2):
 
-    ticks = []
-    labels = []
-    for i in range(0, len(results), 4):
-        ticks.append(i + 1)
-        labels.append(row_configs[i]['name'].replace('\\', ''))
+        with_dsrs = results[i]
+        without_dsrs = results[i + 1]
 
-        initial = results[i]['initial_cost']
-        final_no_dsr = results[i + 1]['final_cost']
-        final_dsr = results[i]['final_cost']
+        print("{:15} & {:10} & {:10} & {:10.2f} & {:10.2f} & {:10} & {:10.2f} & {:10.2f}".format(
+            row_configs[i]['name'],
+            without_dsrs['initial_cost'],
+            without_dsrs['final_cost'],
+            without_dsrs['compression'],
+            without_dsrs['time'],
+            with_dsrs['final_cost'],
+            with_dsrs['compression'],
+            with_dsrs['time'],
+        ))
 
-        bump = 0.3
-        bar3(initial, final_no_dsr, final_dsr, x = i + bump)
+        xs = [with_dsrs['compression'], without_dsrs['compression']]
+        ys = [with_dsrs['time'], without_dsrs['time']]
+        name = row_configs[i]['name'].replace('\\', '')
+        marker = row_configs[i]['marker']
+        color = row_configs[i]['color']
+        plt.plot(xs, ys, label=name, marker=marker, markerfacecolor='white', color=color)
+        plt.plot(xs[0], ys[0], marker=marker, color=color)
+        # x, dx = xs[0], xs[1] - xs[0]
+        # y, dy = ys[0], ys[1] - ys[0]
+        # # plt.arrow(x, y, dx, dy, label=name)
+        # plt.annotate("", 
+        # xy=(xs[0], ys[0]),
+        # xytext=(xs[1], ys[1]),
+        # arrowprops=dict(arrowstyle="->")
+        # )
 
-        # cleaned
-        initial = results[i + 2]['initial_cost']
-        final_dsr = results[i + 2]['final_cost']
-        final_no_dsr = results[i + 3]['final_cost']
-
-        bar3(initial, final_no_dsr, final_dsr, x = i + 2 - bump)
-
-    plt.xticks(ticks, labels)
+    plt.xlim((0, None))
+    plt.legend()
+    plt.xlabel('Compression Ratio')
+    plt.ylabel('Time (seconds)')
+    plt.savefig(f"harness/plots/cogsci-scatter.png")
+    plt.savefig(f"harness/plots/cogsci-scatter.pdf")
         
 if __name__ == "__main__":
     make_table([
         dict(
             name="Nuts \& Bolts",
             input="harness/data/cogsci/nuts-bolts.bab",
-            dsrs="harness/data/benchmark-dsrs/drawings.nuts-bolts.rewrites"
-        ),
-        dict(
-            name="Nuts \& Bolts clean",
-            input="harness/data/cogsci/nuts-bolts-cleaned.bab",
-            dsrs="harness/data/benchmark-dsrs/drawings.nuts-bolts.rewrites"
+            dsrs="harness/data/benchmark-dsrs/drawings.nuts-bolts.rewrites",
+            marker='o',
+            color='red',
         ),
         dict(
             name="Vehicles",
             input="harness/data/cogsci/wheels.bab",
-            dsrs="harness/data/benchmark-dsrs/drawings.wheels.rewrites"
-        ),
-        dict(
-            name="Vehicles clean",
-            input="harness/data/cogsci/wheels-cleaned.bab",
-            dsrs="harness/data/benchmark-dsrs/drawings.wheels.rewrites"
+            dsrs="harness/data/benchmark-dsrs/drawings.wheels.rewrites",
+            marker='s',
+            color='darkviolet',
         ),
         dict(
             name="Gadgets",
             input="harness/data/cogsci/dials.bab",
-            dsrs="harness/data/benchmark-dsrs/drawings.dials.rewrites"
-        ),
-        dict(
-            name="Gadgets clean",
-            input="harness/data/cogsci/dials-cleaned.bab",
-            dsrs="harness/data/benchmark-dsrs/drawings.dials.rewrites"
+            dsrs="harness/data/benchmark-dsrs/drawings.dials.rewrites",
+            marker='^',
+            color='blue',
         ),
         dict(
             name="Furniture",
             input="harness/data/cogsci/furniture.bab",
-            dsrs="harness/data/benchmark-dsrs/drawings.furniture.rewrites"
+            dsrs="harness/data/benchmark-dsrs/drawings.furniture.rewrites",
+            marker='v',
+            color='green',
         ),
         dict(
-            name="Furniture clean",
-            input="harness/data/cogsci/furniture-cleaned.bab",
-            dsrs="harness/data/benchmark-dsrs/drawings.furniture.rewrites"
+            name="Nuts \& Bolts (c)",
+            input="harness/data/cogsci/nuts-bolts-cleaned.bab",
+            dsrs="harness/data/benchmark-dsrs/drawings.nuts-bolts.rewrites",
+            marker='o',
+            color='red',
         ),
     ])
-
-    plt.legend()
-    plt.yscale('log')
-    plt.ylabel('AST size')
-    yticks = [1000, 3000, 10000, 30000, 100000]
-    plt.yticks(yticks, yticks)
-    plt.savefig('out.png', dpi=300)
