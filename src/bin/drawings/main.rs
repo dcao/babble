@@ -52,7 +52,7 @@ struct Opts {
     svg: bool,
 
     /// If outputting an image - the images to display
-    #[clap(long, value_delimiter=',')]
+    #[clap(long, value_delimiter = ',')]
     select: Vec<usize>,
 
     /// ix of program to start at
