@@ -32,10 +32,16 @@ test:
 bench:
 	cargo bench --workspace --all-targets
 
-.PHONY: all check fmt check-fmt clippy doc build test bench plots cogsci-table
+.PHONY: all check fmt check-fmt clippy doc build test bench plots plots-quick cogsci-table clean
 
 plots: harness/scripts/plot.py
 	$^
 
+plots-quick: harness/scripts/plot.py
+	$^ physics
+
 cogsci-table: harness/scripts/cogsci-table.py
 	$^
+
+clean:
+	rm -rf harness/data_gen/cache/

@@ -49,7 +49,7 @@ def plot_scatter(data, **kwargs):
     plt.plot(xs, ys, lw=0, **kwargs)
 
 SRC_TIME = max(os.path.getmtime(f) for f in glob("src/**/*.rs", recursive=True))
-SRC_TIME = 0 # FIXME
+# SRC_TIME = 0 
 DC_DATA = read_dict("harness/data_gen/dc_res.csv")
 
 def get_dc_data_wrapped(kwargs):
@@ -139,6 +139,8 @@ def plot(domain, request, name=None):
     plt.legend()
     plt.savefig(f"harness/plots/{name}.png")
     plt.savefig(f"harness/plots/{name}.pdf")
+    print(f"Wrote harness/plots/{name}.png")
+    print(f"Wrote harness/plots/{name}.pdf")
 
 if __name__ == "__main__":
 
@@ -158,6 +160,11 @@ if __name__ == "__main__":
         (dict(marker="x", color="blue", label="Babble r=20"), dict(rounds=20)),
         (dict(marker="o", color="darkviolet", label="DreamCoder"), dict(mode="dc")),
     ]
+
+    if len(sys.argv) == 2:
+        print("Plotting", sys.argv[1])
+        plot(sys.argv[1], basic)
+        sys.exit(0)
 
     plot("list", basic + ablate)
     plot("physics", basic + ablate)
