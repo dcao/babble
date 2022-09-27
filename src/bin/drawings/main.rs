@@ -76,11 +76,11 @@ struct Opts {
     max_arity: Option<usize>,
 
     /// The beam sizes to use for the beam extractor
-    #[clap(long)]
+    #[clap(long, default_value = "400")]
     beams: Vec<usize>,
 
     /// The number of libs to learn at a time
-    #[clap(long)]
+    #[clap(long, default_value = "1")]
     lps: Vec<usize>,
 
     /// The number of rounds of lib learning to run

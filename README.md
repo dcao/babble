@@ -1,5 +1,9 @@
 # Babble [![ci-status-badge]][ci-status] [![license-badge]][license]
 
+Looking for the POPL 23 artifact?
+Head to the [`POPL23.md` file](https://github.com/dcao/babble/blob/popl23/POPL23.md)
+on the `popl23` branch.
+
 [ci-status]: https://github.com/dcao/babble/actions/workflows/ci.yml?query=branch%3Amain
 [ci-status-badge]: https://img.shields.io/github/workflow/status/dcao/babble/CI?style=for-the-badge
 [license]: https://github.com/dcao/babble/blob/main/LICENSE
@@ -19,13 +23,13 @@ $ make
 Learning `filter`:
 
 ``` shellsession
-$ cargo run --bin=list -- examples/filter-list.bab
+$ cargo run --release --bin=list -- examples/filter-list.bab
 ```
 
 Learning nested functions:
 
 ``` shellsession
-$ cargo run --bin=smiley -- examples/nested-functions.bab
+$ cargo run --release --bin=smiley -- examples/nested-functions.bab
 ```
 
 ## How it works

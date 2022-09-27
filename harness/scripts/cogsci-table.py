@@ -116,6 +116,8 @@ def make_table(row_configs):
     plt.ylabel('Time (seconds)')
     plt.savefig(f"harness/plots/cogsci-scatter.png")
     plt.savefig(f"harness/plots/cogsci-scatter.pdf")
+    print(f"Wrote harness/plots/cogsci-scatter.png")
+    print(f"Wrote harness/plots/cogsci-scatter.pdf")
         
 if __name__ == "__main__":
     make_table([
@@ -148,7 +150,7 @@ if __name__ == "__main__":
             color='green',
         ),
         dict(
-            name="Nuts \& Bolts (c)",
+            name="Nuts \& Bolts (clean)",
             input="harness/data/cogsci/nuts-bolts-cleaned.bab",
             dsrs="harness/data/benchmark-dsrs/drawings.nuts-bolts.rewrites",
             marker='o',

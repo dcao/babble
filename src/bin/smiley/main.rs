@@ -54,7 +54,7 @@ struct Opts {
     no_dsr: bool,
 
     /// The beam sizes to use for the beam extractor
-    #[clap(long)]
+    #[clap(long, default_value = "400")]
     beams: Vec<usize>,
 
     /// The timeouts to use for the ILP extractor
@@ -62,7 +62,7 @@ struct Opts {
     timeout: Vec<u64>,
 
     /// The number of libs to learn at a time
-    #[clap(long)]
+    #[clap(long, default_value = "1")]
     lps: Vec<usize>,
 
     /// The number of rounds of lib learning to run

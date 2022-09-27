@@ -63,11 +63,28 @@ Those plots should look like those from Figure 11.
 
 # Running the evaluation
 
+## Figure 11: Babble vs Dreamcoder plots
+
 Run `make plots`. This takes about 10 minutes on a 6-core laptop.
+The plots are stored in `harness/plots` as both pdfs and pngs.
 
-## What is generated
+TODO explain plots
 
-TODO
+## Table 2: Babble on CogSci dataset
+
+Run `make cogsci-table`.
+This takes about 3-4 minutes on a 6-core laptop.
+This prints a latex formatted table that looks something like the following:
+
+```latex
+Nuts \& Bolts   &      19009 &       2059 &       9.23 &      27.89 &       1744 &      10.90 &      62.72
+Vehicles        &      35427 &       6477 &       5.47 &     113.45 &       5505 &       6.44 &     114.75
+Gadgets         &      35713 &       6798 &       5.25 &     108.22 &       5037 &       7.09 &     119.30
+Furniture       &      42936 &      10539 &       4.07 &     167.18 &       9417 &       4.56 &     146.73
+Nuts \& Bolts (clean) &      18259 &       2215 &       8.24 &      30.38 &       1744 &      10.47 &      66.06
+```
+
+It also writes the scatterplot from Figure 12 at `harness/plots/cogsci-scatter.{png,pdf}`
 
 # Guide to project structure
 
