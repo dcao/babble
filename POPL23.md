@@ -1,11 +1,16 @@
-# Babble POPL 2023 Artifact
+# `babble` POPL 2023 Artifact
 
 This is the artifact for paper #94, 
- "babble: Learning Better Abstractions with E-Graphs and Anti-Unification".
+ "`babble`: Learning Better Abstractions with E-Graphs and Anti-Unification".
 
 # Claims
 
-TODO
+This artifact validates the following quantitative claims.
+
+1. `babble` achieves better compression ratios than DreamCoder on the DreamCoder benchmarks,
+  and it does so much faster than DreamCoder. (Figure 11)
+2. `babble` acheives better compression when given domain-specific equivalences. (Figure 11)
+3. `babble` can compress the larger CogSci benchmark suite as claimed in Table 2.
 
 # Installation
 
@@ -13,7 +18,10 @@ TODO
 
 TODO
 
+Run `git pull` to ensure you have the latest version.
+
 ## Manual installation 
+
 Clone the project using the `--recursive` flag to get the submodules.
 
 ```bash
@@ -40,10 +48,13 @@ These are all preinstalled in the VM, but you can easily install them on your ow
     - numpy
 - GNU make
 
+# Running the evaluation
+
 ## Sanity check
 
-This is done automatically by the `Makefile`,
- but just check that everything is okay by building `babble`.
+Check that everything is okay by building `babble`,
+ this is done automatically by the `Makefile`,
+ but it's a quick way to check that things are working.
 This takes about 2 minutes.
 
 ```bash
@@ -61,14 +72,55 @@ Like `make plots`, it will print the names of the plots created under `harness/p
 Those plots should look like those from Figure 11.
 (Note that `make plots-quick` will omit some data, so the plot will re-scale).
 
-# Running the evaluation
 
 ## Figure 11: Babble vs Dreamcoder plots
 
 Run `make plots`. This takes about 10 minutes on a 6-core laptop.
 The plots are stored in `harness/plots` as both pdfs and pngs.
 
-TODO explain plots
+### Validate Claim 1
+
+Inspect the following plots the comprise Figure 11.
+These links will only be clickable after running `make plots`.
+
+- Fig 11a: [`harness/plots/list.png`](harness/plots/list.png)
+- Fig 11b: [`harness/plots/physics.png`](harness/plots/physics.png)
+- Fig 11c: [`harness/plots/text.png`](harness/plots/text.png)
+- Fig 11d: [`harness/plots/logo.png`](harness/plots/logo.png)
+- Fig 11e: [`harness/plots/towers.png`](harness/plots/towers.png)
+
+To validate claim 1, 
+ observe that `babble` (blue X) 
+ tends to be down (faster) 
+ and to the right (higher/better compression ratio)
+ than DreamCoder (purple O).
+
+The DreamCoder numbers are pulled from a log, 
+ and should be identical to those in the paper.
+The `babble` compression ratios should not vary,
+ but the time may depending on your machine.
+Regardless, it should be considerably faster than DreamCoder.
+
+### Validate Claim 2
+
+Inspect the following plots the comprise Figure 11.
+These links will only be clickable after running `make plots`.
+
+- Fig 11a: [`harness/plots/list.png`](harness/plots/list.png)
+- Fig 11b: [`harness/plots/physics.png`](harness/plots/physics.png)
+
+We only supplied domain-specific rewrites for the list and physics domains.
+
+"BabbleSyn" (green triangle) denotes 
+ `babble` without any domain-specific rewrites (it just does "syntactic" learning).
+Observe that BabbleSyn does not compress as well as `babble`, it's further left.
+
+"EqSat" (red triangle) denotes
+ just running equality saturation with the domain-specific rewrites, 
+ but not doing library learning.
+This baseline should run very quickly (low on the graph),
+ but achieve relatively little compression,
+ since it is not learning any abstractions.
 
 ## Table 2: Babble on CogSci dataset
 
@@ -84,7 +136,18 @@ Furniture       &      42936 &      10539 &       4.07 &     167.18 &       9417
 Nuts \& Bolts (clean) &      18259 &       2215 &       8.24 &      30.38 &       1744 &      10.47 &      66.06
 ```
 
-It also writes the scatterplot from Figure 12 at `harness/plots/cogsci-scatter.{png,pdf}`
+It also writes the scatterplot from Figure 12 at 
+[`harness/plots/cogsci-scatter.png`](harness/plots/cogsci-scatter.png)
+
+### Validate Claim 3
+
+Inspect the table printed by `make cogsci-table`. 
+You can freely re-run this command to regenerate the table,
+ the results will be cached after the first run.
+
+The columns are the same as those in the paper. 
+Confirm that this data is the same as that shown in the paper,
+ modulo small variation in the time columns depending on your machine.
 
 # Guide to project structure
 
