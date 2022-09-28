@@ -151,4 +151,16 @@ Confirm that this data is the same as that shown in the paper,
 
 # Guide to project structure
 
+The top level of the `babble` project folder contains several folders and files. Of the top-level files, one is of particular interest: the `Makefile` is used as the task runner for generating the various evaluation figures. Full usage of the `Makefile` to reproduce the evaluation results in the paper are detailed above. The `Makefile` also contains several commands to build the project, which are detailed in the file itself.
+
+The project has four top-level folders total. Two of these are somewhat auxiliary: the `babble-macros` folder is a Rust crate which defines a macro `rewrite_rules`, used during development for adding rewrite rules ad-hoc while running equality saturation, while the `examples` folder contains a list of `babble` examples used for testing and demo purposes (these examples aren't used for the actual evaluation in the `babble` paper).
+
+Outside of this, the main two sub-folders of interest are `src` and `harness`. `src`. `src` contains all the source code for `babble` itself, while `harness` contains the data needed to generate the evaluation, the generated files created in the process of generating the evaluation, and the scripts which generate the evaluation. We detail the structure of each of these parts of the `babble` project below.
+
+## `src`
+
+TODO
+
+## `harness`
+
 TODO
