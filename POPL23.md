@@ -9,7 +9,7 @@ This artifact validates the following quantitative claims.
 
 1. `babble` achieves better compression ratios than DreamCoder on the DreamCoder benchmarks,
   and it does so much faster than DreamCoder. (Figure 11)
-2. `babble` acheives better compression when given domain-specific equivalences. (Figure 11)
+2. `babble` achieves better compression when given domain-specific equivalences. (Figure 11)
 3. `babble` can compress the larger CogSci benchmark suite as claimed in Table 2.
 
 # Installation
