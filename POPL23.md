@@ -155,12 +155,30 @@ The top level of the `babble` project folder contains several folders and files.
 
 The project has four top-level folders total. Two of these are somewhat auxiliary: the `babble-macros` folder is a Rust crate which defines a macro `rewrite_rules`, used during development for adding rewrite rules ad-hoc while running equality saturation, while the `examples` folder contains a list of `babble` examples used for testing and demo purposes (these examples aren't used for the actual evaluation in the `babble` paper).
 
-Outside of this, the main two sub-folders of interest are `src` and `harness`. `src`. `src` contains all the source code for `babble` itself, while `harness` contains the data needed to generate the evaluation, the generated files created in the process of generating the evaluation, and the scripts which generate the evaluation. We detail the structure of each of these parts of the `babble` project below.
+Outside of this, the main two sub-folders of interest are `src` and `harness`. `src`. `src` contains all the source code for `babble` itself, while `harness` contains all evaluation-related files: the data needed to generate the evaluation, the generated files created in the process of generating the evaluation, and the scripts which generate the evaluation. We detail the structure of each of these parts of the `babble` project below.
 
 ## `src`
 
-TODO
+`src` contains the actual source code for the `babble` project. `babble` is structured as a library and a set of binaries. The library contains all of the core algorithms and ingredients needed to perform library learning over an arbitrary instance of an `egg` `Language` (e.g. implementations of e-graph anti-unification and beam extraction, etc.).
+
+`babble` also contains a set of binaries, located in the `bin` directory, used for testing and evaluation purposes. The `benchmark` and `compression` binaries are responsible for running `babble` on a single instance of the DreamCoder benchmarks and the 2D CAD benchmarks, respectively. These binaries define `egg` `Language`s corresponding to the input formats of the DreamCoder and 2D CAD domains. The `drawings`, `list`, and `smiley` binaries are responsible for running `babble` on other languages used for testing. Finally, the `parse_dc` and `print_benchmarks` binaries are strictly used for the `babble` paper evaluation; the former parses trace files from DreamCoder executions and reports execution time and compression, while `print_benchmarks` simply reports a list of DreamCoder benchmarks from a directory contain DreamCoder execution traces.
 
 ## `harness`
 
-TODO
+`harness` contains everything relevant to running the `babble` evaluation. This directory is divided into three parts:
+
+### `harness/data`
+
+The raw input data used for evaluating `babble`. This includes the DreamCoder benchmarks and trace executions (`dreamcoder-benchmarks`), the 2D CAD input dataset (`cogsci`), and the domain-specific rewrites used for each benchmark (`benchmark-dsrs`).
+
+### `harness/data_gen`
+
+Intermediate files generated from the raw input data, used for figure generation. This is where `babble` saves statistics about execution time and compression ratio, and this is where the `parse_dc` binary saves info from parsing DreamCoder evaluation traces (`harness/data_gen/dc_res.csv`).
+
+### `harness/plots`
+
+This generated directory is where plots for the evaluation are saved.
+
+### `harness/scripts`
+
+This directory contains the scripts used to orchestrate `babble` invocations and turn `babble` execution statistics into the evaluation figures seen in the paper. The two main scripts of interest are `plot.py`, used for generating Fig. 11, and `cogsci-table.py`, used for generating Table 2 and Fig. 12. Changing the experiments done for each of these scripts can be done by modifying the listed experiments at the bottom of each of these files.
