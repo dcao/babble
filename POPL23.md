@@ -3,6 +3,11 @@
 This is the artifact for paper #94, 
  "`babble`: Learning Better Abstractions with E-Graphs and Anti-Unification".
 
+The canonical source for this artifact 
+ is the [Github repo](https://github.com/dcao/babble/tree/popl23),
+ and an archival copy is on 
+ Zenodo with DOI: [10.5281/zenodo.7120897](https://zenodo.org/record/7120897).
+
 # Claims
 
 This artifact validates the following quantitative claims.
@@ -13,6 +18,17 @@ This artifact validates the following quantitative claims.
 3. `babble` can compress the larger CogSci benchmark suite as claimed in Table 2.
 
 # Installation
+
+The artifact requires 
+ relatively few dependencies if you'd prefer to run on your own machine.
+
+- Rust version > 1.63
+- Python > 3.8, including packages:
+    - matplotlib
+    - numpy
+- GNU make
+
+Alternatively, you can use the VM provided in the [Zenodo archival copy](https://zenodo.org/record/7120897).
 
 ## VM installation 
 
@@ -38,19 +54,9 @@ git submodule init
 git pull --recurse-submodules 
 ```
 
-### Requirements
-
-These are all preinstalled in the VM, but you can easily install them on your own machine.
-
-- Rust version 1.63
-- Python > 3.8
-    - matplotlib
-    - numpy
-- GNU make
-
 # Running the evaluation
 
-## Sanity check
+## Sanity check / Kick the tires
 
 Check that everything is okay by building `babble`,
  this is done automatically by the `Makefile`,
@@ -66,7 +72,7 @@ From the `babble` directory, then run:
 make plots-quick
 ```
 
-This runs a subset of the evaluation (just the `physics` benchmark).
+This runs a subset of the evaluation (a subset of the the `physics` benchmark).
 It runs in parallel, taking about 1.5 minutes on a 6-core laptop.
 Like `make plots`, it will print the names of the plots created under `harness/plots`.
 Those plots should look like those from Figure 11.
