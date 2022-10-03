@@ -28,15 +28,15 @@ The artifact requires
     - numpy
 - GNU make
 
-Alternatively, you can use the VM provided in the [Zenodo archival copy](https://zenodo.org/record/7120897).
 
-## VM installation 
-
-TODO
-
-Run `git pull` to ensure you have the latest version.
+The artifact will likely be easier and faster to run on your own
+ machine if you can install the above dependencies.
+Alternatively, you can use the VM provided in the [Zenodo archival copy](https://zenodo.org/record/7120897)
+ that has everything pre-installed.
 
 ## Manual installation 
+
+Install the above dependencies.
 
 Clone the project using the `--recursive` flag to get the submodules.
 
@@ -54,6 +54,31 @@ git submodule init
 git pull --recurse-submodules 
 ```
 
+## Using the VM
+
+The [Zenodo upload](https://zenodo.org/record/7120897)
+includes a virtual machine you may use to reproduce the artifact.
+
+The VM is shipped as a VirtualBox appliance (`.ova` file).
+First, [download](https://www.virtualbox.org/wiki/Downloads) VirtualBox 6 for your host machine.
+From VirtualBox, you can then import the appliance with `File > Import Appliance`.
+Make sure the VM settings are valid for your hardware (check memory, CPU cores etc. in `Settings > System`),
+and adjust accordingly if not.
+The VM comes with 8GB of memory allocated by default.
+Allocate as many cores as you can (up to n-2, where n is the number of cores on your machine),
+ as the eval uses significant parallelism.
+
+The VM is running Ubuntu 22.04, the user is `babble`, and the password is `popl23`.
+All necessary dependencies have already been installed,
+  and programs have been pre-compiled.
+This repository is already present at `~/babble`; navigate there in the terminal to proceed.
+You can perform a `git pull` from that directory to grab the latest version of this document.
+
+*NOTE*: 
+ Performance in the VM will likely be worse in both 
+ single-core and parallel performance,
+ so some times will be longer.
+
 # Running the evaluation
 
 ## Sanity check / Kick the tires
@@ -61,7 +86,7 @@ git pull --recurse-submodules
 Check that everything is okay by building `babble`,
  this is done automatically by the `Makefile`,
  but it's a quick way to check that things are working.
-This takes about 2 minutes.
+This takes about 2 minutes on a 6-core laptop.
 
 ```bash
 cargo build --release
