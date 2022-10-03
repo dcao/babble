@@ -64,7 +64,7 @@ First, [download](https://www.virtualbox.org/wiki/Downloads) VirtualBox 6 for yo
 From VirtualBox, you can then import the appliance with `File > Import Appliance`.
 Make sure the VM settings are valid for your hardware (check memory, CPU cores etc. in `Settings > System`),
 and adjust accordingly if not.
-The VM comes with 8GB of memory allocated by default.
+The VM comes with 8GB of memory and 6 CPU cores allocated by default.
 Allocate as many cores as you can (up to n-2, where n is the number of cores on your machine),
  as the eval uses significant parallelism.
 
