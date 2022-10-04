@@ -73,6 +73,10 @@ All necessary dependencies have already been installed,
   and programs have been pre-compiled.
 This repository is already present at `~/babble`; navigate there in the terminal to proceed.
 You can perform a `git pull` from that directory to grab the latest version of this document.
+Everything in the VM is "already run", i.e., 
+ the commands below **will only regenerate the plots**, 
+ not actually do any work.
+If you'd like to re-run the eval, run `make clean` first.
 
 *NOTE*: 
  Performance in the VM will likely be worse in both 
