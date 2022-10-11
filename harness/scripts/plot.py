@@ -95,6 +95,7 @@ def run_and_cache(cmd, fname, *other_inputs):
     
     input_mtimes = [SRC_TIME] + [os.path.getmtime(f) for f in other_inputs]
     if mtime < max(input_mtimes):
+        print(f"Running:\n  {cmd}")
         subprocess.run(shlex.split(cmd))
     else:
         print(f"Cache hit on {fname}: {mtime} < {SRC_TIME}")

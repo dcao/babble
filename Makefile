@@ -35,9 +35,11 @@ bench:
 .PHONY: all check fmt check-fmt clippy doc build test bench plots plots-quick cogsci-table clean
 
 plots: harness/scripts/plot.py
+	mkdir -p harness/plots
 	$^
 
 plots-quick: harness/scripts/plot.py
+	mkdir -p harness/plots
 	$^ physics
 
 cogsci-table: harness/scripts/cogsci-table.py
