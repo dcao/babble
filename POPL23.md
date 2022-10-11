@@ -6,7 +6,7 @@ This is the artifact for paper #94,
 The canonical source for this artifact 
  is the [Github repo](https://github.com/dcao/babble/tree/popl23),
  and an archival copy is on 
- Zenodo with DOI: [10.5281/zenodo.7120897](https://zenodo.org/record/7120897).
+ Zenodo with DOI: [10.5281/zenodo.7186946](https://zenodo.org/record/7186946).
 
 # Claims
 
@@ -31,7 +31,7 @@ The artifact requires
 
 The artifact will likely be easier and faster to run on your own
  machine if you can install the above dependencies.
-Alternatively, you can use the VM provided in the [Zenodo archival copy](https://zenodo.org/record/7120897)
+Alternatively, you can use the VM provided in the [Zenodo archival copy](https://zenodo.org/record/7186946)
  that has everything pre-installed.
 
 ## Manual installation 
@@ -56,7 +56,7 @@ git pull --recurse-submodules
 
 ## Using the VM
 
-The [Zenodo upload](https://zenodo.org/record/7120897)
+The [Zenodo upload](https://zenodo.org/record/7186946)
 includes a virtual machine you may use to reproduce the artifact.
 
 The VM is shipped as a VirtualBox appliance (`.ova` file).
