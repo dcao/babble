@@ -203,7 +203,7 @@ fn main() {
 
     // If test file is specified, parse it as a list of exprs:
     let test_prog: Option<Vec<Expr<Drawing>>> = opts.test_file.map(|f| {
-        let input = fs::read_to_string(&f).expect("Error reading test file");
+        let input = fs::read_to_string(f).expect("Error reading test file");
         Program::parse(&input)
             .expect("Failed to parse test set")
             .0
@@ -278,7 +278,8 @@ fn main() {
         // Recombine and eval
         let fin = plumbing::combine(libs, new_progs);
 
-        let value = eval::eval(&fin).expect(&format!("lib {} doesn't produce pictures", l));
+        let value =
+            eval::eval(&fin).unwrap_or_else(|_| panic!("{}", "lib {l} doesn't produce pictures"));
         let picture = value
             .into_picture()
             .expect("Result of evaluation is not a picture");
@@ -289,16 +290,16 @@ fn main() {
             let initial_expr: RecExpr<_> = combine_exprs(prog.clone());
             let initial_cost = AstSize.cost_rec(&initial_expr);
 
-            println!("Training expression (cost {}):", initial_cost);
-            println!("{}", Pretty(&Expr::from(initial_expr.clone())));
+            println!("Training expression (cost {initial_cost}):");
+            println!("{}", Pretty(&Expr::from(initial_expr)));
             println!();
 
             // If test expressions are specified, print them too:
             if let Some(test_prog) = test_prog.clone() {
                 let test_expr: RecExpr<_> = combine_exprs(test_prog);
                 let test_cost = AstSize.cost_rec(&test_expr);
-                println!("Test expression (cost {}):", test_cost);
-                println!("{}", Pretty(&Expr::from(test_expr.clone())));
+                println!("Test expression (cost {test_cost}):");
+                println!("{}", Pretty(&Expr::from(test_expr)));
                 println!();
             }
         }
@@ -308,7 +309,7 @@ fn main() {
             match rewrites::from_file(dsr_path) {
                 Ok(dsrs) => dsrs,
                 Err(e) => {
-                    eprintln!("Error reading dsr file: {}", e);
+                    eprintln!("Error reading dsr file: {e}");
                     std::process::exit(1);
                 }
             }

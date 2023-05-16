@@ -46,8 +46,8 @@ struct Opts {
 }
 const BENCHMARK_PATH: &str = "harness/data/dreamcoder-benchmarks/benches";
 
-/// A cost calculation for DreamCoder exprs, with a few modifications.
-/// In particular, when we have Inlined expressions (i.e. learned libs),
+/// A cost calculation for Dream&shy;Coder exprs, with a few modifications.
+/// In particular, when we have `Inlined` expressions (i.e. learned libs),
 /// we want to count their full cost, but only the first time they're seen,
 /// and only if the lib is newly learned (this is because when babble runs
 /// on inputs with Inlined exprs, it just treats them as exprs of size 1).
@@ -64,7 +64,7 @@ fn calc_cost(
     let mut q = vec![expr.len() - 1];
 
     while let Some(id) = q.pop() {
-        let id = usize::from(id);
+        let id = id;
         if let DreamCoderOp::Inlined(e) = &expr[id].operation() {
             if new_libs.contains(e) {
                 let re = RecExpr::from(*e.clone());
@@ -91,7 +91,7 @@ fn main() -> anyhow::Result<()> {
 
     let benchmark_path = opts.file.unwrap_or(PathBuf::from(BENCHMARK_PATH));
 
-    println!("using bench path: {:?}", benchmark_path);
+    println!("using bench path: {benchmark_path:?}");
 
     let mut benchmark_dirs = Vec::new();
     for entry in fs::read_dir(&benchmark_path)? {
@@ -125,7 +125,7 @@ fn main() -> anyhow::Result<()> {
     for benchmark_dir in &benchmark_dirs {
         let mut inputs = Vec::new();
 
-        for entry in fs::read_dir(&benchmark_dir)? {
+        for entry in fs::read_dir(benchmark_dir)? {
             let input_path = entry?.path();
             if fs::metadata(&input_path)?.is_file() {
                 inputs.push(input_path);
@@ -150,11 +150,11 @@ fn main() -> anyhow::Result<()> {
                 .unwrap()?
                 .path();
 
-            let output_path = out_path.join("raw").join(&name);
+            let output_path = out_path.join("raw").join(name);
             let output_str = std::fs::read_to_string(output_path)?;
             let output: CompressionOutput = serde_json::from_str(&output_str).unwrap();
 
-            let processed_path = out_path.join("processed").join(&name);
+            let processed_path = out_path.join("processed").join(name);
             let processed_str = std::fs::read_to_string(processed_path)?;
             let processed: CompressionSummary = serde_json::from_str(&processed_str).unwrap();
 
@@ -222,24 +222,23 @@ fn main() -> anyhow::Result<()> {
 
             // Write to our csv.
             let bench_name = benchmark_dir.file_name().unwrap();
+            let cost_ratio = (initial_cost as f64) / (final_cost as f64);
+            let total_time_seconds = processed.metrics.s_total;
+            let bench_time_seconds =
+                processed.metrics.ms_per_inv * (processed.num_inventions as f64) / 1000.0;
             println!(
-                "{:?}/{:?}:\t{:>4} -> {:>4} (r {:>6.3}) in {:>5.1}/{:>5.1}s",
-                bench_name,
-                name,
-                initial_cost,
-                final_cost,
-                initial_cost as f64 / final_cost as f64,
-                (processed.metrics.ms_per_inv * processed.num_inventions as f64) / 1000.0,
-                processed.metrics.s_total,
+                "{bench_name:?}/{name:?}:\t\
+                 {initial_cost:>4} -> {final_cost:>4} (r {cost_ratio:>6.3}) \
+                 in {bench_time_seconds:>5.1}/{total_time_seconds:>5.1}s",
             );
             wtr.serialize((
                 bench_name.to_string_lossy(),
                 name.to_string_lossy(),
                 initial_cost,
                 final_cost,
-                initial_cost as f64 / final_cost as f64,
-                processed.metrics.s_total,
-                (processed.metrics.ms_per_inv * processed.num_inventions as f64) / 1000.0,
+                cost_ratio,
+                total_time_seconds,
+                bench_time_seconds,
                 processed.metrics.mem_peak_kb,
             ))?;
         }

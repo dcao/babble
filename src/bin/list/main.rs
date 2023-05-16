@@ -105,8 +105,8 @@ fn main() {
         let initial_expr: RecExpr<_> = combine_exprs(prog.clone());
         let initial_cost = AstSize.cost_rec(&initial_expr);
 
-        println!("Initial expression (cost {}):", initial_cost);
-        println!("{}", Pretty(&Expr::from(initial_expr.clone())));
+        println!("Initial expression (cost {initial_cost}):");
+        println!("{}", Pretty(&Expr::from(initial_expr)));
         println!();
     }
 
@@ -115,7 +115,7 @@ fn main() {
         match rewrites::from_file(dsr_path) {
             Ok(dsrs) => dsrs,
             Err(e) => {
-                eprintln!("Error reading dsr file: {}", e);
+                eprintln!("Error reading dsr file: {e}");
                 std::process::exit(1);
             }
         }

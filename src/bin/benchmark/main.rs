@@ -101,15 +101,11 @@ impl<'a, Op> From<&'a Summary<Op>> for Compression {
 impl<'a, Op> From<&'a Option<Summary<Op>>> for Compression {
     fn from(summary: &'a Option<Summary<Op>>) -> Self {
         Self {
-            initial_size: summary
-                .as_ref()
-                .map(|x| x.initial_cost)
-                .unwrap_or_else(|| 1),
-            final_size: summary.as_ref().map(|x| x.final_cost).unwrap_or_else(|| 1),
+            initial_size: summary.as_ref().map_or_else(|| 1, |x| x.initial_cost),
+            final_size: summary.as_ref().map_or_else(|| 1, |x| x.final_cost),
             run_time: summary
                 .as_ref()
-                .map(|x| x.run_time.as_secs_f32())
-                .unwrap_or_else(|| 0.0),
+                .map_or_else(|| 0.0, |x| x.run_time.as_secs_f32()),
         }
     }
 }
@@ -182,9 +178,9 @@ fn run_domain(
 ) {
     let results = Mutex::new(Vec::new());
 
-    println!("domain: {}", domain);
+    println!("domain: {domain}");
 
-    let dsr_file = PathBuf::from(DSR_PATH).join(format!("{}.rewrites", domain));
+    let dsr_file = PathBuf::from(DSR_PATH).join(format!("{domain}.rewrites"));
     let rewrites = rewrites::try_from_file(dsr_file)
         .unwrap()
         .unwrap_or_default();
@@ -207,7 +203,7 @@ fn run_domain(
         inputs.par_iter().for_each(|input| {
             let file = input.file_name().unwrap().to_str().unwrap();
 
-            println!("    file: {}", file);
+            println!("    file: {file}");
 
             let input = fs::read_to_string(input).unwrap();
             let input: CompressionInput = serde_json::from_str(&input).unwrap();

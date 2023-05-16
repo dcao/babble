@@ -50,7 +50,7 @@ pub(crate) enum Smiley {
 
 impl Debug for Smiley {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 
@@ -82,7 +82,7 @@ impl Display for Smiley {
         match self {
             Self::Int(n) => Display::fmt(n, f),
             Self::Float(g) => Display::fmt(g, f),
-            Self::Var(i) => write!(f, "{}", i),
+            Self::Var(i) => write!(f, "{i}"),
             Self::Circle => f.write_str("circle"),
             Self::Line => f.write_str("line"),
             Self::Move => f.write_str("move"),
@@ -91,8 +91,8 @@ impl Display for Smiley {
             Self::Compose => f.write_str("+"),
             Self::Apply => f.write_str("@"),
             Self::Lambda => f.write_str("λ"),
-            Self::Lib(ix) => write!(f, "lib {}", ix),
-            Self::LibVar(ix) => write!(f, "{}", ix),
+            Self::Lib(ix) => write!(f, "lib {ix}"),
+            Self::LibVar(ix) => write!(f, "{ix}"),
             Self::Shift => f.write_str("shift"),
         }
     }
@@ -120,7 +120,7 @@ impl FromStr for Smiley {
                 } else if let Ok(lv) = s
                     .strip_prefix("lib ")
                     .ok_or(ParseLibIdError::NoLeadingL)
-                    .and_then(|x| x.parse())
+                    .and_then(str::parse)
                 {
                     Self::Lib(lv)
                 } else if let Ok(n) = s.parse::<i32>() {
@@ -186,10 +186,10 @@ impl Printable for Smiley {
     fn print_naked<W: Write>(expr: &Expr<Self>, printer: &mut Printer<W>) -> fmt::Result {
         match (expr.0.operation(), expr.0.args()) {
             (&Self::Int(i), []) => {
-                write!(printer.writer, "{}", i)
+                write!(printer.writer, "{i}")
             }
             (&Self::Float(f), []) => {
-                write!(printer.writer, "{}", f)
+                write!(printer.writer, "{f}")
             }
             (&Self::Circle, []) => printer.writer.write_str("circle"),
             (&Self::Line, []) => printer.writer.write_str("line"),
@@ -219,7 +219,7 @@ impl Printable for Smiley {
                 };
                 printer.in_brackets(|p| p.indented(|p| p.vsep(elem, ts.len(), ",")))
             }
-            (op, _) => write!(printer.writer, "{} ???", op),
+            (op, _) => write!(printer.writer, "{op} ???"),
         }
     }
 }

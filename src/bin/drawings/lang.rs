@@ -67,7 +67,7 @@ pub(crate) enum Drawing {
 
 impl Debug for Drawing {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{self}")
     }
 }
 
@@ -110,10 +110,10 @@ impl Arity for Drawing {
 impl Display for Drawing {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Var(i) => write!(f, "{}", i),
+            Self::Var(i) => write!(f, "{i}"),
             Self::Lambda => f.write_str("λ"),
-            Self::LibVar(ix) => write!(f, "{}", ix),
-            Self::Lib(ix) => write!(f, "lib-{}", ix),
+            Self::LibVar(ix) => write!(f, "{ix}"),
+            Self::Lib(ix) => write!(f, "lib-{ix}"),
             Self::Apply => f.write_str("@"),
             Self::Shift => f.write_str("shift"),
             Self::List => f.write_str(":"),
@@ -177,7 +177,7 @@ impl FromStr for Drawing {
                 } else if let Ok(lv) = s
                     .strip_prefix("lib-")
                     .ok_or(ParseLibIdError::NoLeadingL)
-                    .and_then(|x| x.parse())
+                    .and_then(str::parse)
                 {
                     Self::Lib(lv)
                 } else if let Ok(f) = s.parse::<NotNan<f64>>() {
@@ -257,7 +257,7 @@ impl Printable for Drawing {
         match (expr.0.operation(), expr.0.args()) {
             (&Self::Pi, []) => printer.writer.write_str("π"),
             (&Self::Float(f), []) => {
-                write!(printer.writer, "{}", f)
+                write!(printer.writer, "{f}")
             }
             (&Self::Circle, []) => printer.writer.write_str("c"),
             (&Self::Line, []) => printer.writer.write_str("l"),
@@ -348,7 +348,7 @@ impl Printable for Drawing {
                 };
                 printer.in_brackets(|p| p.indented(|p| p.vsep(elem, ts.len(), ",")))
             }
-            (op, _) => write!(printer.writer, "{}", op),
+            (op, _) => write!(printer.writer, "{op}"),
         }
     }
 }

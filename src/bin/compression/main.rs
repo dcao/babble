@@ -110,10 +110,7 @@ fn main() {
             let initial_expr: RecExpr<_> = combine_exprs(exprs.clone());
             let initial_cost = AstSize.cost_rec(&initial_expr);
 
-            println!(
-                "Initial expression (cost {}, limit {}):",
-                initial_cost, limit
-            );
+            println!("Initial expression (cost {initial_cost}, limit {limit}):");
             println!("{}", Pretty(&Expr::from(initial_expr.clone())));
             println!();
         }

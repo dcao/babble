@@ -76,22 +76,22 @@ impl Display for ListOp {
             Self::Shift => "shift",
             Self::List => "list",
             Self::Lib(ix) => {
-                return write!(f, "lib {}", ix);
+                return write!(f, "lib {ix}");
             }
             Self::LibVar(ix) => {
-                return write!(f, "{}", ix);
+                return write!(f, "{ix}");
             }
             Self::Bool(b) => {
-                return write!(f, "{}", b);
+                return write!(f, "{b}");
             }
             Self::Int(i) => {
-                return write!(f, "{}", i);
+                return write!(f, "{i}");
             }
             Self::Var(index) => {
-                return write!(f, "{}", index);
+                return write!(f, "{index}");
             }
             Self::Ident(ident) => {
-                return write!(f, "{}", ident);
+                return write!(f, "{ident}");
             }
         };
         f.write_str(s)
@@ -174,10 +174,10 @@ impl Printable for ListOp {
     fn print_naked<W: Write>(expr: &Expr<Self>, printer: &mut Printer<W>) -> fmt::Result {
         match (expr.0.operation(), expr.0.args()) {
             (&Self::Int(i), []) => {
-                write!(printer.writer, "{}", i)
+                write!(printer.writer, "{i}")
             }
             (&Self::Bool(b), []) => {
-                write!(printer.writer, "{}", b)
+                write!(printer.writer, "{b}")
             }
             (&Self::Ident(ident), []) => {
                 let name: &str = ident.into();
@@ -206,7 +206,7 @@ impl Printable for ListOp {
                 };
                 printer.in_brackets(|p| p.indented(|p| p.vsep(elem, ts.len(), ",")))
             }
-            (op, _) => write!(printer.writer, "{} ???", op),
+            (op, _) => write!(printer.writer, "{op} ???"),
         }
     }
 }

@@ -70,7 +70,7 @@ fn main() -> anyhow::Result<()> {
 fn print_domain(domain: &str, benchmarks: &[&Path]) -> anyhow::Result<()>
 where
 {
-    println!("domain: {}", domain);
+    println!("domain: {domain}");
 
     let mut tasks: BTreeMap<String, BTreeSet<Expr<DreamCoderOp>>> = BTreeMap::new();
 
@@ -104,7 +104,7 @@ where
 
     for (task, exprs) in tasks {
         println!();
-        println!("task: {}", task);
+        println!("task: {task}");
         for expr in &exprs {
             println!("{}", Pretty(expr));
         }
