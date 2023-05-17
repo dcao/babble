@@ -200,8 +200,8 @@ impl<'a> Context<'a> {
             (Drawing::Repeat, [expr, times, mat]) => {
                 let val = self.eval(expr)?;
                 let t = match self.eval(times) {
-                    Ok(Value::Num(f)) => f as usize,
-                    _ => panic!("Second argument to Repeat must be a number"),
+                    Ok(Value::Num(f)) => f64_to_usize(f),
+                    _ => panic!("Second argument to Repeat must be a non-negative number"),
                 };
                 let (tx, ty, rot, sc) = match self.eval(mat) {
                     Ok(Value::Matrix(entries)) => (
@@ -252,6 +252,21 @@ impl<'a> Context<'a> {
             unreach => unreachable!("{:?}", unreach),
         }
     }
+}
+
+/// Converts an `f64` in the right range to a `usize` by rounding, or panics.
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+fn f64_to_usize(f: f64) -> usize {
+    assert!(f >= 0.0, "expected a nonnegative number");
+    assert!(
+        f <= usize::MAX as f64,
+        "number is too big to convert to an integer"
+    );
+    f.round() as usize
 }
 
 impl Default for Context<'_> {

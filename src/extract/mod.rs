@@ -42,11 +42,12 @@ where
 
     let mut extractor = beam::LibExtractor::new(&fin);
     let best = extractor.best(root);
-    lift_libs(best)
+    lift_libs(&best)
 }
 
 /// Lifts libs
-pub fn lift_libs<Op>(expr: RecExpr<AstNode<Op>>) -> RecExpr<AstNode<Op>>
+#[must_use]
+pub fn lift_libs<Op>(expr: &RecExpr<AstNode<Op>>) -> RecExpr<AstNode<Op>>
 where
     Op: Clone + Teachable + Ord + std::fmt::Debug + std::hash::Hash,
 {
@@ -83,7 +84,7 @@ where
         let value: Vec<_> = orig[Into::<usize>::into(expr)]
             .build_recexpr(|id| {
                 build(&orig, id, |k, v| {
-                    if let None = seen.insert(k, v) {
+                    if seen.insert(k, v).is_none() {
                         q.push((k, v));
                     }
                 })
@@ -101,6 +102,7 @@ where
 }
 
 /// Get the true cost of an expr
+#[must_use]
 pub fn true_cost<Op: Clone>(expr: RecExpr<AstNode<Op>>) -> usize {
     Expr::len(&expr.into())
 }

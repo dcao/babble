@@ -27,7 +27,7 @@ where
     L::Error: Send + Sync + Error,
 {
     let contents = fs::read_to_string(path)?;
-    Ok(parse(&contents)?)
+    parse(&contents)
 }
 
 /// If the file specified by `path` exists, parse the file and return the

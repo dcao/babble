@@ -82,7 +82,7 @@ where
         let mut extractor = LibExtractor::new(&fin);
         let best = extractor.best(root);
 
-        let lifted = lift_libs(best);
+        let lifted = lift_libs(&best);
         let final_cost = AstSize.cost_rec(&lifted);
 
         debug!("Finished in {}ms", ex_time.elapsed().as_millis());

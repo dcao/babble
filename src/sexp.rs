@@ -256,7 +256,7 @@ impl<'a> Debug for Program<'a> {
 impl<'a> Display for Sexp<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Atom(atom) => write!(f, "{}", atom),
+            Self::Atom(atom) => write!(f, "{atom}"),
             Self::List(op, args) => {
                 f.write_str("(")?;
                 Display::fmt(op, f)?;

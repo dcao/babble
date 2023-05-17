@@ -10,7 +10,7 @@
     unreachable_pub,
     unused_lifetimes
 )]
-#![allow(clippy::non_ascii_literal)]
+#![allow(clippy::non_ascii_literal, clippy::cast_precision_loss)]
 
 use babble::{
     ast_node::{AstNode, Expr},

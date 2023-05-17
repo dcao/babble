@@ -73,14 +73,22 @@ where
     }
 
     #[cfg(feature = "grb")]
+    fn run(&self, _exprs: Vec<Expr<Op>>, _writer: &mut CsvWriter) -> ExperimentResult<Op> {
+        todo!();
+    }
+
+    // This code no longer compiles and probably needs serious work to fix. For
+    // now it's always disabled and I have replaced it with the stub above.
+    #[cfg(any())]
     fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
+
         use crate::{
             ast_node::Pretty,
             extract::{ilp::LpExtractor, lift_libs},
             learn::LearnedLibrary,
         };
         use egg::{AstSize, CostFunction, EGraph, Runner};
-        use std::time::Instant;
+        use std::{time::Instant, unimplemented};
 
         let start_time = Instant::now();
         let timeout = Duration::from_secs(self.timeout);
@@ -172,11 +180,13 @@ where
         println!("round time: {}ms", start_time.elapsed().as_millis());
         println!();
 
-        return ExperimentResult {
-            final_expr: lifted.into(),
-            num_libs: todo!(),
-            rewrites: vec![],
-        };
+        todo!()
+
+        // return ExperimentResult {
+        //     final_expr: lifted.into(),
+        //     num_libs: todo!(),
+        //     rewrites: vec![],
+        // };
     }
 
     fn total_rounds(&self) -> usize {

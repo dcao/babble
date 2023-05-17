@@ -17,7 +17,7 @@ use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     experiments::{plumbing, Experiments},
     rewrites,
-    sexp::Program,
+    sexp::Program, teachable::BindingExpr, learn::LibId,
 };
 use clap::Parser;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -96,73 +96,70 @@ struct Opts {
     extra_por: Vec<bool>,
 }
 
-fn find_apps(exprs: Vec<Expr<Drawing>>, lib: Option<babble::learn::LibId>) -> Vec<Expr<Drawing>> {
-    let mut res = Vec::new();
-
+fn find_apps(exprs: Vec<Expr<Drawing>>, lib: Option<LibId>) -> Vec<Expr<Drawing>> {
     // We want to find every (sub)expr which is an application to a lib;
     // either the specific lib given to us as the argument Some(lib), or
     // all libs if given None.
 
-    fn walk(expr: &Expr<Drawing>, lib: Option<babble::learn::LibId>, res: &mut Vec<Expr<Drawing>>) {
-        // We check what kind of operation this expr is
-        match expr.as_ref().as_binding_expr() {
-            Some(babble::teachable::BindingExpr::Apply(e, _arg)) => {
-                // Check if this is a curried app to a fn
-                let mut cur = e;
-                let mut q = vec![];
-
-                // Infinitely loop
-                loop {
-                    // The first argument will be another application, a LibVar,
-                    // or something else.
-                    match cur.as_ref().as_binding_expr() {
-                        Some(babble::teachable::BindingExpr::Apply(ie, arg)) => {
-                            // Recurse over body and continue
-                            q.push(arg);
-                            cur = ie;
-                        }
-                        Some(babble::teachable::BindingExpr::LibVar(lv)) => {
-                            if let Some(tl) = lib {
-                                if tl != lv {
-                                    // Not what we're looking for.
-                                    // Give up and break out of the loop
-                                    break;
-                                }
-                            }
-
-                            // If we're here, we found a successful app of a lib
-                            // to args!
-                            // Add it to our exprs, analyze everything in the q,
-                            // then return
-                            res.push(expr.clone());
-
-                            for i in q {
-                                walk(i, lib, res);
-                            }
-
-                            return;
-                        }
-                        _ => {
-                            // Got something else, give up
-                            break;
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-
-        // Recursively walk over children
-        for child in expr.as_ref().args() {
-            walk(child, lib, res);
-        }
-    }
+    let mut res = Vec::new();
 
     for expr in exprs {
         walk(&expr, lib, &mut res);
     }
 
     res
+}
+
+fn walk(expr: &Expr<Drawing>, lib: Option<LibId>, res: &mut Vec<Expr<Drawing>>) {
+    // We check what kind of operation this expr is
+    if let Some(BindingExpr::Apply(e, _arg)) = expr.as_ref().as_binding_expr() {
+        // Check if this is a curried app to a fn
+        let mut cur = e;
+        let mut q = vec![];
+
+        // Infinitely loop
+        loop {
+            // The first argument will be another application, a LibVar,
+            // or something else.
+            match cur.as_ref().as_binding_expr() {
+                Some(BindingExpr::Apply(ie, arg)) => {
+                    // Recurse over body and continue
+                    q.push(arg);
+                    cur = ie;
+                }
+                Some(BindingExpr::LibVar(lv)) => {
+                    if let Some(tl) = lib {
+                        if tl != lv {
+                            // Not what we're looking for.
+                            // Give up and break out of the loop
+                            break;
+                        }
+                    }
+
+                    // If we're here, we found a successful app of a lib
+                    // to args!
+                    // Add it to our exprs, analyze everything in the q,
+                    // then return
+                    res.push(expr.clone());
+
+                    for i in q {
+                        walk(i, lib, res);
+                    }
+
+                    return;
+                }
+                _ => {
+                    // Got something else, give up
+                    break;
+                }
+            }
+        }
+    }
+
+    // Recursively walk over children
+    for child in expr.as_ref().args() {
+        walk(child, lib, res);
+    }
 }
 
 fn main() {
@@ -245,7 +242,7 @@ fn main() {
         let progs = plumbing::exprs(expr.as_ref());
 
         // With the progs, find apps
-        let tgt = Some(babble::learn::LibId(usize::from_str_radix(&l, 10).unwrap()));
+        let tgt = Some(LibId(l.parse().unwrap()));
         let mut new_progs = find_apps(progs, tgt);
 
         if !opts.select.is_empty() {

@@ -125,7 +125,7 @@ where
         let dfta = Dfta::from(egraph);
         let dfta = dfta.cross_over();
 
-        for state in dfta.output_states() {
+        for &state in dfta.output_states() {
             learned_lib.enumerate(&dfta, state);
         }
         learned_lib
@@ -164,8 +164,8 @@ where
         self.nontrivial_aus.iter().enumerate().map(|(i, au)| {
             let searcher: Pattern<_> = au.clone().into();
             let applier: Pattern<_> = reify(LibId(i), au.clone()).into();
-            let name = format!("anti-unify {}", i);
-            debug!("Found rewrite \"{}\":\n{} => {}", name, searcher, applier);
+            let name = format!("anti-unify {i}");
+            debug!("Found rewrite \"{name}\":\n{searcher} => {applier}");
 
             // Both patterns contain the same variables, so this can never fail.
             Rewrite::new(name, searcher, applier).unwrap_or_else(|_| unreachable!())
@@ -181,6 +181,7 @@ where
     }
 
     /// Number of patterns learned.
+    #[must_use]
     pub fn size(&self) -> usize {
         self.nontrivial_aus.len()
     }
@@ -235,8 +236,8 @@ where
     Op: Arity + Clone + Debug + Ord,
 {
     /// Computes the antiunifications of `state` in the DFTA `dfta`.
-    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), (Id, Id)>, state: &(Id, Id)) {
-        if self.aus_by_state.contains_key(state) {
+    fn enumerate(&mut self, dfta: &Dfta<(Op, Op), (Id, Id)>, state: (Id, Id)) {
+        if self.aus_by_state.contains_key(&state) {
             // We've already enumerated this state, so there's nothing to do.
             return;
         }
@@ -249,7 +250,7 @@ where
         // By initially setting the antiunifications of this state to empty, we
         // exclude any antiunifications that would come from looping sequences
         // of rules.
-        self.aus_by_state.insert(*state, BTreeSet::new());
+        self.aus_by_state.insert(state, BTreeSet::new());
 
         if !self.co_occurrences.may_co_occur(state.0, state.1) {
             return;
@@ -260,7 +261,7 @@ where
         let mut same = false;
         let mut different = false;
 
-        if let Some(rules) = dfta.get_by_output(state) {
+        if let Some(rules) = dfta.get_by_output(&state) {
             for ((op1, op2), inputs) in rules {
                 if op1 == op2 {
                     same = true;
@@ -268,7 +269,7 @@ where
                         aus.insert(AstNode::leaf(op1.clone()).into());
                     } else {
                         // Recursively enumerate the inputs to this rule.
-                        for input in inputs {
+                        for &input in inputs {
                             self.enumerate(dfta, input);
                         }
 
@@ -297,11 +298,11 @@ where
         }
 
         if same && different {
-            aus.insert(PartialExpr::Hole(state.clone()));
+            aus.insert(PartialExpr::Hole(state));
         }
 
         if aus.is_empty() {
-            aus.insert(PartialExpr::Hole(state.clone()));
+            aus.insert(PartialExpr::Hole(state));
         } else {
             // If the two e-classes cannot co-occur in the same program, do not produce an AU for them!
             // We filter out the anti-unifications which are just concrete
@@ -354,13 +355,12 @@ where
 
         if aus.len() > 10_000 {
             warn!(
-                "Large number of antiunifications for state {:?}: {}",
-                state,
+                "Large number of antiunifications for state {state:?}: {}",
                 aus.len()
             );
         }
 
-        *self.aus_by_state.get_mut(state).unwrap() = aus;
+        *self.aus_by_state.get_mut(&state).unwrap() = aus;
     }
 }
 
@@ -380,7 +380,7 @@ fn normalize<Op, T: Eq>(au: PartialExpr<Op, T>) -> (PartialExpr<Op, Var>, usize)
                 metavars.len() - 1
             });
 
-        let var = format!("?x{}", index)
+        let var = format!("?x{index}")
             .parse()
             .unwrap_or_else(|_| unreachable!());
         PartialExpr::Hole(var)
@@ -397,7 +397,7 @@ where
 {
     let au = au.clone();
     au.fill(|(s1, s2)| {
-        let var = format!("?s_{}_{}", s1, s2)
+        let var = format!("?s_{s1}_{s2}")
             .parse()
             .unwrap_or_else(|_| unreachable!());
         PartialExpr::Hole(var)

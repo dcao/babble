@@ -52,16 +52,16 @@ impl Display for SimpleOp {
             Self::Lambda => "λ",
             Self::Shift => "shift",
             Self::Lib(libid) => {
-                return write!(f, "lib {}", libid);
+                return write!(f, "lib {libid}");
             }
             Self::LibVar(libid) => {
-                return write!(f, "l{}", libid);
+                return write!(f, "l{libid}");
             }
             Self::Var(index) => {
-                return write!(f, "${}", index);
+                return write!(f, "${index}");
             }
             Self::Symbol(sym) => {
-                return write!(f, "{}", sym);
+                return write!(f, "{sym}");
             }
             Self::List => "list",
         };

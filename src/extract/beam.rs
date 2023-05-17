@@ -279,7 +279,7 @@ impl LibSel {
                 Ok(ix) => {
                     if v < res.libs[ix].1 {
                         full_cost -= res.libs[ix].1 - v;
-                        res.libs[ix].1 = v
+                        res.libs[ix].1 = v;
                     }
                 }
                 Err(ix) => {
@@ -296,7 +296,7 @@ impl LibSel {
             Ok(ix) => {
                 if v < res.libs[ix].1 {
                     full_cost -= res.libs[ix].1 - v;
-                    res.libs[ix].1 = v
+                    res.libs[ix].1 = v;
                 }
             }
             Err(ix) => {
@@ -318,6 +318,7 @@ impl LibSel {
     }
 
     /// O(n) subset check
+    #[must_use]
     pub fn is_subset(&self, other: &LibSel) -> bool {
         let mut oix = 0;
 
@@ -391,6 +392,7 @@ pub struct PartialLibCost {
 }
 
 impl PartialLibCost {
+    #[must_use]
     pub fn new(beam_size: usize, inter_beam: usize, lps: usize, extra_por: bool) -> PartialLibCost {
         PartialLibCost {
             beam_size,
@@ -400,6 +402,7 @@ impl PartialLibCost {
         }
     }
 
+    #[must_use]
     pub fn empty() -> PartialLibCost {
         PartialLibCost {
             beam_size: 0,
@@ -609,10 +612,10 @@ where
     /// Extract the smallest expression from the eclass id and its descendants
     /// in the current context, storing results in the memo
     fn extract(&mut self, id: Id) {
-        self.debug_indented(format!("extracting eclass {}", id));
+        self.debug_indented(&format!("extracting eclass {id}"));
         if let Some(res) = self.get_from_memo(id) {
             // This node has already been visited in this context (either done or under processing)
-            self.debug_indented(format!(
+            self.debug_indented(&format!(
                 "visited, memoized value: {}",
                 display_maybe_expr(res)
             ));
@@ -633,9 +636,8 @@ where
                             // is slightly suboptimal (because it might cause us to go around some cycles once),
                             // but the code is simpler and it doesn't matter too much.
                             _ => {
-                                self.debug_indented(format!(
-                                    "new best for {}: {} (cost {})",
-                                    id,
+                                self.debug_indented(&format!(
+                                    "new best for {id}: {} (cost {})",
                                     cand.pretty(100),
                                     Self::cost(&cand)
                                 ));
@@ -650,12 +652,12 @@ where
 
     /// Extract the smallest expression from `node`.
     fn extract_node(&mut self, node: &AstNode<Op>) -> MaybeExpr<Op> {
-        self.debug_indented(format!("extracting node {:?}", node));
+        self.debug_indented(&format!("extracting node {node:?}"));
         if let Some(BindingExpr::Lib(lid, _, _)) = node.as_binding_expr() {
             if self.lib_context.contains(lid) {
                 // This node is a definition of one of the libs, whose definition we are currently extracting:
                 // do not go down this road since it leads to lib definitions using themselves
-                self.debug_indented(format!("encountered banned lib: {}", lid));
+                self.debug_indented(&format!("encountered banned lib: {lid}"));
                 return None;
             }
         }
@@ -686,9 +688,8 @@ where
             let old_lib_context = self.lib_context.clone();
             if let Some(BindingExpr::Lib(lid, _, _)) = node.as_binding_expr() {
                 if current == 0 {
-                    self.debug_indented(format!(
-                        "processing first child of {:?}, adding {} to context",
-                        node, lid
+                    self.debug_indented(&format!(
+                        "processing first child of {node:?}, adding {lid} to context"
                     ));
                     self.lib_context.add(lid);
                 }
@@ -709,7 +710,7 @@ where
                 Some(expr) => {
                     // We need to clone the expr because we're going to mutate it (offset child indexes),
                     // and we don't want it to affect the memo result for child.
-                    let mut new_expr = expr.clone().as_ref().to_vec();
+                    let mut new_expr = expr.as_ref().to_vec();
                     for n in &mut new_expr {
                         // Increment all indexes inside `n` by the current expression length;
                         // this is needed to make a well-formed `RecExpr`
@@ -733,8 +734,8 @@ where
 
     /// Print a debug message with the current indentation
     /// TODO: this should be a macro
-    fn debug_indented(&self, msg: String) {
-        debug!("{:indent$}{}", "", msg, indent = 2 * self.indent);
+    fn debug_indented(&self, msg: &str) {
+        debug!("{:indent$}{msg}", "", indent = 2 * self.indent);
     }
 }
 

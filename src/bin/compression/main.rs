@@ -125,7 +125,7 @@ fn main() {
             ]
         };
 
-        let exps = Experiments::gen(
+        let experiments = Experiments::gen(
             exprs,
             vec![],
             dsrs,
@@ -139,7 +139,7 @@ fn main() {
             opts.max_arity,
         );
 
-        all.add(exps);
+        all.add(experiments);
     }
 
     println!("running...");

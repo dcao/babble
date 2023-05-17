@@ -160,10 +160,10 @@ fn main() -> anyhow::Result<()> {
     }
 
     if let Some(domain) = &opts.domain {
-        run_domain(domain, &opts, &domains[domain.as_str()], &cache)
+        run_domain(domain, &opts, &domains[domain.as_str()], &cache);
     } else {
         for (domain, benchmarks) in domains {
-            run_domain(domain, &opts, &benchmarks, &cache)
+            run_domain(domain, &opts, &benchmarks, &cache);
         }
     }
 
@@ -279,6 +279,7 @@ fn run_domain(
     plot_raw_data(&results, opts).unwrap();
 }
 
+#[allow(clippy::cast_precision_loss)]
 fn plot_raw_data(results: &[BenchResults], opts: &Opts) -> anyhow::Result<()> {
     let mut csv_writer = csv::Writer::from_path(&opts.output)?;
     csv_writer.serialize((
