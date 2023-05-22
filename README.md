@@ -6,7 +6,7 @@ on the `popl23` branch.
 
 [ci-status]: https://github.com/dcao/babble/actions/workflows/ci.yml?query=branch%3Amain
 [ci-status-badge]:
-https://img.shields.io/github/actions/workflow/status/dcao/babble/ci.yml?branch=main
+https://img.shields.io/github/actions/workflow/status/dcao/babble/ci.yml?branch=main&style=for-the-badge
 [license]: https://github.com/dcao/babble/blob/main/LICENSE
 [license-badge]: https://img.shields.io/github/license/dcao/babble?style=for-the-badge
 
