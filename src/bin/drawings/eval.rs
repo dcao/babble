@@ -42,6 +42,7 @@ impl<'a> Context<'a> {
         &self.libs[&name]
     }
 
+    #[allow(clippy::too_many_lines)]
     fn eval(&self, expr: &'a Expr<Drawing>) -> Result<Value<'a>, TypeError> {
         match (expr.0.operation(), expr.0.args()) {
             (&Drawing::Float(f), []) => Ok(Value::Num(f.into())),

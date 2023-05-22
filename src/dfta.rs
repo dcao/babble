@@ -23,21 +23,21 @@ impl<Op: Debug, S: Debug> Debug for Dfta<Op, S> {
             f: &mut Formatter<'_>,
         ) -> fmt::Result {
             if args.is_empty() {
-                writeln!(f, "{:?}", op)
+                writeln!(f, "{op:?}")
             } else {
-                writeln!(f, "{:?}{:?}", op, args)
+                writeln!(f, "{op:?}{args:?}")
             }
         }
 
         for (state, rules) in &self.by_output {
-            write!(f, "{:?}", state)?;
+            write!(f, "{state:?}")?;
 
             let mut rules = rules.iter();
             if let Some(rule) = rules.next() {
                 f.write_str(" <- ")?;
                 fmt_rule(rule, f)?;
             } else {
-                writeln!(f, "")?;
+                writeln!(f)?;
             }
 
             for rule in rules {

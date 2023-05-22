@@ -129,10 +129,10 @@ fn main() {
 
         let exps = Experiments::gen(
             prog,
-            vec![],
-            dsrs,
+            &[],
+            &dsrs,
             opts.beams.clone(),
-            opts.lps.clone(),
+            &opts.lps,
             opts.rounds,
             opts.extra_por.clone(),
             opts.timeout.clone(),

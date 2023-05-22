@@ -13,14 +13,14 @@ use time::{
     OffsetDateTime,
 };
 
-const CACHE_DIR: &'static str = "harness/data_gen/cache";
+const CACHE_DIR: &str = "harness/data_gen/cache";
 const ISO8601_CONFIG: iso8601::EncodedConfig =
     iso8601::Config::DEFAULT.set_use_separators(false).encode();
 const DATE_FORMAT: Iso8601<ISO8601_CONFIG> = Iso8601;
 
 /// A cache of experiment results.
 #[derive(Clone, Debug)]
-pub struct ExperimentCache<Op> {
+pub struct Cache<Op> {
     path: PathBuf,
     index: BTreeMap<String, PathBuf>,
     phantom: PhantomData<Op>,
@@ -28,7 +28,7 @@ pub struct ExperimentCache<Op> {
 
 // This lint gives false positives for higher-rank trait bounds.
 #[allow(single_use_lifetimes)]
-impl<Op> ExperimentCache<Op>
+impl<Op> Cache<Op>
 where
     Op: Serialize + for<'b> Deserialize<'b>,
 {
@@ -62,17 +62,18 @@ where
         };
 
         let index_file = cache.index_file();
-        if !index_file.exists() {
-            cache.flush()?;
-        } else {
+        if index_file.exists() {
             let index_str = fs::read_to_string(&index_file)?;
-            cache.index = ron::from_str(&index_str)?
+            cache.index = ron::from_str(&index_str)?;
+        } else {
+            cache.flush()?;
         };
 
         Ok(cache)
     }
 
     /// Return the directory where the cache is stored.
+    #[must_use]
     pub fn path(&self) -> &Path {
         self.path.as_ref()
     }
@@ -89,6 +90,7 @@ where
 
     /// Return `true` if the cache contains results for `experiment`. If it does
     /// not, return `false`.
+    #[must_use]
     pub fn contains(&self, experiment: &str) -> bool {
         self.index.contains_key(experiment)
     }

@@ -34,6 +34,11 @@ where
     fn precedence(&self) -> Precedence;
 
     /// Print `expr` into the printer's buffer without parentheses
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails, or if the
+    /// expression is malformed
     fn print_naked<W: Write>(expr: &Expr<Self>, printer: &mut Printer<W>) -> fmt::Result;
 }
 
@@ -63,6 +68,11 @@ impl<W: Write> Printer<W> {
     }
 
     /// Print `expr` into the buffer at the current precedence level
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails, or if the
+    /// expression is malformed
     pub fn print<Op: Printable + Teachable>(&mut self, expr: &Expr<Op>) -> fmt::Result {
         let op = expr.0.operation();
         let old_prec = self.ctx_precedence;
@@ -77,9 +87,15 @@ impl<W: Write> Printer<W> {
         Ok(())
     }
 
-    /// Print `expr` into the buffer at precedence level `prec`:
-    /// this function is used to implement associativity and bracket-like expressions,
-    /// where the children should be printed at a lower precedence level than the expression itself
+    /// Print `expr` into the buffer at precedence level `prec`: this function
+    /// is used to implement associativity and bracket-like expressions, where
+    /// the children should be printed at a lower precedence level than the
+    /// expression itself
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails, or if the
+    /// expression is malformed
     pub fn print_in_context<Op: Printable + Teachable>(
         &mut self,
         expr: &Expr<Op>,
@@ -93,6 +109,11 @@ impl<W: Write> Printer<W> {
     }
 
     /// Print `expr` into the buffer (without parentheses)
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails, or if the
+    /// expression is malformed.
     fn print_naked<Op: Printable + Teachable>(&mut self, expr: &Expr<Op>) -> fmt::Result {
         match expr.0.as_binding_expr() {
             Some(binding_expr) => {
@@ -115,7 +136,7 @@ impl<W: Write> Printer<W> {
                     }
                     BindingExpr::Lib(ix, def, body) => {
                         self.with_binding("f", |p| {
-                            write!(p.writer, "lib {} =", ix)?; // print binding
+                            write!(p.writer, "lib {ix} =")?; // print binding
 
                             p.indented(|p| {
                                 p.new_line()?;
@@ -130,7 +151,7 @@ impl<W: Write> Printer<W> {
                         })
                     }
                     BindingExpr::LibVar(ix) => {
-                        write!(self.writer, "{}", ix)
+                        write!(self.writer, "{ix}")
                     }
                     BindingExpr::Shift(body) => match self.bindings.pop() {
                         None => {
@@ -153,10 +174,15 @@ impl<W: Write> Printer<W> {
 
     /// Print abstraction with body `body` without the "λ" symbol
     /// (this implements the syntactic sugar with nested abstractions)
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails, or if the
+    /// expression is malformed.
     fn print_abstraction<Op: Printable + Teachable>(&mut self, body: &Expr<Op>) -> fmt::Result {
         self.with_binding("x", |p| {
             let fresh_var = p.bindings.last().unwrap(); // the name of the latest binding
-            write!(p.writer, "{} ", fresh_var)?; // print binding
+            write!(p.writer, "{fresh_var} ")?; // print binding
             if let Some(BindingExpr::Lambda(inner_body)) = body.0.as_binding_expr() {
                 p.print_abstraction(inner_body) // syntactic sugar: no λ needed here
             } else {
@@ -167,11 +193,20 @@ impl<W: Write> Printer<W> {
     }
 
     /// Add new line with current indentation
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails.
     pub fn new_line(&mut self) -> fmt::Result {
         write!(self.writer, "\n{}", " ".repeat(self.indentation * 2))
     }
 
-    // Print f(i) for i in 0..n on separate lines
+    /// Print f(i) for i in 0..n on separate lines
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails, or if the
+    /// closure returns an error.
     pub fn vsep<T: Fn(&mut Self, usize) -> fmt::Result>(
         &mut self,
         f: T,
@@ -189,6 +224,11 @@ impl<W: Write> Printer<W> {
     }
 
     /// print f() in parentheses
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails, or if the
+    /// closure returns an error.
     pub fn in_parens<T: Fn(&mut Self) -> fmt::Result>(&mut self, f: T) -> fmt::Result {
         self.writer.write_char('(')?;
         f(self)?;
@@ -196,6 +236,11 @@ impl<W: Write> Printer<W> {
     }
 
     /// print f() in brackets
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails, or if the
+    /// closure returns an error.
     pub fn in_brackets<T: Fn(&mut Self) -> fmt::Result>(&mut self, f: T) -> fmt::Result {
         self.writer.write_char('[')?;
         f(self)?;
@@ -203,6 +248,11 @@ impl<W: Write> Printer<W> {
     }
 
     /// print f() indented one more level
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails, or if the
+    /// closure returns an error.
     pub fn indented<T: Fn(&mut Self) -> fmt::Result>(&mut self, f: T) -> fmt::Result {
         self.indentation += 1;
         f(self)?;
@@ -211,9 +261,14 @@ impl<W: Write> Printer<W> {
     }
 
     /// print f() inside the scope of a binder
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if the underlying writer fails, or if the
+    /// closure returns an error.
     fn with_binding<T: Fn(&mut Self) -> fmt::Result>(&mut self, prefix: &str, f: T) -> fmt::Result {
         self.bindings
-            .push(format!("{}{}", prefix, self.bindings.len()));
+            .push(format!("{prefix}{}", self.bindings.len()));
         f(self)?;
         self.bindings.pop();
         Ok(())

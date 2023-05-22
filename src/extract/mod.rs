@@ -45,6 +45,20 @@ where
     lift_libs(&best)
 }
 
+fn build<Op: Clone + Teachable + std::fmt::Debug>(
+    orig: &[AstNode<Op>],
+    cur: Id,
+    mut seen: impl FnMut(LibId, Id),
+) -> AstNode<Op> {
+    match orig[Into::<usize>::into(cur)].as_binding_expr() {
+        Some(BindingExpr::Lib(id, lam, c)) => {
+            seen(id, *lam);
+            build(orig, *c, seen)
+        }
+        _ => orig[Into::<usize>::into(cur)].clone(),
+    }
+}
+
 /// Lifts libs
 #[must_use]
 pub fn lift_libs<Op>(expr: &RecExpr<AstNode<Op>>) -> RecExpr<AstNode<Op>>
@@ -53,20 +67,6 @@ where
 {
     let orig: Vec<AstNode<Op>> = expr.as_ref().to_vec();
     let mut seen = HashMap::new();
-
-    fn build<Op: Clone + Teachable + std::fmt::Debug>(
-        orig: &[AstNode<Op>],
-        cur: Id,
-        mut seen: impl FnMut(LibId, Id),
-    ) -> AstNode<Op> {
-        match orig[Into::<usize>::into(cur)].as_binding_expr() {
-            Some(BindingExpr::Lib(id, lam, c)) => {
-                seen(id, *lam);
-                build(orig, *c, seen)
-            }
-            _ => orig[Into::<usize>::into(cur)].clone(),
-        }
-    }
 
     let rest = orig[orig.len() - 1].build_recexpr(|id| {
         build(&orig, id, |k, v| {

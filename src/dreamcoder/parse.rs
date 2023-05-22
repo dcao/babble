@@ -60,7 +60,7 @@ fn inlined(s: &str) -> ParseResult<'_, Expr<DreamCoderOp>> {
     context(
         "inlined",
         map(preceded(char('#'), cut(expr)), |expr| {
-            AstNode::leaf(DreamCoderOp::Inlined(Box::new(expr.into()))).into()
+            AstNode::leaf(DreamCoderOp::Inlined(Box::new(expr))).into()
         }),
     )(s)
 }

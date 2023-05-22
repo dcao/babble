@@ -53,6 +53,7 @@ where
     N: Analysis<AstNode<Op>> + Clone,
 {
     /// Initialize a builder
+    #[must_use]
     pub fn new(egraph: &'a EGraph<AstNode<Op>, N>, roots: &'a [Id]) -> Self {
         Self {
             egraph,
@@ -67,6 +68,7 @@ where
     /// - As auxiliary data, we also compute the set of e-classes reachable from each e-class.
     /// - When processing an e-class id, mark all e-classes reachable from it (except itself) as co-occurring (because they can be my descendants).
     /// - When processing an e-node with multiple children, mark any two e-classes reachable from different children as co-occurring (because they can be siblings / uncles).
+    #[must_use]
     pub fn run(mut self) -> CoOccurrences {
         self.process_children(self.roots);
         CoOccurrences {

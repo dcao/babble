@@ -15,10 +15,8 @@
 use babble::{
     ast_node::Expr,
     dreamcoder::{expr::DreamCoderOp, json::CompressionInput},
-    experiments::{
-        cache::ExperimentCache, BeamExperiment, EqsatExperiment, Experiment, Rounds, Summary,
-    },
-    rewrites,
+    experiments::{cache::Cache, BeamExperiment, EqsatExperiment, Experiment, Rounds, Summary},
+    rewrites, util,
 };
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -125,7 +123,7 @@ fn main() -> anyhow::Result<()> {
     let cache = opts
         .cache
         .clone()
-        .map_or_else(ExperimentCache::new, ExperimentCache::from_dir)?;
+        .map_or_else(Cache::new, Cache::from_dir)?;
 
     println!("using cache: {}", cache.path().to_str().unwrap());
 
@@ -156,7 +154,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("domains:");
     for (domain, benchmarks) in &domains {
-        println!("  {}: {} benchmark(s)", domain, benchmarks.len());
+        println!("  {domain}: {} benchmark(s)", benchmarks.len());
     }
 
     if let Some(domain) = &opts.domain {
@@ -174,7 +172,7 @@ fn run_domain(
     domain: &str,
     opts: &Opts,
     benchmarks: &[Benchmark<'_>],
-    _cache: &Mutex<ExperimentCache<DreamCoderOp>>,
+    _cache: &Mutex<Cache<DreamCoderOp>>,
 ) {
     let results = Mutex::new(Vec::new());
 
@@ -252,13 +250,12 @@ fn run_domain(
                 experiment.run_multi_summary(program_groups)
             };
 
-            let name = format!("{}_{}/{}", domain, benchmark.name, file);
+            let name = format!("{domain}_{}/{file}", benchmark.name);
             println!(
-                "{:20}        {} -> {} (r {:.3}), with {:>3} libs in {:>8.3}s",
-                name,
+                "{name:20}        {} -> {} (r {:.3}), with {:>3} libs in {:>8.3}s",
                 summary.initial_cost,
                 summary.final_cost,
-                summary.compression_ratio(),
+                util::compression_factor(summary.initial_cost, summary.final_cost),
                 summary.num_libs,
                 summary.run_time.as_secs_f32(),
             );
@@ -292,15 +289,28 @@ fn plot_raw_data(results: &[BenchResults], opts: &Opts) -> anyhow::Result<()> {
         "num libs",
     ))?;
 
-    for result in results {
+    for BenchResults {
+        domain,
+        benchmark,
+        file,
+        summary:
+            Summary {
+                initial_cost,
+                final_cost,
+                num_libs,
+                run_time,
+                ..
+            },
+    } in results
+    {
         csv_writer.serialize((
-            format!("{}_{}", result.domain, result.benchmark),
-            &result.file,
-            result.summary.initial_cost,
-            result.summary.final_cost,
-            result.summary.initial_cost as f64 / result.summary.final_cost as f64,
-            result.summary.run_time.as_secs_f32(),
-            result.summary.num_libs,
+            format!("{domain}_{benchmark}"),
+            &file,
+            initial_cost,
+            final_cost,
+            util::compression_factor(*initial_cost, *final_cost),
+            run_time.as_secs_f32(),
+            num_libs,
         ))?;
     }
 

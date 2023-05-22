@@ -92,8 +92,8 @@ impl<'a> From<RawType<'a>> for Type {
 }
 
 impl From<Type> for RawType<'_> {
-    fn from(r#type: Type) -> Self {
-        match r#type {
+    fn from(typ: Type) -> Self {
+        match typ {
             Type::Simple { name } => Self {
                 constructor: name.as_str(),
                 arguments: Vec::new(),
@@ -126,19 +126,19 @@ impl Debug for Type {
 impl Display for Type {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Type::Simple { name } => write!(f, "{}", name),
+            Type::Simple { name } => write!(f, "{name}"),
             Type::Compound {
                 constructor,
                 arguments,
             } => util::parens(1, f, |f| {
-                write!(f, "{}", constructor)?;
+                write!(f, "{constructor}")?;
                 for argument in arguments {
-                    write!(f, " {:.2}", argument)?;
+                    write!(f, " {argument:.2}")?;
                 }
                 Ok(())
             }),
             Type::Function { from, to } => {
-                util::parens(0, f, |f| write!(f, "{:.1} -> {:.0}", from, to))
+                util::parens(0, f, |f| write!(f, "{from:.1} -> {to:.0}"))
             }
         }
     }

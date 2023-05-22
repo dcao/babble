@@ -5,6 +5,7 @@ use std::{
 };
 
 use egg::{AstSize, CostFunction, EGraph, Id, RecExpr, Rewrite, Runner};
+use itertools::Itertools;
 use log::debug;
 use serde::ser::Serialize;
 
@@ -19,7 +20,7 @@ use crate::{
 
 use super::{CsvWriter, Experiment, ExperimentResult};
 
-/// A BeamExperiment contains all of the information needed to run a
+/// A `BeamExperiment` contains all of the information needed to run a
 /// library learning experiment with the beam extractor.
 #[derive(Debug)]
 pub struct EqsatExperiment<Op, Extra>
@@ -62,7 +63,7 @@ where
         egraph: EGraph<AstNode<Op>, PartialLibCost>,
     ) -> ExperimentResult<Op> {
         let start_time = Instant::now();
-        let timeout = Duration::from_secs(60 * 100000);
+        let timeout = Duration::from_secs(60 * 100_000);
 
         debug!("Running {} DSRs... ", self.dsrs.len());
 
@@ -119,8 +120,7 @@ where
 
     fn run(&self, exprs: Vec<Expr<Op>>, _writer: &mut CsvWriter) -> ExperimentResult<Op> {
         // First, let's turn our list of exprs into a list of recexprs
-        let recexprs: Vec<RecExpr<AstNode<Op>>> =
-            exprs.clone().into_iter().map(|x| x.into()).collect();
+        let recexprs: Vec<RecExpr<AstNode<Op>>> = exprs.into_iter().map_into().collect();
 
         let mut egraph = EGraph::new(PartialLibCost::new(0, 0, 1, false));
         let roots: Vec<_> = recexprs.iter().map(|x| egraph.add_expr(x)).collect();
@@ -154,7 +154,6 @@ where
 
                 root
             })
-            .into_iter()
             .collect();
 
         egraph.rebuild();

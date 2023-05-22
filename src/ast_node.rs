@@ -66,10 +66,10 @@ impl<Op: Debug, T> Display for ArityError<Op, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "the operation {:?} expects ", self.operation)?;
         match (self.min, self.max) {
-            (min, Some(max)) if min == max => write!(f, "{}", max)?,
-            (0, Some(max)) => write!(f, "at most {}", max)?,
-            (min, Some(max)) => write!(f, "between {} and {}", min, max)?,
-            (min, None) => write!(f, "at least {}", min)?,
+            (min, Some(max)) if min == max => write!(f, "{max}")?,
+            (0, Some(max)) => write!(f, "at most {max}")?,
+            (min, Some(max)) => write!(f, "between {min} and {max}")?,
+            (min, None) => write!(f, "at least {min}")?,
         };
         write!(f, " argument(s), but was given {}", self.args.len())
     }

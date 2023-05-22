@@ -5,6 +5,7 @@ use std::{
 };
 
 use egg::{AstSize, CostFunction, EGraph, Id, RecExpr, Rewrite, Runner};
+use itertools::Itertools;
 use log::{debug, info};
 use serde::ser::Serialize;
 
@@ -18,7 +19,7 @@ use crate::{
 
 use super::{CsvWriter, Experiment, ExperimentResult};
 
-/// A BeamExperiment contains all of the information needed to run a
+/// A `BeamExperiment` contains all of the information needed to run a
 /// library learning experiment with the beam extractor.
 #[derive(Debug)]
 pub struct BeamExperiment<Op, Extra>
@@ -59,6 +60,8 @@ where
         + Send
         + 'static,
 {
+    // TODO: Use a builder pattern.
+    #[allow(clippy::too_many_arguments)]
     pub fn new<I>(
         dsrs: I,
         final_beams: usize,
@@ -92,7 +95,7 @@ where
         egraph: EGraph<AstNode<Op>, PartialLibCost>,
     ) -> ExperimentResult<Op> {
         let start_time = Instant::now();
-        let timeout = Duration::from_secs(60 * 100000);
+        let timeout = Duration::from_secs(60 * 100_000);
 
         info!("Initial egraph size: {}", egraph.total_size());
         info!("Running {} DSRs... ", self.dsrs.len());
@@ -172,7 +175,7 @@ where
 
         let ex_time = Instant::now();
         info!("Extracting... ");
-        let lifted = apply_libs(aeg.clone(), &roots, &chosen_rewrites);
+        let lifted = apply_libs(aeg.clone(), roots, &chosen_rewrites);
         let final_cost = AstSize.cost_rec(&lifted);
 
         info!("Finished in {}ms", ex_time.elapsed().as_millis());
@@ -210,8 +213,7 @@ where
 
     fn run(&self, exprs: Vec<Expr<Op>>, _writer: &mut CsvWriter) -> ExperimentResult<Op> {
         // First, let's turn our list of exprs into a list of recexprs
-        let recexprs: Vec<RecExpr<AstNode<Op>>> =
-            exprs.clone().into_iter().map(|x| x.into()).collect();
+        let recexprs: Vec<RecExpr<AstNode<Op>>> = exprs.into_iter().map_into().collect();
 
         // Add one to account for root node, not added yet
         let initial_cost = {
@@ -266,7 +268,6 @@ where
 
                 root
             })
-            .into_iter()
             .collect();
 
         egraph.rebuild();
@@ -305,10 +306,17 @@ where
     }
 
     fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Self {
+            final_beams,
+            inter_beams,
+            lps,
+            extra_por,
+            extra_data,
+            ..
+        } = self;
         write!(
             f,
-            "beam | final_beams: {}, inter_beams: {}, lps: {:?}, extra_por: {}, extra_data: {:?}",
-            self.final_beams, self.inter_beams, self.lps, self.extra_por, self.extra_data
+            "beam | final_beams: {final_beams}, inter_beams: {inter_beams}, lps: {lps:?}, extra_por: {extra_por}, extra_data: {extra_data:?}",
         )
     }
 }

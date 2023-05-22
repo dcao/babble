@@ -1,4 +1,4 @@
-//! extract::partial implements a non-ILP-based extractor based on partial
+//! `extract::partial` implements a non-ILP-based extractor based on partial
 //! orderings of learned library sets.
 use egg::{Analysis, CostFunction, DidMerge, EGraph, Id, Language, RecExpr};
 use log::debug;
@@ -19,24 +19,26 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CostSet {
     /// The set of library selections and their associated costs.
-    /// Invariant: sorted in ascending order of expr_cost, except during
-    /// pruning, when it's sorted in order of full_cost.
+    /// Invariant: sorted in ascending order of `expr_cost`, except during
+    /// pruning, when it's sorted in order of `full_cost`.
     pub set: Vec<LibSel>,
 }
 
 impl CostSet {
-    /// Creates a CostSet corresponding to introducing a nonary operation.
+    /// Creates a `CostSet` corresponding to introducing a nullary operation.
     /// This will always have the value [{} -> (1, 1)].
+    #[must_use]
     pub fn intro_op() -> CostSet {
         let mut set = Vec::with_capacity(10);
         set.push(LibSel::intro_op());
         CostSet { set }
     }
 
-    /// Crosses over two CostSets.
-    /// This is essentially a Cartesian product between two CostSets (e.g. if
-    /// each CostSet corresponds to an argument of a node) such that paired
-    /// LibSels have their libraries combined and costs added.
+    /// Crosses over two `CostSet`s.
+    /// This is essentially a Cartesian product between two `CostSet`s (e.g. if
+    /// each `CostSet` corresponds to an argument of a node) such that paired
+    /// `LibSel`s have their libraries combined and costs added.
+    #[must_use]
     pub fn cross(&self, other: &CostSet, lps: usize) -> CostSet {
         let mut set = Vec::new();
 
@@ -44,10 +46,11 @@ impl CostSet {
             for ls2 in &other.set {
                 match ls1.combine(ls2, lps) {
                     None => continue,
-                    Some(ls) => match set.binary_search(&ls) {
-                        Ok(_) => {}
-                        Err(pos) => set.insert(pos, ls),
-                    },
+                    Some(ls) => {
+                        if let Err(pos) = set.binary_search(&ls) {
+                            set.insert(pos, ls);
+                        }
+                    }
                 }
             }
         }
@@ -55,14 +58,14 @@ impl CostSet {
         CostSet { set }
     }
 
-    /// Combines two CostSets by unioning them together.
-    /// Used for e.g. different ENodes of an EClass.
+    /// Combines two `CostSets` by unioning them together.
+    /// Used for e.g. different `ENodes` of an `EClass`.
     pub fn combine(&mut self, other: CostSet) {
         // println!("combine");
         let mut cix = 0;
 
         for elem in other.set {
-            while cix < self.set.len() && &elem >= &self.set[cix] {
+            while cix < self.set.len() && elem >= self.set[cix] {
                 cix += 1;
             } // Nadia: can't this be done with a binary search?
 
@@ -71,8 +74,8 @@ impl CostSet {
         }
     }
 
-    /// Performs trivial partial order reduction: if CostSet A contains a superset
-    /// of the libs of another CostSet B, and A has a higher expr_cost than B, remove A.
+    /// Performs trivial partial order reduction: if `CostSet` A contains a superset
+    /// of the libs of another `CostSet` B, and A has a higher `expr_cost` than B, remove A.
     pub fn unify(&mut self) {
         // println!("unify");
         let mut i = 0;
@@ -84,7 +87,7 @@ impl CostSet {
                 let ls1 = &self.set[i];
                 let ls2 = &self.set[j];
 
-                if ls1.is_subset(&ls2) {
+                if ls1.is_subset(ls2) {
                     self.set.remove(j);
                 } else {
                     j += 1;
@@ -94,7 +97,7 @@ impl CostSet {
         }
     }
 
-    /// Increments the expr and full cost of every LibSel in this CostSet.
+    /// Increments the expr and full cost of every `LibSel` in this `CostSet`.
     /// This is done if we e.g. cross all the args of a node, then have to add
     /// the node itself to the cost.
     pub fn inc_cost(&mut self) {
@@ -104,6 +107,7 @@ impl CostSet {
         }
     }
 
+    #[must_use]
     pub fn add_lib(&self, lib: LibId, cost: &CostSet, lps: usize) -> CostSet {
         // println!("add_lib");
         // To add a lib, we do a modified cross.
@@ -118,10 +122,11 @@ impl CostSet {
             for ls2 in &self.set {
                 match ls2.add_lib(lib, ls1, lps) {
                     None => continue,
-                    Some(ls) => match set.binary_search(&ls) {
-                        Ok(_pos) => (), // set.insert(pos, ls), // TODO: why did we used to insert it again?
-                        Err(pos) => set.insert(pos, ls),
-                    },
+                    Some(ls) => {
+                        if let Err(pos) = set.binary_search(&ls) {
+                            set.insert(pos, ls);
+                        }
+                    }
                 }
             }
         }
@@ -130,22 +135,24 @@ impl CostSet {
     }
 
     /// prune takes care of two different tasks to reduce the number
-    /// of functions in a LibSel:
+    /// of functions in a `LibSel`:
     ///
     /// - If we have an lps limit, we remove anything that has more fns
-    ///   than we allow in a LibSel
-    /// - Then, if we still have too many LibSels, we prune based on
+    ///   than we allow in a `LibSel`
+    /// - Then, if we still have too many `LibSel`s, we prune based on
     ///   beam size.
     ///
-    /// Our pruning strategy preserves n LibSels per # of libs, where
-    /// n is the beam size. In other words, we preserve n LibSels with
-    /// 0 libs, n LibSels with 1 lib, etc.
+    /// Our pruning strategy preserves n `LibSel`s per # of libs, where
+    /// n is the beam size. In other words, we preserve n `LibSel`s with
+    /// 0 libs, n `LibSel`s with 1 lib, etc.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `extra_por` is `true`.
     pub fn prune(&mut self, n: usize, lps: usize, extra_por: bool) {
         use std::cmp::Reverse;
 
-        if extra_por {
-            panic!("extra_por unimplemented for new pruning");
-        }
+        assert!(!extra_por, "extra_por unimplemented for new pruning");
 
         let old_set = std::mem::take(&mut self.set);
 
@@ -162,7 +169,7 @@ impl CostSet {
             //     panic!("LibSels that are too large should have been filtered out by cross!");
             // }
 
-            let h = table.entry(num_libs).or_insert_with(|| BinaryHeap::new());
+            let h = table.entry(num_libs).or_insert_with(BinaryHeap::new);
 
             h.push(Reverse(LibSelFC(ls)));
         }
@@ -178,9 +185,8 @@ impl CostSet {
                 if let Some(ls) = h.pop() {
                     let ls = ls.0 .0;
 
-                    match set.binary_search(&ls) {
-                        Ok(_) => {}
-                        Err(pos) => set.insert(pos, ls),
+                    if let Err(pos) = set.binary_search(&ls) {
+                        set.insert(pos, ls);
                     }
 
                     i += 1;
@@ -204,7 +210,7 @@ impl CostSet {
                 let ls1 = &self.set[i];
                 let ls2 = &self.set[j];
 
-                if ls2.is_subset(&ls1) {
+                if ls2.is_subset(ls1) {
                     self.set.remove(j);
                 } else {
                     j += 1;
@@ -228,6 +234,7 @@ pub struct LibSel {
 }
 
 impl LibSel {
+    #[must_use]
     pub fn intro_op() -> LibSel {
         LibSel {
             libs: Vec::new(),
@@ -238,6 +245,7 @@ impl LibSel {
 
     /// Combines two `LibSel`s. Unions the lib sets, adds
     /// the expr
+    #[must_use]
     pub fn combine(&self, other: &LibSel, lps: usize) -> Option<LibSel> {
         let mut res = self.clone();
 
@@ -246,7 +254,7 @@ impl LibSel {
                 Ok(ix) => {
                     if v < &res.libs[ix].1 {
                         res.full_cost -= res.libs[ix].1 - *v;
-                        res.libs[ix].1 = *v
+                        res.libs[ix].1 = *v;
                     }
                 }
                 Err(ix) => {
@@ -265,6 +273,7 @@ impl LibSel {
         Some(res)
     }
 
+    #[must_use]
     pub fn add_lib(&self, lib: LibId, cost: &LibSel, lps: usize) -> Option<LibSel> {
         let mut res = self.clone();
         let v = cost.expr_cost + 1; // +1 for the lib node, which you also have to pay for if you use the lib
@@ -331,16 +340,20 @@ impl LibSel {
                     return false;
                 }
 
-                if &other.libs[oix].0 == lib {
-                    // If other[oix] is equal to lib, continue in the outer loop and increment oix
-                    oix += 1;
-                    continue 'outer;
-                } else if &other.libs[oix].0 > lib {
-                    // Otherwise if it's larger, there was no element equal. Not subset, ret false.
-                    return false;
-                } else {
-                    // Increment oix by default
-                    oix += 1;
+                match &other.libs[oix].0.cmp(lib) {
+                    std::cmp::Ordering::Less => {
+                        // Increment oix by default
+                        oix += 1;
+                    }
+                    std::cmp::Ordering::Equal => {
+                        // If other[oix] is equal to lib, continue in the outer loop and increment oix
+                        oix += 1;
+                        continue 'outer;
+                    }
+                    std::cmp::Ordering::Greater => {
+                        // Otherwise if it's larger, there was no element equal. Not subset, ret false.
+                        return false;
+                    }
                 }
             }
         }
@@ -350,7 +363,7 @@ impl LibSel {
     }
 }
 
-/// A wrapper around LibSels that orders based on their full cost.
+/// A wrapper around `LibSel`s that orders based on their full cost.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct LibSelFC(pub(crate) LibSel);
 
@@ -382,7 +395,7 @@ impl Ord for LibSelFC {
 
 #[derive(Debug, Clone, Copy)]
 pub struct PartialLibCost {
-    /// The number of `LibSel`s to keep per EClass.
+    /// The number of `LibSel`s to keep per `EClass`.
     beam_size: usize,
     inter_beam: usize,
     /// The maximum number of libs per lib selection. Any lib selections with a larger amount will
@@ -512,9 +525,8 @@ impl LibContext {
     /// Add a new lib to the context if not yet present,
     /// keeping it sorted.
     fn add(&mut self, lib_id: LibId) {
-        match self.set.binary_search(&lib_id) {
-            Ok(_) => {} // already present
-            Err(pos) => self.set.insert(pos, lib_id),
+        if let Err(pos) = self.set.binary_search(&lib_id) {
+            self.set.insert(pos, lib_id);
         }
     }
 
@@ -530,10 +542,9 @@ type MaybeExpr<Op> = Option<RecExpr<AstNode<Op>>>;
 fn display_maybe_expr<Op: Clone + std::fmt::Debug + std::hash::Hash + Ord + std::fmt::Display>(
     maybe_expr: &MaybeExpr<Op>,
 ) -> String {
-    if let Some(expr) = maybe_expr {
-        expr.pretty(100)
-    } else {
-        "<none>".to_string()
+    match maybe_expr {
+        Some(expr) => expr.pretty(100),
+        _ => "<none>".to_string(),
     }
 }
 
@@ -553,8 +564,8 @@ pub struct LibExtractor<
 > {
     /// Remembers the best expression so far for each pair of class id and lib context;
     /// if an entry is absent, we haven't visited this class in this context yet;
-    /// if an entry is None, it's currently under processing, but we have no results for it yet;
-    /// if an entry is Some(_), we have found an expression for it (but it might still be improved).
+    /// if an entry is `None`, it's currently under processing, but we have no results for it yet;
+    /// if an entry is `Some(_)`, we have found an expression for it (but it might still be improved).
     memo: HashMap<Id, HashMap<LibContext, MaybeExpr<Op>>>,
     /// Current lib context:
     /// contains all lib ids inside whose definitions we are currently extracting.

@@ -23,8 +23,8 @@ use clap::Parser;
 use egg::RecExpr;
 use std::{
     collections::{HashMap, HashSet},
-    fs,
-    path::PathBuf,
+    fs::{self, File},
+    path::{Path, PathBuf},
 };
 
 #[allow(clippy::struct_excessive_bools)]
@@ -135,114 +135,126 @@ fn main() -> anyhow::Result<()> {
         inputs.sort_unstable();
 
         for input_path in inputs {
-            // This is a benchXXX_itY.json file.
-            let name = input_path.file_name().unwrap();
-
-            let input_str = std::fs::read_to_string(&input_path)?;
-            let input: CompressionInput = serde_json::from_str(&input_str).unwrap();
-
-            if !benchmark_dir.join("out/dc").exists() {
-                continue;
-            }
-
-            let out_path = fs::read_dir(benchmark_dir.join("out/dc"))?
-                .next()
-                .unwrap()?
-                .path();
-
-            let output_path = out_path.join("raw").join(name);
-            let output_str = std::fs::read_to_string(output_path)?;
-            let output: CompressionOutput = serde_json::from_str(&output_str).unwrap();
-
-            let processed_path = out_path.join("processed").join(name);
-            let processed_str = std::fs::read_to_string(processed_path)?;
-            let processed: CompressionSummary = serde_json::from_str(&processed_str).unwrap();
-
-            // Each of the frontiers represents a synthesis problem with multiple equivalent
-            // possibilities.
-            // We take the minimum cost of all the exprs in each frontier and all them
-            // together.
-            let mut new_libs = HashSet::new();
-
-            let initial_cost: usize = {
-                // Get all programs
-                let progs = input
-                    .frontiers
-                    .into_iter()
-                    .map(|mut f| Expr::from(f.programs.remove(0).program));
-
-                // For each program, we do a cost calc.
-                // We accumulate the total library set.
-                let mut libs = HashMap::new();
-                let mut expr_cost = 0;
-
-                for prog in progs {
-                    let (ls, ec) = calc_cost(&prog.into(), &new_libs);
-                    libs.extend(ls);
-                    expr_cost += ec;
-                }
-
-                expr_cost += libs.values().sum::<usize>();
-                expr_cost + 1
-            };
-
-            // Next, we figure out which libs we just learned
-            for inv in processed.inventions {
-                // We need to extract the body of the inlined.
-                let inl: Expr<DreamCoderOp> = inv.dreamcoder.into();
-                if let DreamCoderOp::Inlined(e) = inl.0.operation() {
-                    new_libs.insert(*e.clone());
-                } else {
-                    panic!("non-inlined expr learned as invention");
-                }
-            }
-
-            // And calculate our final cost from the output!
-            let final_cost: usize = {
-                // Get all programs
-                let progs = output
-                    .frontiers
-                    .into_iter()
-                    .map(|mut f| Expr::from(f.programs.remove(0).program));
-
-                // For each program, we do a cost calc.
-                // We accumulate the total library set.
-                let mut libs = HashMap::new();
-                let mut expr_cost = 0;
-
-                for prog in progs {
-                    let (ls, ec) = calc_cost(&prog.into(), &new_libs);
-                    libs.extend(ls);
-                    expr_cost += ec;
-                }
-
-                expr_cost += libs.values().sum::<usize>();
-                expr_cost + 1
-            };
-
-            // Write to our csv.
-            let bench_name = benchmark_dir.file_name().unwrap();
-            let cost_ratio = (initial_cost as f64) / (final_cost as f64);
-            let total_time_seconds = processed.metrics.s_total;
-            let bench_time_seconds =
-                processed.metrics.ms_per_inv * (processed.num_inventions as f64) / 1000.0;
-            println!(
-                "{bench_name:?}/{name:?}:\t\
-                 {initial_cost:>4} -> {final_cost:>4} (r {cost_ratio:>6.3}) \
-                 in {bench_time_seconds:>5.1}/{total_time_seconds:>5.1}s",
-            );
-            wtr.serialize((
-                bench_name.to_string_lossy(),
-                name.to_string_lossy(),
-                initial_cost,
-                final_cost,
-                cost_ratio,
-                total_time_seconds,
-                bench_time_seconds,
-                processed.metrics.mem_peak_kb,
-            ))?;
+            process_bench_file(&mut wtr, benchmark_dir, input_path)?;
         }
     }
+
+    Ok(())
+}
+
+fn process_bench_file(
+    wtr: &mut csv::Writer<File>,
+    benchmark_dir: impl AsRef<Path>,
+    input_path: impl AsRef<Path>,
+) -> anyhow::Result<()> {
+    let input_path = input_path.as_ref();
+    let benchmark_dir = benchmark_dir.as_ref();
+    // This is a benchXXX_itY.json file.
+    let name = input_path.file_name().unwrap();
+
+    let input_str = std::fs::read_to_string(input_path)?;
+    let input: CompressionInput = serde_json::from_str(&input_str).unwrap();
+
+    if !benchmark_dir.join("out/dc").exists() {
+        return Ok(());
+    }
+
+    let out_path = fs::read_dir(benchmark_dir.join("out/dc"))?
+        .next()
+        .unwrap()?
+        .path();
+
+    let output_path = out_path.join("raw").join(name);
+    let output_str = std::fs::read_to_string(output_path)?;
+    let output: CompressionOutput = serde_json::from_str(&output_str).unwrap();
+
+    let processed_path = out_path.join("processed").join(name);
+    let processed_str = std::fs::read_to_string(processed_path)?;
+    let processed: CompressionSummary = serde_json::from_str(&processed_str).unwrap();
+
+    // Each of the frontiers represents a synthesis problem with multiple equivalent
+    // possibilities.
+    // We take the minimum cost of all the exprs in each frontier and all them
+    // together.
+    let mut new_libs = HashSet::new();
+
+    let initial_cost: usize = {
+        // Get all programs
+        let progs = input
+            .frontiers
+            .into_iter()
+            .map(|mut f| Expr::from(f.programs.remove(0).program));
+
+        // For each program, we do a cost calc.
+        // We accumulate the total library set.
+        let mut libs = HashMap::new();
+        let mut expr_cost = 0;
+
+        for prog in progs {
+            let (ls, ec) = calc_cost(&prog.into(), &new_libs);
+            libs.extend(ls);
+            expr_cost += ec;
+        }
+
+        expr_cost += libs.values().sum::<usize>();
+        expr_cost + 1
+    };
+
+    // Next, we figure out which libs we just learned
+    for inv in processed.inventions {
+        // We need to extract the body of the inlined.
+        let inl: Expr<DreamCoderOp> = inv.dreamcoder.into();
+        if let DreamCoderOp::Inlined(e) = inl.0.operation() {
+            new_libs.insert(*e.clone());
+        } else {
+            panic!("non-inlined expr learned as invention");
+        }
+    }
+
+    // And calculate our final cost from the output!
+    let final_cost: usize = {
+        // Get all programs
+        let progs = output
+            .frontiers
+            .into_iter()
+            .map(|mut f| Expr::from(f.programs.remove(0).program));
+
+        // For each program, we do a cost calc.
+        // We accumulate the total library set.
+        let mut libs = HashMap::new();
+        let mut expr_cost = 0;
+
+        for prog in progs {
+            let (ls, ec) = calc_cost(&prog.into(), &new_libs);
+            libs.extend(ls);
+            expr_cost += ec;
+        }
+
+        expr_cost += libs.values().sum::<usize>();
+        expr_cost + 1
+    };
+
+    // Write to our csv.
+    let bench_name = benchmark_dir.file_name().unwrap();
+    let cost_ratio = (initial_cost as f64) / (final_cost as f64);
+    let total_time_seconds = processed.metrics.s_total;
+    let bench_time_seconds =
+        processed.metrics.ms_per_inv * (processed.num_inventions as f64) / 1000.0;
+    println!(
+        "{bench_name:?}/{name:?}:\t\
+                 {initial_cost:>4} -> {final_cost:>4} (r {cost_ratio:>6.3}) \
+                 in {bench_time_seconds:>5.1}/{total_time_seconds:>5.1}s",
+    );
+    wtr.serialize((
+        bench_name.to_string_lossy(),
+        name.to_string_lossy(),
+        initial_cost,
+        final_cost,
+        cost_ratio,
+        total_time_seconds,
+        bench_time_seconds,
+        processed.metrics.mem_peak_kb,
+    ))?;
 
     Ok(())
 }

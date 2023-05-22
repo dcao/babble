@@ -6,8 +6,10 @@ use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
     extract::{apply_libs, beam::PartialLibCost},
     teachable::Teachable,
+    util,
 };
 use egg::{EGraph, Id, RecExpr, Rewrite, Runner};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -31,33 +33,6 @@ pub struct Summary<Op> {
     pub final_cost: usize,
     pub num_libs: usize,
     pub run_time: Duration,
-}
-
-impl<Op> Summary<Op> {
-    /// The [compression ratio][wiki] achieved on this example.
-    ///
-    /// [wiki]: https://en.wikipedia.org/wiki/Data_compression_ratio
-    pub fn compression_ratio(&self) -> f64 {
-        (self.initial_cost as f64) / (self.final_cost as f64)
-    }
-
-    /// The [space saving][wiki] achieved on this example, reported as a number
-    /// between 0 and 100.
-    ///
-    /// [wiki]: https://en.wikipedia.org/wiki/Data_compression_ratio
-    pub fn space_saving_percentage(&self) -> f64 {
-        let space_saving = 1.0 - ((self.final_cost as f64) / (self.initial_cost as f64));
-        space_saving * 100.0
-    }
-
-    /// Returns the reduction in cost between `old` and `self` as a percentage
-    /// of the initial cost.
-    pub fn percent_improved(&self, old: &Self) -> f64 {
-        assert_eq!(self.initial_cost, old.initial_cost);
-        let improvement = (old.final_cost as f64) - (self.final_cost as f64);
-        let relative_improvement = improvement / (self.initial_cost as f64);
-        relative_improvement * 100.0
-    }
 }
 
 struct ExperimentTitle<
@@ -106,7 +81,7 @@ where
         let initial_expr_groups = expr_groups.clone();
         let initial_cost: usize = initial_expr_groups
             .iter()
-            .map(|group| group.iter().map(|expr| expr.len()).min().unwrap())
+            .map(|group| group.iter().map(Expr::len).min().unwrap())
             .sum();
         let initial_cost = initial_cost + 1;
 
@@ -125,6 +100,7 @@ where
     }
 
     /// Write experiments result to CSV.
+    #[allow(clippy::too_many_arguments)]
     fn write_to_csv(
         &self,
         writer: &mut CsvWriter,
@@ -136,6 +112,11 @@ where
         time_elapsed: Duration,
     );
 
+    /// Format the experiment's title
+    ///
+    /// # Errors
+    ///
+    /// See implementations for errors.
     fn fmt_title(&self, f: &mut Formatter<'_>) -> fmt::Result;
 
     fn total_rounds(&self) -> usize;
@@ -153,20 +134,17 @@ where
         let start_time = Instant::now();
 
         // Add one to account for root node, not added yet
-        let initial_cost = exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
+        let initial_cost = exprs.iter().map(Expr::len).sum::<usize>() + 1;
         let res = self.run(exprs, writer);
 
         let final_cost = res.final_expr.len();
-        let compression = initial_cost as f64 / final_cost as f64;
+        let compression = util::compression_factor(initial_cost, final_cost);
         let time_elapsed = start_time.elapsed();
 
         // Print our analysis on this
         println!("Final beam results");
         println!("{}", Pretty(&res.final_expr));
-        println!(
-            "cost diff: {} -> {} (compression ratio {})",
-            initial_cost, final_cost, compression
-        );
+        println!("cost diff: {initial_cost} -> {final_cost} (compression ratio {compression})",);
         // println!("learned rewrites: {:?}", res.rewrites);
         println!("total time: {}ms", time_elapsed.as_millis());
         println!();
@@ -183,7 +161,7 @@ where
     }
 }
 
-/// A set of Experiments is just a list of individual Experiment structs
+/// A set of `Experiments` is just a list of individual `Experiment` structs
 pub struct Experiments<Op> {
     experiments: Vec<Box<dyn Experiment<Op>>>,
     exprs: Vec<Expr<Op>>,
@@ -198,6 +176,15 @@ impl<Op: Debug> Debug for Experiments<Op> {
             )
             .field("exprs", &self.exprs)
             .finish()
+    }
+}
+
+impl<Op> Default for Experiments<Op> {
+    fn default() -> Self {
+        Self {
+            experiments: vec![],
+            exprs: vec![],
+        }
     }
 }
 
@@ -216,11 +203,9 @@ where
         + 'static,
 {
     /// Creates a new empty set of experiments
+    #[must_use]
     pub fn new() -> Self {
-        Self {
-            experiments: Vec::new(),
-            exprs: Vec::new(),
-        }
+        Self::default()
     }
 
     /// Adds all the experiments from another experiment set into this one
@@ -229,14 +214,20 @@ where
         self.exprs.extend(other.exprs);
     }
 
+    // TODO: Use a builder pattern
     // TODO: How to specify DSRs
     /// Generates a set of experiments from a set of params
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `beams` or `lpss` is empty
+    #[allow(clippy::too_many_arguments)]
     pub fn gen<Extra>(
         exprs: Vec<Expr<Op>>,
-        test_exprs: Vec<Expr<Op>>,
-        dsrs: Vec<Rewrite<AstNode<Op>, PartialLibCost>>,
+        test_exprs: &[Expr<Op>],
+        dsrs: &[Rewrite<AstNode<Op>, PartialLibCost>],
         beams: Vec<usize>,
-        lpss: Vec<usize>,
+        lpss: &[usize],
         rounds: usize,
         mut extra_pors: Vec<bool>,
         timeouts: Vec<u64>,
@@ -249,31 +240,23 @@ where
     {
         let mut res: Vec<Box<dyn Experiment<Op>>> = Vec::new();
 
+        // TODO: be more graceful about this
+        assert!(!beams.is_empty(), "beams not specified");
+        assert!(!lpss.is_empty(), "lps not specified");
+
         // Defaults for if we have empty values
-        if beams.is_empty() {
-            // TODO: be more graceful about this
-            panic!("error: beams not specified");
-        }
-
-        if lpss.is_empty() {
-            // TODO: be more graceful about this
-            panic!("error: lps not specified");
-        }
-
         if extra_pors.is_empty() {
             extra_pors.push(false);
         }
 
         for beam in beams {
             for &extra_por in &extra_pors {
-                for &lps in &lpss {
-                    if lps > beam {
-                        // TODO: be more graceful about this too
-                        panic!("lps {} greater than beam {}", lps, beam);
-                    }
+                for &lps in lpss {
+                    // TODO: be more graceful about this too
+                    assert!(lps <= beam, "lps {} greater than beam {}", lps, beam);
 
                     let beam_experiment = BeamExperiment::new(
-                        dsrs.clone(),
+                        dsrs.to_owned(),
                         beam,
                         beam,
                         lps,
@@ -283,13 +266,16 @@ where
                         max_arity,
                         1,
                     );
-                    let te = test_exprs.clone();
-                    if !te.is_empty() {
-                        res.push(Box::new(Generalization::new(beam_experiment, te, rounds)));
-                    } else {
+                    if test_exprs.is_empty() {
                         // We always use Rounds so that we unconditionally run our
                         // plumbing infra, in the case of e.g. nested libs
                         res.push(Box::new(Rounds::new(rounds, beam_experiment)));
+                    } else {
+                        res.push(Box::new(Generalization::new(
+                            beam_experiment,
+                            test_exprs.to_owned(),
+                            rounds,
+                        )));
                     }
                 }
             }
@@ -297,7 +283,7 @@ where
 
         for timeout in timeouts {
             let ilp_experiment =
-                IlpExperiment::new(dsrs.clone(), timeout, extra.clone(), learn_constants);
+                IlpExperiment::new(dsrs.to_owned(), timeout, extra.clone(), learn_constants);
 
             res.push(Box::new(Rounds::new(rounds, ilp_experiment)));
         }
@@ -309,6 +295,11 @@ where
     }
 
     /// Runs all experiments in this set
+    ///
+    /// # Panics
+    ///
+    /// Panics if a csv cannot be created at the given path, or if any of the
+    /// experiments' `run_csv` methods panic.
     pub fn run(self, csv_path: &str) {
         let file = std::fs::File::create(csv_path).unwrap();
         let mut writer: CsvWriter = csv::Writer::from_writer(Box::new(file));
@@ -320,11 +311,11 @@ where
 }
 
 /// Defines some helper functions for finagling with the results of a library learning run.
-/// These runs return a single RecExpr, but when running library learning multiple times in
-/// a row, we need to get the defined libs and individual expressions out from this single RecExpr;
+/// These runs return a single `RecExpr`, but when running library learning multiple times in
+/// a row, we need to get the defined libs and individual expressions out from this single `RecExpr`;
 /// this is what the functions in this module are for.
 pub mod plumbing {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, hash::BuildHasher};
 
     use egg::{Id, Language, RecExpr};
 
@@ -338,13 +329,23 @@ pub mod plumbing {
     type LLRes<'a, Op> = &'a [AstNode<Op>];
 
     /// At the end of all rounds, combine libs hashmap, and list of exprs back into one big recexpr
-    pub fn combine<Op>(libs: HashMap<LibId, Vec<AstNode<Op>>>, exprs: Vec<Expr<Op>>) -> Expr<Op>
+    ///
+    /// # Panics
+    ///
+    /// This function panics if `exprs` is empty.
+    #[must_use]
+    pub fn combine<Op, S: BuildHasher>(
+        libs: HashMap<LibId, Vec<AstNode<Op>>, S>,
+        exprs: Vec<Expr<Op>>,
+    ) -> Expr<Op>
     where
         Op: Teachable + std::fmt::Debug + std::hash::Hash + Clone + Arity + Ord,
     {
+        assert!(!exprs.is_empty(), "The list of exprs cannot be empty");
+
         // First, build our root "combine" node
         let root_list = AstNode::new(Op::list(), std::iter::repeat(Id::from(0)).take(exprs.len()));
-        let mut exprs_iter = exprs.into_iter().map(|x| RecExpr::from(x));
+        let mut exprs_iter = exprs.into_iter().map(RecExpr::from);
         let mut res = root_list.join_recexprs(|_id| exprs_iter.next().unwrap());
 
         // Then, add our libs back in
@@ -372,54 +373,53 @@ pub mod plumbing {
         // so we give up on the spot.
         let mut res = HashMap::new();
 
-        fn walk<Op>(from: LLRes<'_, Op>, res: &mut HashMap<LibId, Vec<AstNode<Op>>>, ix: Id)
-        where
-            Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
-        {
-            // Check what kind of node we're at.
-            match &from[usize::from(ix)].as_binding_expr() {
-                Some(crate::teachable::BindingExpr::Lib(lid, defn, b)) => {
-                    // Extract recursive expression
-                    let rc = build_recexpr(**defn, |x| {
-                        // When building up the RecExpr for our lib defn, we need to do some
-                        // special processing to make sure that we're accounting for the case
-                        // where we have nested lib defns, e.g.
-                        //
-                        // ```
-                        // lib l119 =
-                        //   lib l48 =
-                        //     λx5 x6 -> map (λx7 -> x5 x6 x7) x6
-                        //   in
-                        //     l48 (λx5 x6 -> l192 x6)
-                        // in
-                        //   (body)
-                        // ```
-                        match &from[usize::from(x)].as_binding_expr() {
-                            Some(crate::teachable::BindingExpr::Lib(_n_lid, _n_defn, n_b)) => {
-                                // We have a nested lib!
-                                // Process the lib itself by walking thru this node
-                                walk(from, res, x);
-
-                                // Then return the node given by n_b, the body of the nested lib.
-                                from[usize::from(**n_b)].clone()
-                            }
-                            _ => from[usize::from(x)].clone(),
-                        }
-                    });
-
-                    // Push to res
-                    res.insert(LibId(lid.0), rc.as_ref().to_vec());
-                    // Recursively walk in body
-                    walk(from, res, **b);
-                }
-                _ => {} // no-op
-            }
-        }
-
         // Walk starting from root
-        walk(llr, &mut res, Id::from(llr.len() - 1));
+        walk_libs(llr, &mut res, Id::from(llr.len() - 1));
 
         res
+    }
+
+    fn walk_libs<Op>(from: LLRes<'_, Op>, res: &mut HashMap<LibId, Vec<AstNode<Op>>>, ix: Id)
+    where
+        Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
+    {
+        // Check what kind of node we're at.
+        if let Some(crate::teachable::BindingExpr::Lib(lid, defn, b)) =
+            &from[usize::from(ix)].as_binding_expr()
+        {
+            // Extract recursive expression
+            let rc = build_recexpr(**defn, |x| {
+                // When building up the RecExpr for our lib defn, we need to do some
+                // special processing to make sure that we're accounting for the case
+                // where we have nested lib defns, e.g.
+                //
+                // ```
+                // lib l119 =
+                //   lib l48 =
+                //     λx5 x6 -> map (λx7 -> x5 x6 x7) x6
+                //   in
+                //     l48 (λx5 x6 -> l192 x6)
+                // in
+                //   (body)
+                // ```
+                match &from[usize::from(x)].as_binding_expr() {
+                    Some(crate::teachable::BindingExpr::Lib(_n_lid, _n_defn, n_b)) => {
+                        // We have a nested lib!
+                        // Process the lib itself by walking thru this node
+                        walk_libs(from, res, x);
+
+                        // Then return the node given by n_b, the body of the nested lib.
+                        from[usize::from(**n_b)].clone()
+                    }
+                    _ => from[usize::from(x)].clone(),
+                }
+            });
+
+            // Push to res
+            res.insert(LibId(lid.0), rc.as_ref().to_vec());
+            // Recursively walk in body
+            walk_libs(from, res, **b);
+        }
     }
 
     /// Returns a list of rewritten expressions from the result of a lib learning pass.
@@ -432,38 +432,37 @@ pub mod plumbing {
         // For each of the children, extract expressions for those.
         let mut res = Vec::new();
 
-        fn walk<Op>(from: LLRes<'_, Op>, res: &mut Vec<Expr<Op>>, ix: Id)
-        where
-            Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
-        {
-            // Check what kind of node we're at.
-            match &from[usize::from(ix)].as_binding_expr() {
-                Some(crate::teachable::BindingExpr::Lib(_, _, b)) => {
-                    // Recursively walk in body
-                    walk(from, res, **b);
-                }
-                _ => {
-                    // Get children of current node
-                    from[usize::from(ix)].for_each(|c| {
-                        // Extract recursive expression
-                        let rc =
-                            (&from[usize::from(c)]).build_recexpr(|x| from[usize::from(x)].clone());
-                        // Convert into expr
-                        let e = Expr::from(rc);
-                        // Push to res
-                        res.push(e);
-                    });
-                }
-            }
-        }
-
         // Walk starting from root
-        walk(llr, &mut res, Id::from(llr.len() - 1));
+        walk_exprs(llr, &mut res, Id::from(llr.len() - 1));
 
         res
     }
 
-    /// A riff off Language::build_recexpr, which also uses the get_node arg fn
+    fn walk_exprs<Op>(from: LLRes<'_, Op>, res: &mut Vec<Expr<Op>>, ix: Id)
+    where
+        Op: Teachable + Clone + std::hash::Hash + Ord + std::fmt::Debug,
+    {
+        // Check what kind of node we're at.
+        match &from[usize::from(ix)].as_binding_expr() {
+            Some(crate::teachable::BindingExpr::Lib(_, _, b)) => {
+                // Recursively walk in body
+                walk_exprs(from, res, **b);
+            }
+            _ => {
+                // Get children of current node
+                from[usize::from(ix)].for_each(|c| {
+                    // Extract recursive expression
+                    let rc = from[usize::from(c)].build_recexpr(|x| from[usize::from(x)].clone());
+                    // Convert into expr
+                    let e = Expr::from(rc);
+                    // Push to res
+                    res.push(e);
+                });
+            }
+        }
+    }
+
+    /// A riff off `Language::build_recexpr` which also uses the `get_node` arg fn
     /// on the root index passed.
     fn build_recexpr<F, L>(root: Id, mut get_node: F) -> RecExpr<L>
     where
@@ -487,7 +486,7 @@ pub mod plumbing {
             for child in node.children() {
                 if !ids.contains_key(child) {
                     ids_has_all_children = false;
-                    todo.push(*child)
+                    todo.push(*child);
                 }
             }
 
@@ -539,7 +538,7 @@ where
     }
 
     fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
-        let initial_cost = exprs.iter().map(|expr| expr.len()).sum::<usize>() + 1;
+        let initial_cost = exprs.iter().map(Expr::len).sum::<usize>() + 1;
         let start = std::time::Instant::now();
 
         let mut current_exprs = exprs;
@@ -558,10 +557,12 @@ where
             current_rewrites.extend(round_res.rewrites);
 
             // We record intermediate results if we're not at the last round yet
-            if round != self.rounds - 1 {
+            if round == self.rounds - 1 {
+                log::info!(" finished!");
+            } else {
                 let inter_expr = plumbing::combine(libs.clone(), current_exprs.clone());
                 let inter_cost = inter_expr.len();
-                let compression = initial_cost as f64 / inter_cost as f64;
+                let compression = util::compression_factor(initial_cost, inter_cost);
 
                 self.write_to_csv(
                     writer,
@@ -574,17 +575,12 @@ where
                 );
 
                 log::info!(
-                    "round {}/{} results: {}/{} (r {})",
+                    "round {}/{} results: {inter_cost}/{initial_cost} (r {compression})",
                     round + 1,
                     self.rounds,
-                    inter_cost,
-                    initial_cost,
-                    compression
                 );
 
                 log::debug!("{}", Pretty(&inter_expr));
-            } else {
-                log::info!(" finished!");
             }
         }
 
@@ -596,7 +592,7 @@ where
         // Print out the raw recexpr of the results to a file
         std::fs::write(
             "target/rec_expr",
-            format!("{}", RecExpr::from(final_expr.clone()).pretty(100)),
+            RecExpr::from(final_expr.clone()).pretty(100),
         )
         .unwrap();
 
@@ -614,7 +610,7 @@ where
 
         let initial_cost = expr_groups
             .iter()
-            .map(|expr_group| expr_group.iter().map(|expr| expr.len()).min().unwrap())
+            .map(|expr_group| expr_group.iter().map(Expr::len).min().unwrap())
             .sum::<usize>()
             + 1;
         let start = std::time::Instant::now();
@@ -629,7 +625,7 @@ where
         {
             let inter_expr = plumbing::combine(libs.clone(), current_exprs.clone());
             let inter_cost = inter_expr.len();
-            let compression = initial_cost as f64 / inter_cost as f64;
+            let compression = util::compression_factor(initial_cost, inter_cost);
 
             self.write_to_csv(
                 &mut writer,
@@ -664,10 +660,12 @@ where
             current_rewrites.extend(round_res.rewrites);
 
             // We record intermediate results if we're not at the last round yet
-            if round != self.rounds - 1 {
+            if round == self.rounds - 1 {
+                log::info!("finished!");
+            } else {
                 let inter_expr = plumbing::combine(libs.clone(), current_exprs.clone());
                 let inter_cost = inter_expr.len();
-                let compression = initial_cost as f64 / inter_cost as f64;
+                let compression = util::compression_factor(initial_cost, inter_cost);
 
                 self.write_to_csv(
                     &mut writer,
@@ -689,8 +687,6 @@ where
                 );
 
                 log::debug!("{}", Pretty(&inter_expr));
-            } else {
-                log::info!("finished!");
             }
         }
 
@@ -730,7 +726,7 @@ where
             compression,
             num_libs,
             time_elapsed,
-        )
+        );
     }
 }
 
@@ -742,7 +738,7 @@ where
 {
     experiment: T,
     test_set: Vec<Expr<Op>>,
-    /// I tried to make this compose with Rounds, but it's very difficult
+    /// I tried to make this compose with `Rounds`, but it's very difficult
     /// because iteratively learned rewrites have to be applied also iteratively.
     /// So I had to mash the two together.
     rounds: usize,
@@ -773,9 +769,11 @@ where
     }
 
     /// Create an egraph out of `exprs` rewritten with my DSRs.
-    fn to_egraph(&self, exprs: Vec<Expr<Op>>) -> (EGraph<AstNode<Op>, PartialLibCost>, Vec<Id>) {
-        let recexprs: Vec<RecExpr<AstNode<Op>>> =
-            exprs.clone().into_iter().map(|x| x.into()).collect();
+    fn to_egraph<I: IntoIterator<Item = Expr<Op>>>(
+        &self,
+        exprs: I,
+    ) -> (EGraph<AstNode<Op>, PartialLibCost>, Vec<Id>) {
+        let recexprs: Vec<RecExpr<AstNode<Op>>> = exprs.into_iter().map_into().collect();
         let mut aeg = EGraph::new(PartialLibCost::empty());
         let roots = recexprs.iter().map(|x| aeg.add_expr(x)).collect::<Vec<_>>();
         aeg.rebuild();
@@ -881,20 +879,17 @@ where
         let start_time = Instant::now();
 
         // Add one to account for root node, not added yet
-        let initial_cost = self.test_set.iter().map(|expr| expr.len()).sum::<usize>() + 1;
+        let initial_cost = self.test_set.iter().map(Expr::len).sum::<usize>() + 1;
         let res = self.run(exprs, writer);
 
         let final_cost = res.final_expr.len();
-        let compression = initial_cost as f64 / final_cost as f64;
+        let compression = util::compression_factor(initial_cost, final_cost);
         let time_elapsed = start_time.elapsed();
 
         // Print our analysis on this
         println!("Final beam results");
         println!("{}", Pretty(&res.final_expr));
-        println!(
-            "cost diff: {} -> {} (compression ratio {})",
-            initial_cost, final_cost, compression
-        );
+        println!("cost diff: {initial_cost} -> {final_cost} (compression factor {compression})");
         // println!("learned rewrites: {:?}", res.rewrites);
         println!("total time: {}ms", time_elapsed.as_millis());
         println!();

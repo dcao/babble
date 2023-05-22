@@ -41,7 +41,7 @@ impl Display for LibId {
     }
 }
 
-/// An error when parsing a LibId.
+/// An error when parsing a [`LibId`].
 #[derive(Clone, Debug, Error)]
 pub enum ParseLibIdError {
     /// The string did not start with "$"

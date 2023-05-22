@@ -54,6 +54,9 @@ where
 }
 
 /// Parse a rewrites file.
+///
+/// # Errors
+/// This function will return an error if the rewrites file is invalid.
 pub fn parse<L, A>(file: &str) -> anyhow::Result<Vec<Rewrite<L, A>>>
 where
     L: Language + FromOp + Sync + Send + 'static,

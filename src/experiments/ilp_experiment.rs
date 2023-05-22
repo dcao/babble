@@ -12,7 +12,7 @@ use std::{
     time::Duration,
 };
 
-/// An ILPExperiment contains all of the info needed to run a library
+/// An `ILPExperiment` contains all of the info needed to run a library
 /// learning experiment with the ILP extractor.
 #[derive(Debug)]
 pub struct IlpExperiment<Op, Extra>
@@ -81,7 +81,6 @@ where
     // now it's always disabled and I have replaced it with the stub above.
     #[cfg(any())]
     fn run(&self, exprs: Vec<Expr<Op>>, writer: &mut CsvWriter) -> ExperimentResult<Op> {
-
         use crate::{
             ast_node::Pretty,
             extract::{ilp::LpExtractor, lift_libs},

@@ -16,8 +16,10 @@ use crate::lang::Drawing;
 use babble::{
     ast_node::{combine_exprs, Expr, Pretty},
     experiments::{plumbing, Experiments},
+    learn::LibId,
     rewrites,
-    sexp::Program, teachable::BindingExpr, learn::LibId,
+    sexp::Program,
+    teachable::BindingExpr,
 };
 use clap::Parser;
 use egg::{AstSize, CostFunction, RecExpr};
@@ -199,7 +201,7 @@ fn main() {
     }
 
     // If test file is specified, parse it as a list of exprs:
-    let test_prog: Option<Vec<Expr<Drawing>>> = opts.test_file.map(|f| {
+    let test_prog: Option<Vec<Expr<Drawing>>> = opts.test_file.clone().map(|f| {
         let input = fs::read_to_string(f).expect("Error reading test file");
         Program::parse(&input)
             .expect("Failed to parse test set")
@@ -213,74 +215,9 @@ fn main() {
     });
 
     if opts.svg {
-        if !opts.select.is_empty() {
-            // Take from new_progs
-            let mut tmp_progs = vec![];
-
-            for n in opts.select {
-                tmp_progs.push(prog[n].clone());
-            }
-
-            prog = tmp_progs;
-        }
-
-        let expr: Expr<_> = combine_exprs(prog).into();
-        let value = eval::eval(&expr).expect("Failed to evaluate expression");
-        let picture = value
-            .into_picture()
-            .expect("Result of evaluation is not a picture");
-        picture.write_svg(io::stdout()).expect("Error writing SVG");
+        print_svg(&opts.select, prog);
     } else if let Some(l) = opts.eval_lib {
-        // We assume the input file is the RecExpr output of a babble evaluation
-        // It should have libs and all that.
-        // Since it's been libified, it's just one expr.
-        let expr = RecExpr::from(prog[0].clone());
-
-        // Now, we want to do some plumbing stuff.
-        // First, we split the program into its libs and progs
-        let libs = plumbing::libs(expr.as_ref());
-        let progs = plumbing::exprs(expr.as_ref());
-
-        // With the progs, find apps
-        let tgt = Some(LibId(l.parse().unwrap()));
-        let mut new_progs = find_apps(progs, tgt);
-
-        if !opts.select.is_empty() {
-            // Take from new_progs
-            let mut tmp_progs = vec![];
-
-            for n in opts.select {
-                tmp_progs.push(new_progs[n].clone());
-            }
-
-            new_progs = tmp_progs;
-        }
-
-        if let Some(start) = opts.start {
-            new_progs = new_progs[start..].to_vec();
-        }
-
-        if let Some(limit) = opts.limit {
-            if limit > prog.len() {
-                new_progs.truncate(limit);
-            }
-        }
-
-        // Hack to pretty print the fn
-        log::info!(
-            "{}",
-            Pretty(&Expr::from(RecExpr::from(libs[&tgt.unwrap()].clone())))
-        );
-
-        // Recombine and eval
-        let fin = plumbing::combine(libs, new_progs);
-
-        let value =
-            eval::eval(&fin).unwrap_or_else(|_| panic!("{}", "lib {l} doesn't produce pictures"));
-        let picture = value
-            .into_picture()
-            .expect("Result of evaluation is not a picture");
-        picture.write_svg(io::stdout()).expect("Error writing SVG");
+        eval_lib(&opts.select, opts.start, opts.limit, &l, &prog);
     } else {
         // For the sake of pretty printing
         {
@@ -316,10 +253,10 @@ fn main() {
 
         let exps = Experiments::gen(
             prog,
-            test_prog.unwrap_or_default(),
-            dsrs,
+            &test_prog.unwrap_or_default(),
+            &dsrs,
             opts.beams.clone(),
-            opts.lps.clone(),
+            &opts.lps,
             opts.rounds,
             opts.extra_por.clone(),
             vec![],
@@ -331,4 +268,69 @@ fn main() {
         println!("running...");
         exps.run(&opts.output);
     }
+}
+
+fn print_svg(selection: &[usize], mut prog: Vec<Expr<Drawing>>) {
+    if !selection.is_empty() {
+        prog = selection.iter().map(|&n| &prog[n]).cloned().collect();
+    }
+
+    let expr: Expr<_> = combine_exprs(prog).into();
+    let value = eval::eval(&expr).expect("Failed to evaluate expression");
+    let picture = value
+        .into_picture()
+        .expect("Result of evaluation is not a picture");
+    picture.write_svg(io::stdout()).expect("Error writing SVG");
+}
+
+fn eval_lib(
+    selection: &[usize],
+    start: Option<usize>,
+    limit: Option<usize>,
+    l: &str,
+    prog: &[Expr<Drawing>],
+) {
+    // We assume the input file is the RecExpr output of a babble evaluation
+    // It should have libs and all that.
+    // Since it's been libified, it's just one expr.
+    let expr = RecExpr::from(prog[0].clone());
+
+    // Now, we want to do some plumbing stuff.
+    // First, we split the program into its libs and progs
+    let libs = plumbing::libs(expr.as_ref());
+    let progs = plumbing::exprs(expr.as_ref());
+
+    // With the progs, find apps
+    let tgt = Some(LibId(l.parse().unwrap()));
+    let mut new_progs = find_apps(progs, tgt);
+
+    if !selection.is_empty() {
+        new_progs = selection.iter().map(|&n| &new_progs[n]).cloned().collect();
+    }
+
+    if let Some(start) = start {
+        new_progs = new_progs[start..].to_vec();
+    }
+
+    if let Some(limit) = limit {
+        if limit > prog.len() {
+            new_progs.truncate(limit);
+        }
+    }
+
+    // Hack to pretty print the fn
+    log::info!(
+        "{}",
+        Pretty(&Expr::from(RecExpr::from(libs[&tgt.unwrap()].clone())))
+    );
+
+    // Recombine and eval
+    let fin = plumbing::combine(libs, new_progs);
+
+    let value =
+        eval::eval(&fin).unwrap_or_else(|_| panic!("{}", "lib {l} doesn't produce pictures"));
+    let picture = value
+        .into_picture()
+        .expect("Result of evaluation is not a picture");
+    picture.write_svg(io::stdout()).expect("Error writing SVG");
 }

@@ -8,6 +8,7 @@ use std::{convert::TryFrom, str::FromStr};
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Expr<Op>(pub AstNode<Op, Self>);
 
+#[allow(clippy::len_without_is_empty)]
 impl<Op> Expr<Op> {
     /// Converts `self` into its underlying [`AstNode`].
     #[must_use]
@@ -15,10 +16,12 @@ impl<Op> Expr<Op> {
         self.0
     }
 
-    /// Returns the number of AST nodes in the expression.
+    /// Returns the number of AST nodes in the expression. There is no
+    /// corresponding `is_empty` method because `len` is always greater than
+    /// zero.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.0.iter().map(|expr| expr.len()).sum::<usize>() + 1
+        self.0.iter().map(Expr::len).sum::<usize>() + 1
     }
 }
 
@@ -77,6 +80,7 @@ impl<Op: Clone> From<RecExpr<AstNode<Op>>> for Expr<Op> {
 }
 
 /// Convert a list of exprs into a single recexpr, combining them using the list node
+#[must_use]
 pub fn combine_exprs<Op>(exprs: Vec<Expr<Op>>) -> RecExpr<AstNode<Op>>
 where
     Op: Teachable + std::fmt::Debug + Clone + Arity + std::hash::Hash + Ord,
@@ -89,15 +93,15 @@ where
         let recx: RecExpr<_> = expr.into();
 
         // Then turn the RecExpr into a Vec
-        let mut vecx: Vec<AstNode<Op>> = recx.as_ref().to_vec();
+        let mut nodes: Vec<AstNode<Op>> = recx.as_ref().to_vec();
 
         // For each node, increment the children by the current size of the accum expr
-        for node in vecx.iter_mut() {
+        for node in &mut nodes {
             node.update_children(|x| (usize::from(x) + res.len()).into());
         }
 
         // Then push everything into the accum expr
-        res.extend(vecx);
+        res.extend(nodes);
         roots.push((res.len() - 1).into());
     }
 

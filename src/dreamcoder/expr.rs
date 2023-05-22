@@ -1,12 +1,11 @@
 //! The language of Dream&shy;Coder expressions.
-
 use super::{parse, util::parens};
 use crate::{
     ast_node::{Arity, AstNode, Expr, Precedence, Printable, Printer},
     learn::{LibId, ParseLibIdError},
     teachable::{BindingExpr, DeBruijnIndex, Teachable},
 };
-use egg::{Analysis, RecExpr, Rewrite, Symbol};
+use egg::{RecExpr, Symbol};
 use nom::error::convert_error;
 use ref_cast::RefCast;
 use serde::{Deserialize, Serialize};
@@ -26,6 +25,7 @@ use std::{
 struct RawStr<'a>(Cow<'a, str>);
 
 /// An expression in Dream&shy;Coder's generic programming language.
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, RefCast)]
 #[serde(try_from = "RawStr<'_>")]
 #[serde(into = "RawStr<'_>")]
@@ -78,7 +78,7 @@ impl<'a> TryFrom<RawStr<'a>> for DcExpr {
     }
 }
 
-/// An AST node in the DreamCoder language.
+/// An AST node in the Dream&shy;Coder language.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum DreamCoderOp {
     /// A variable.
@@ -110,8 +110,10 @@ pub enum DreamCoderOp {
     Combine,
 }
 
+#[cfg(any())]
 impl DreamCoderOp {
     #[allow(unreachable_code, unused_variables)]
+
     pub fn to_rewrite<A>(self) -> Option<Rewrite<AstNode<Self>, A>>
     where
         A: Analysis<AstNode<Self>>,
@@ -223,12 +225,12 @@ impl Display for DreamCoderOp {
         let s = match self {
             DreamCoderOp::Lambda => "lambda",
             DreamCoderOp::App => "@",
-            DreamCoderOp::Lib(ix) => return write!(f, "lib {}", ix),
-            DreamCoderOp::LibVar(ix) => return write!(f, "{}", ix),
+            DreamCoderOp::Lib(ix) => return write!(f, "lib {ix}"),
+            DreamCoderOp::LibVar(ix) => return write!(f, "{ix}"),
             DreamCoderOp::Shift => "shift",
-            DreamCoderOp::Var(index) => return write!(f, "${}", index),
+            DreamCoderOp::Var(index) => return write!(f, "${index}"),
             DreamCoderOp::Inlined(expr) => return write!(f, "#{}", DcExpr::ref_cast(expr)),
-            DreamCoderOp::Symbol(symbol) => return write!(f, "{}", symbol),
+            DreamCoderOp::Symbol(symbol) => return write!(f, "{symbol}"),
             DreamCoderOp::Combine => "combine",
         };
         f.write_str(s)
@@ -248,7 +250,7 @@ impl Printable for DreamCoderOp {
     fn print_naked<W: Write>(expr: &Expr<Self>, printer: &mut Printer<W>) -> fmt::Result {
         match (expr.0.operation(), expr.0.args()) {
             (&Self::Symbol(s), []) => {
-                write!(printer.writer, "{}", s)
+                write!(printer.writer, "{s}")
             }
             (&Self::Combine, ts) => {
                 let elem = |p: &mut Printer<W>, i: usize| {
@@ -261,7 +263,7 @@ impl Printable for DreamCoderOp {
                 printer.in_parens(|p| p.print_in_context(expr, 0))
             }
             (op, _) => {
-                write!(printer.writer, "{} ???", op)
+                write!(printer.writer, "{op} ???")
             }
         }
     }
@@ -271,9 +273,10 @@ impl Display for DcExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let node: &AstNode<_, _> = self.as_ref();
         match node.as_parts() {
-            (DreamCoderOp::Symbol(name), []) => write!(f, "{}", name),
+            (DreamCoderOp::Symbol(name), []) => write!(f, "{name}"),
+
             (DreamCoderOp::Var(index), []) => {
-                write!(f, "${}", index)
+                write!(f, "${index}")
             }
             (DreamCoderOp::Inlined(expr), []) => {
                 write!(f, "#{}", Self::ref_cast(expr))
@@ -285,7 +288,7 @@ impl Display for DcExpr {
                 write!(f, "{:.0} {:.1}", Self::ref_cast(fun), Self::ref_cast(arg))
             }),
             (op, args) => {
-                write!(f, "({}", op)?;
+                write!(f, "({op}")?;
                 for arg in args {
                     write!(f, " {}", Self::ref_cast(arg))?;
                 }
