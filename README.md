@@ -5,7 +5,8 @@ Head to the [`POPL23.md` file](https://github.com/dcao/babble/blob/popl23/POPL23
 on the `popl23` branch.
 
 [ci-status]: https://github.com/dcao/babble/actions/workflows/ci.yml?query=branch%3Amain
-[ci-status-badge]: https://img.shields.io/github/workflow/status/dcao/babble/CI?style=for-the-badge
+[ci-status-badge]:
+https://img.shields.io/github/actions/workflow/status/dcao/babble/ci.yml?branch=main
 [license]: https://github.com/dcao/babble/blob/main/LICENSE
 [license-badge]: https://img.shields.io/github/license/dcao/babble?style=for-the-badge
 
