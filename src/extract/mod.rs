@@ -2,9 +2,6 @@
 
 pub mod beam;
 
-#[cfg(feature = "grb")]
-pub mod ilp;
-
 use std::collections::HashMap;
 
 use egg::{Analysis, EGraph, Id, Language, RecExpr, Rewrite, Runner};
