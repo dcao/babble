@@ -66,10 +66,6 @@ struct Opts {
     #[clap(long, default_value_t = 1)]
     rounds: usize,
 
-    /// The timeouts to use for the ILP extractor
-    #[clap(long)]
-    timeout: Vec<u64>,
-
     /// Whether to use the additional partial order reduction step
     #[clap(long)]
     extra_por: Vec<bool>,
@@ -133,7 +129,6 @@ fn main() {
             &opts.lps,
             opts.rounds,
             opts.extra_por.clone(),
-            opts.timeout.clone(),
             limit,
             opts.learn_constants,
             opts.max_arity,

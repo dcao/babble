@@ -1,6 +1,5 @@
 pub use self::beam_experiment::BeamExperiment;
 pub use self::eqsat_experiment::EqsatExperiment;
-pub use self::ilp_experiment::IlpExperiment;
 
 use crate::{
     ast_node::{Arity, AstNode, Expr, Pretty, Printable},
@@ -23,7 +22,6 @@ use std::{
 mod beam_experiment;
 pub mod cache;
 mod eqsat_experiment;
-mod ilp_experiment;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Summary<Op> {
@@ -230,7 +228,6 @@ where
         lpss: &[usize],
         rounds: usize,
         mut extra_pors: Vec<bool>,
-        timeouts: Vec<u64>,
         extra: Extra,
         learn_constants: bool,
         max_arity: Option<usize>,
@@ -279,13 +276,6 @@ where
                     }
                 }
             }
-        }
-
-        for timeout in timeouts {
-            let ilp_experiment =
-                IlpExperiment::new(dsrs.to_owned(), timeout, extra.clone(), learn_constants);
-
-            res.push(Box::new(Rounds::new(rounds, ilp_experiment)));
         }
 
         Self {

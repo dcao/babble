@@ -57,10 +57,6 @@ struct Opts {
     #[clap(long, default_value = "400")]
     beams: Vec<usize>,
 
-    /// The timeouts to use for the ILP extractor
-    #[clap(long)]
-    timeout: Vec<u64>,
-
     /// The number of libs to learn at a time
     #[clap(long, default_value = "1")]
     lps: Vec<usize>,
@@ -131,7 +127,6 @@ fn main() {
         &opts.lps,
         opts.rounds,
         opts.extra_por.clone(),
-        opts.timeout.clone(),
         (),
         opts.learn_constants,
         opts.max_arity,

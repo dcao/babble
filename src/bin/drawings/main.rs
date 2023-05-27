@@ -259,7 +259,6 @@ fn main() {
             &opts.lps,
             opts.rounds,
             opts.extra_por.clone(),
-            vec![],
             (),
             opts.learn_constants,
             opts.max_arity,
