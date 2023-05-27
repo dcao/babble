@@ -48,8 +48,6 @@ pub(crate) enum Smiley {
     Lambda,
     /// Bind a lib fn within an expression.
     Lib(LibId),
-    /// Shift indices.
-    Shift,
 }
 
 impl Debug for Smiley {
@@ -67,7 +65,7 @@ impl Arity for Smiley {
             | Self::Circle
             | Self::Line
             | Self::LibVar(_) => 0,
-            Self::Lambda | Self::Shift | Self::Compose => 1,
+            Self::Lambda | Self::Compose => 1,
             Self::Scale
             | Self::ScaleX
             | Self::ScaleY
@@ -104,7 +102,6 @@ impl Display for Smiley {
             Self::Lambda => f.write_str("λ"),
             Self::Lib(ix) => write!(f, "lib {ix}"),
             Self::LibVar(ix) => write!(f, "{ix}"),
-            Self::Shift => f.write_str("shift"),
         }
     }
 }
@@ -124,7 +121,6 @@ impl FromStr for Smiley {
             "rotate" => Self::Rotate,
             "apply" | "@" => Self::Apply,
             "+" => Self::Compose,
-            "shift" => Self::Shift,
             _ => {
                 if let Ok(index) = s.parse::<DeBruijnIndex>() {
                     Self::Var(index)
@@ -159,7 +155,6 @@ impl Teachable for Smiley {
             BindingExpr::Lib(ix, bound_value, body) => {
                 AstNode::new(Self::Lib(ix), [bound_value, body])
             }
-            BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
         }
     }
 
@@ -170,7 +165,6 @@ impl Teachable for Smiley {
             (&Self::Var(index), []) => BindingExpr::Var(index),
             (Self::Lib(ix), [bound_value, body]) => BindingExpr::Lib(*ix, bound_value, body),
             (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
-            (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };
         Some(binding_expr)
@@ -191,13 +185,9 @@ impl Printable for Smiley {
             | Self::Circle
             | Self::Line => 60,
             Self::Compose => 50,
-            Self::Move
-            | Self::Scale
-            | Self::ScaleX
-            | Self::ScaleY
-            | Self::Rotate
-            | Self::Apply
-            | Self::Shift => 40,
+            Self::Move | Self::Scale | Self::ScaleX | Self::ScaleY | Self::Rotate | Self::Apply => {
+                40
+            }
             Self::Lambda | Self::Lib(_) => 10,
         }
     }

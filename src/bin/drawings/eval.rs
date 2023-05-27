@@ -29,11 +29,6 @@ impl<'a> Context<'a> {
         self
     }
 
-    fn shift(mut self) -> Self {
-        self.args.pop();
-        self
-    }
-
     fn get_index(&self, index: usize) -> &Value<'a> {
         &self.args[self.args.len() - (index + 1)]
     }
@@ -193,10 +188,6 @@ impl<'a> Context<'a> {
                     shapes.extend(self.eval(expr)?.into_shapes()?);
                 }
                 Ok(Value::Shapes(shapes))
-            }
-            (Drawing::Shift, [body]) => {
-                let context = self.clone().shift();
-                context.eval(body)
             }
             (Drawing::Repeat, [expr, times, mat]) => {
                 let val = self.eval(expr)?;

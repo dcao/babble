@@ -29,8 +29,6 @@ pub enum SimpleOp {
     Lambda,
     /// A library function binding
     Lib(LibId),
-    /// A shift
-    Shift,
     /// A list of expressions
     List,
 }
@@ -39,7 +37,7 @@ impl Arity for SimpleOp {
     fn min_arity(&self) -> usize {
         match self {
             Self::Var(_) | Self::Symbol(_) => 0,
-            Self::Lambda | Self::Shift | Self::LibVar(_) | Self::List => 1,
+            Self::Lambda | Self::LibVar(_) | Self::List => 1,
             Self::Apply | Self::Lib(_) => 2,
         }
     }
@@ -50,7 +48,6 @@ impl Display for SimpleOp {
         let s = match self {
             Self::Apply => "@",
             Self::Lambda => "λ",
-            Self::Shift => "shift",
             Self::Lib(libid) => {
                 return write!(f, "lib {libid}");
             }
@@ -74,7 +71,6 @@ impl FromStr for SimpleOp {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let op = match input {
-            "shift" => Self::Shift,
             "apply" | "@" => Self::Apply,
             "lambda" | "λ" => Self::Lambda,
             "list" => Self::List,
@@ -104,7 +100,6 @@ impl Teachable for SimpleOp {
                 AstNode::new(Self::Lib(ix), [bound_value, body])
             }
             BindingExpr::LibVar(ix) => AstNode::new(Self::LibVar(ix), []),
-            BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
         }
     }
 
@@ -115,7 +110,6 @@ impl Teachable for SimpleOp {
             (Self::Var(index), []) => BindingExpr::Var(*index),
             (Self::Lib(ix), [bound_value, body]) => BindingExpr::Lib(*ix, bound_value, body),
             (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
-            (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };
         Some(binding_expr)

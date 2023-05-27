@@ -26,8 +26,6 @@ pub(crate) enum Drawing {
     Lib(LibId),
     /// Apply a function to an argument.
     Apply,
-    /// Shift indices.
-    Shift,
     /// A top-level list of programs.
     List,
     /// Drawing-specific constructs:
@@ -82,7 +80,7 @@ impl Arity for Drawing {
             | Self::Circle
             | Self::Line
             | Self::Square => 0,
-            Self::Lambda | Self::Shift | Self::List | Self::Sin | Self::Cos | Self::Tan => 1,
+            Self::Lambda | Self::List | Self::Sin | Self::Cos | Self::Tan => 1,
             Self::Apply
             | Self::Lib(_)
             | Self::Add
@@ -115,7 +113,6 @@ impl Display for Drawing {
             Self::LibVar(ix) => write!(f, "{ix}"),
             Self::Lib(ix) => write!(f, "lib-{ix}"),
             Self::Apply => f.write_str("@"),
-            Self::Shift => f.write_str("shift"),
             Self::List => f.write_str(":"),
             Self::Pi => f.write_str("π"),
             Self::Float(g) => Display::fmt(g, f),
@@ -148,7 +145,6 @@ impl FromStr for Drawing {
         let kind = match s {
             "lambda" | "λ" => Self::Lambda,
             "apply" | "@" => Self::Apply,
-            "shift" => Self::Shift,
             "pi" | "π" => Self::Pi,
             "+" => Self::Add,
             "-" => Self::Sub,
@@ -201,7 +197,6 @@ impl Teachable for Drawing {
             BindingExpr::Lib(ix, bound_value, body) => {
                 AstNode::new(Self::Lib(ix), [bound_value, body])
             }
-            BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
         }
     }
 
@@ -212,7 +207,6 @@ impl Teachable for Drawing {
             (&Self::Var(index), []) => BindingExpr::Var(index),
             (Self::Lib(ix), [bound_value, body]) => BindingExpr::Lib(*ix, bound_value, body),
             (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
-            (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };
         Some(binding_expr)
@@ -236,7 +230,6 @@ impl Printable for Drawing {
             | Self::Square => 60,
             Self::List => 50,
             Self::Apply
-            | Self::Shift
             | Self::Max
             | Self::Sin
             | Self::Cos

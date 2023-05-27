@@ -77,8 +77,6 @@ pub enum BindingExpr<T> {
     Apply(T, T),
     /// An expression defining a named library function within a certain scope
     Lib(LibId, T, T),
-    /// Shift free de Bruijn vars in body by one, so that `(shift $0)` is equivalent to `$1`
-    Shift(T),
 }
 
 impl<Op, T> From<BindingExpr<T>> for AstNode<Op, T>

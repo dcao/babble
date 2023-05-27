@@ -103,8 +103,6 @@ pub enum DreamCoderOp {
     Lib(LibId),
     LibVar(LibId),
 
-    Shift,
-
     /// A utility operation that allows us to do extraction taking into account
     /// all programs.
     Combine,
@@ -151,7 +149,7 @@ impl Arity for DreamCoderOp {
             | DreamCoderOp::Symbol(_)
             | DreamCoderOp::Inlined(_)
             | DreamCoderOp::LibVar(_) => 0,
-            DreamCoderOp::Lambda | DreamCoderOp::Shift | DreamCoderOp::Combine => 1,
+            DreamCoderOp::Lambda | DreamCoderOp::Combine => 1,
             DreamCoderOp::App | DreamCoderOp::Lib(_) => 2,
         }
     }
@@ -169,7 +167,6 @@ impl FromStr for DreamCoderOp {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let op = match input {
-            "shift" => Self::Shift,
             "apply" | "@" => Self::App,
             "lambda" | "λ" => Self::Lambda,
             input => input
@@ -198,7 +195,6 @@ impl Teachable for DreamCoderOp {
             BindingExpr::Apply(fun, arg) => AstNode::new(DreamCoderOp::App, [fun, arg]),
             BindingExpr::Lib(ix, def, body) => AstNode::new(DreamCoderOp::Lib(ix), [def, body]),
             BindingExpr::LibVar(ix) => AstNode::leaf(DreamCoderOp::LibVar(ix)),
-            BindingExpr::Shift(expr) => AstNode::new(DreamCoderOp::Shift, [expr]),
         }
     }
 
@@ -209,7 +205,6 @@ impl Teachable for DreamCoderOp {
             (DreamCoderOp::App, [fun, arg]) => BindingExpr::Apply(fun, arg),
             (DreamCoderOp::Lib(ix), [def, body]) => BindingExpr::Lib(*ix, def, body),
             (DreamCoderOp::LibVar(ix), []) => BindingExpr::LibVar(*ix),
-            (DreamCoderOp::Shift, [expr]) => BindingExpr::Shift(expr),
             _ => return None,
         };
         Some(binding_expr)
@@ -227,7 +222,6 @@ impl Display for DreamCoderOp {
             DreamCoderOp::App => "@",
             DreamCoderOp::Lib(ix) => return write!(f, "lib {ix}"),
             DreamCoderOp::LibVar(ix) => return write!(f, "{ix}"),
-            DreamCoderOp::Shift => "shift",
             DreamCoderOp::Var(index) => return write!(f, "${index}"),
             DreamCoderOp::Inlined(expr) => return write!(f, "#{}", DcExpr::ref_cast(expr)),
             DreamCoderOp::Symbol(symbol) => return write!(f, "{symbol}"),
@@ -242,7 +236,7 @@ impl Printable for DreamCoderOp {
         match self {
             Self::Symbol(_) | Self::Var(_) | Self::LibVar(_) | Self::Inlined(_) => 60,
             Self::Combine => 50,
-            Self::App | Self::Shift => 40,
+            Self::App => 40,
             Self::Lambda | Self::Lib(_) => 10,
         }
     }

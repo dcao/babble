@@ -153,16 +153,6 @@ impl<W: Write> Printer<W> {
                     BindingExpr::LibVar(ix) => {
                         write!(self.writer, "{ix}")
                     }
-                    BindingExpr::Shift(body) => match self.bindings.pop() {
-                        None => {
-                            panic!("Pretty printer encountered shift outside of abstraction")
-                        }
-                        Some(name) => {
-                            self.print(body)?;
-                            self.bindings.push(name);
-                            Ok(())
-                        }
-                    },
                 }
             }
             None => {

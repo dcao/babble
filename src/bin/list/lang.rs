@@ -39,8 +39,6 @@ pub enum ListOp {
     LibVar(LibId),
     /// A list
     List,
-    /// A shift
-    Shift,
 }
 
 impl Arity for ListOp {
@@ -52,7 +50,7 @@ impl Arity for ListOp {
             | Self::Ident(_)
             | Self::LibVar(_)
             | Self::List => 0,
-            Self::Lambda | Self::Shift => 1,
+            Self::Lambda => 1,
             Self::Cons | Self::Apply | Self::Lib(_) => 2,
             Self::If => 3,
         }
@@ -73,7 +71,6 @@ impl Display for ListOp {
             Self::If => "if",
             Self::Apply => "@",
             Self::Lambda => "λ",
-            Self::Shift => "shift",
             Self::List => "list",
             Self::Lib(ix) => {
                 return write!(f, "lib {ix}");
@@ -105,7 +102,6 @@ impl FromStr for ListOp {
         let op = match input {
             "cons" => Self::Cons,
             "if" => Self::If,
-            "shift" => Self::Shift,
             "apply" | "@" => Self::Apply,
             "lambda" | "λ" => Self::Lambda,
             "list" => Self::List,
@@ -137,7 +133,6 @@ impl Teachable for ListOp {
                 AstNode::new(Self::Lib(ix), [bound_value, body])
             }
             BindingExpr::LibVar(ix) => AstNode::leaf(Self::LibVar(ix)),
-            BindingExpr::Shift(body) => AstNode::new(Self::Shift, [body]),
         }
     }
 
@@ -148,7 +143,6 @@ impl Teachable for ListOp {
             (&Self::Var(index), []) => BindingExpr::Var(index),
             (Self::Lib(ix), [bound_value, body]) => BindingExpr::Lib(*ix, bound_value, body),
             (Self::LibVar(ix), []) => BindingExpr::LibVar(*ix),
-            (Self::Shift, [body]) => BindingExpr::Shift(body),
             _ => return None,
         };
         Some(binding_expr)
@@ -164,7 +158,7 @@ impl Printable for ListOp {
         match self {
             Self::Bool(_) | Self::Int(_) | Self::Var(_) | Self::Ident(_) | Self::LibVar(_) => 60,
             Self::List => 50,
-            Self::Apply | Self::Shift => 40,
+            Self::Apply => 40,
             Self::Cons => 30,
             Self::If => 20,
             Self::Lambda | ListOp::Lib(_) => 10,
