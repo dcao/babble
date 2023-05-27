@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::lang::Smiley;
 use babble::{ast_node::Expr, learn::LibId};
+use nalgebra::{self, Matrix2, Rotation2, Vector2};
 use thiserror::Error;
 
 #[derive(Clone, Debug)]
@@ -45,13 +46,13 @@ impl<'a> Context<'a> {
         let result = match (expr.0.operation(), expr.0.args()) {
             (&Smiley::Int(i), []) => Value::Num(i.into()),
             (&Smiley::Float(f), []) => Value::Num(f.into()),
-            (Smiley::Circle, []) => Value::Shapes(vec![Shape::Circle {
-                center: (0.0, 0.0),
-                radius: 1.0,
+            (Smiley::Circle, []) => Value::Shapes(vec![Shape::Ellipse {
+                transform: Matrix2::identity(),
+                center: Vector2::zeros(),
             }]),
             (Smiley::Line, []) => Value::Shapes(vec![Shape::Line {
-                start: (-0.5, 0.0),
-                end: (0.5, 0.0),
+                start: Vector2::new(-1.0, 0.0),
+                end: Vector2::new(1.0, 0.0),
             }]),
             (&Smiley::Var(index), []) => self.get_index(index.0).clone(),
             (&Smiley::LibVar(name), []) => self.get_lib(name).clone(),
@@ -66,6 +67,16 @@ impl<'a> Context<'a> {
                 let factor = self.eval(factor)?.to_float()?;
                 let val = self.eval(expr)?;
                 val.map_shapes(|shape| shape.scale(factor))
+            }
+            (Smiley::ScaleX, [factor, expr]) => {
+                let factor = self.eval(factor)?.to_float()?;
+                let val = self.eval(expr)?;
+                val.map_shapes(|shape| shape.scale_x(factor))
+            }
+            (Smiley::ScaleY, [factor, expr]) => {
+                let factor = self.eval(factor)?.to_float()?;
+                let val = self.eval(expr)?;
+                val.map_shapes(|shape| shape.scale_y(factor))
             }
             (Smiley::Rotate, [angle, expr]) => {
                 let angle = self.eval(angle)?.to_float()?;
@@ -109,19 +120,21 @@ impl Default for Context<'_> {
 /// The primitive components of a [`Picture`].
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Shape {
-    /// A circle
-    Circle {
-        /// The circle's center point
-        center: (f64, f64),
-        /// The circle's radius
-        radius: f64,
-    },
     /// A line segment
     Line {
         /// The starting point of the line segment
-        start: (f64, f64),
+        start: Vector2<f64>,
         /// The end point of the line segment
-        end: (f64, f64),
+        end: Vector2<f64>,
+    },
+    /// An ellipse
+    Ellipse {
+        /// A linear transformation taking the unit circle to this ellipse,
+        /// centered at the origin
+        transform: Matrix2<f64>,
+
+        /// The center of the ellipse
+        center: Vector2<f64>,
     },
 }
 
@@ -196,44 +209,48 @@ impl<'a> Value<'a> {
 }
 
 impl Shape {
-    fn similarity_transform<F>(self, transform_point: F) -> Self
-    where
-        F: Fn(f64, f64) -> (f64, f64),
-    {
+    fn translate(self, x_offset: f64, y_offset: f64) -> Self {
+        let offset = Vector2::new(x_offset, y_offset);
         match self {
-            Self::Circle {
-                center: (x, y),
-                radius,
-            } => {
-                let (x1, y1) = transform_point(x, y);
-                let (x2, y2) = transform_point(x + radius, y);
-                let new_radius = (x2 - x1).hypot(y2 - y1);
-                Self::Circle {
-                    center: (x1, y1),
-                    radius: new_radius,
-                }
-            }
-            Self::Line {
-                start: (x1, y1),
-                end: (x2, y2),
-            } => Self::Line {
-                start: transform_point(x1, y1),
-                end: transform_point(x2, y2),
+            Self::Line { start, end } => Self::Line {
+                start: start + offset,
+                end: end + offset,
+            },
+            Self::Ellipse { transform, center } => Self::Ellipse {
+                transform,
+                center: center + offset,
             },
         }
     }
 
-    fn translate(self, x_offset: f64, y_offset: f64) -> Self {
-        self.similarity_transform(|x, y| (x + x_offset, y + y_offset))
+    fn linear_transform(self, matrix: Matrix2<f64>) -> Self {
+        match self {
+            Self::Line { start, end } => Self::Line {
+                start: matrix * start,
+                end: matrix * end,
+            },
+            Self::Ellipse { transform, center } => Self::Ellipse {
+                transform: matrix * transform,
+                center,
+            },
+        }
     }
 
     fn rotate(self, degrees: f64) -> Self {
-        let (sin, cos) = degrees.to_radians().sin_cos();
-        self.similarity_transform(|x, y| (x * cos - y * sin, x * sin + y * cos))
+        let rotation_matrix = Rotation2::new(degrees.to_radians());
+        self.linear_transform(rotation_matrix.into_inner())
     }
 
     fn scale(self, factor: f64) -> Self {
-        self.similarity_transform(|x, y| (x * factor, y * factor))
+        self.linear_transform(factor * Matrix2::identity())
+    }
+
+    fn scale_x(self, factor: f64) -> Self {
+        self.linear_transform(Matrix2::new(factor, 0.0, 0.0, 1.0))
+    }
+
+    fn scale_y(self, factor: f64) -> Self {
+        self.linear_transform(Matrix2::new(1.0, 0.0, 0.0, factor))
     }
 }
 

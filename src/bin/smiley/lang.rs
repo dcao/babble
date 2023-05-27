@@ -34,6 +34,10 @@ pub(crate) enum Smiley {
     Move,
     /// Scale a picture.
     Scale,
+    /// Scale a picture horizontally.
+    ScaleX,
+    /// Scale a picture vertically.
+    ScaleY,
     /// Rotate a picture.
     Rotate,
     /// Union two pictures.
@@ -64,7 +68,12 @@ impl Arity for Smiley {
             | Self::Line
             | Self::LibVar(_) => 0,
             Self::Lambda | Self::Shift | Self::Compose => 1,
-            Self::Scale | Self::Rotate | Self::Apply | Self::Lib(_) => 2,
+            Self::Scale
+            | Self::ScaleX
+            | Self::ScaleY
+            | Self::Rotate
+            | Self::Apply
+            | Self::Lib(_) => 2,
             Self::Move => 3,
         }
     }
@@ -87,6 +96,8 @@ impl Display for Smiley {
             Self::Line => f.write_str("line"),
             Self::Move => f.write_str("move"),
             Self::Scale => f.write_str("scale"),
+            Self::ScaleX => f.write_str("scale-x"),
+            Self::ScaleY => f.write_str("scale-y"),
             Self::Rotate => f.write_str("rotate"),
             Self::Compose => f.write_str("+"),
             Self::Apply => f.write_str("@"),
@@ -107,6 +118,8 @@ impl FromStr for Smiley {
             "line" => Self::Line,
             "lambda" | "λ" => Self::Lambda,
             "scale" => Self::Scale,
+            "scale-x" => Self::ScaleX,
+            "scale-y" => Self::ScaleY,
             "move" => Self::Move,
             "rotate" => Self::Rotate,
             "apply" | "@" => Self::Apply,
@@ -128,7 +141,7 @@ impl FromStr for Smiley {
                 } else if let Ok(f) = s.parse::<NotNan<f64>>() {
                     Self::Float(f)
                 } else {
-                    panic!("how to parse")
+                    panic!("Could not parse string {:?} as a smiley builtin", s)
                 }
             }
         };
@@ -178,7 +191,13 @@ impl Printable for Smiley {
             | Self::Circle
             | Self::Line => 60,
             Self::Compose => 50,
-            Self::Move | Self::Scale | Self::Rotate | Self::Apply | Self::Shift => 40,
+            Self::Move
+            | Self::Scale
+            | Self::ScaleX
+            | Self::ScaleY
+            | Self::Rotate
+            | Self::Apply
+            | Self::Shift => 40,
             Self::Lambda | Self::Lib(_) => 10,
         }
     }
@@ -207,6 +226,19 @@ impl Printable for Smiley {
                 printer.writer.write_str(" ")?;
                 printer.print(arg)
             }
+            (&Self::ScaleX, [s, arg]) => {
+                printer.writer.write_str("scale-x ")?;
+                printer.print(s)?;
+                printer.writer.write_str(" ")?;
+                printer.print(arg)
+            }
+            (&Self::ScaleY, [s, arg]) => {
+                printer.writer.write_str("scale-y ")?;
+                printer.print(s)?;
+                printer.writer.write_str(" ")?;
+                printer.print(arg)
+            }
+
             (&Self::Rotate, [a, arg]) => {
                 printer.writer.write_str("rotate ")?;
                 printer.print(a)?;

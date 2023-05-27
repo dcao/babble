@@ -56,30 +56,33 @@ impl Picture {
 impl Shape {
     fn fmt_svg<W: Write>(&self, xml_writer: &mut EventWriter<W>) -> xml::writer::Result<()> {
         match self {
-            Self::Circle {
-                center: (cx, cy),
-                radius: r,
-            } => {
+            Self::Line { start, end } => {
                 xml_writer.write(
-                    XmlEvent::start_element("circle")
-                        .attr("cx", &cx.to_string())
-                        .attr("cy", &cy.to_string())
-                        .attr("r", &r.to_string()),
+                    XmlEvent::start_element("line")
+                        .attr("x1", &start.x.to_string())
+                        .attr("y1", &start.y.to_string())
+                        .attr("x2", &end.x.to_string())
+                        .attr("y2", &end.y.to_string()),
                 )?;
                 xml_writer.write(XmlEvent::end_element())
             }
-            Self::Line {
-                start: (x1, y1),
-                end: (x2, y2),
-            } => {
-                xml_writer.write(
-                    XmlEvent::start_element("line")
-                        .attr("x1", &x1.to_string())
-                        .attr("y1", &y1.to_string())
-                        .attr("x2", &x2.to_string())
-                        .attr("y2", &y2.to_string()),
-                )?;
+            Self::Ellipse { transform, center } => {
+                xml_writer.write(XmlEvent::start_element("circle").attr("r", "1").attr(
+                    "transform",
+                    &format!(
+                        "matrix({} {} {} {} {} {})",
+                        transform[(0, 0)],
+                        transform[(0, 1)],
+                        transform[(1, 0)],
+                        transform[(1, 1)],
+                        center.x,
+                        center.y
+                    ),
+                ))?;
                 xml_writer.write(XmlEvent::end_element())
+                // let center = (focus_1 + focus_2) / 2;
+                // let semi_major_axis = |vertex - center|;
+                // let rotation = f64::acos((vertex - center).0/semi_major_axis)
             }
         }
     }
