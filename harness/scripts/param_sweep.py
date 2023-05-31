@@ -16,7 +16,7 @@ def param_sweep(path_to_drawing_bab, dts):
     # beams = "10 50 100 200 500 1000"
     # lps = "1 3 5 10"
     # rounds = "2 5 10"
-    with open(get_data_csv_filename(dts), 'w') as all:       
+    with open(get_data_csv_filename(dts), 'w') as all:
         beams = [50, 100, 150, 200, 500]
         rounds = [200]
         max_arity = 3
@@ -39,7 +39,7 @@ def param_sweep(path_to_drawing_bab, dts):
 
 def parse_results_csv(path):
     FIELDS = \
-        ['exp_type', 'timeout', 'beam_size', 'beam_size_2', 'lps', 'extra_por',
+        ['exp_type', 'timeout', 'beam_size', 'beam_size_2', 'lps',
             'extra_data', 'round', 'init_size', 'final_size', 'compression', 'num_libs', 'time', 'memory']
     with open(path) as f:
         rows = list(csv.DictReader(f, fieldnames=FIELDS))
