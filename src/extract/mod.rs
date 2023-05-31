@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use egg::{Analysis, EGraph, Id, Language, RecExpr, Rewrite, Runner};
 
 use crate::{
-    ast_node::{Arity, AstNode, Expr},
+    ast_node::{Arity, AstNode},
     learn::LibId,
     teachable::{BindingExpr, Teachable},
 };
@@ -56,7 +56,8 @@ fn build<Op: Clone + Teachable + std::fmt::Debug>(
     }
 }
 
-/// Lifts libs
+/// Given an expression `expr` containing library function definitions, move
+/// those definitions to the top.
 #[must_use]
 pub fn lift_libs<Op>(expr: &RecExpr<AstNode<Op>>) -> RecExpr<AstNode<Op>>
 where
@@ -96,10 +97,4 @@ where
     }
 
     res.into()
-}
-
-/// Get the true cost of an expr
-#[must_use]
-pub fn true_cost<Op: Clone>(expr: RecExpr<AstNode<Op>>) -> usize {
-    Expr::len(&expr.into())
 }

@@ -240,7 +240,6 @@ fn run_domain(
                         opts.beam_size,
                         opts.beam_size,
                         opts.lps,
-                        false,
                         (),
                         true,
                         Some(opts.max_arity),

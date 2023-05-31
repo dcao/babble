@@ -92,10 +92,6 @@ struct Opts {
     /// The number of programs to use
     #[clap(long)]
     limit: Option<usize>,
-
-    /// Whether to use the additional partial order reduction step
-    #[clap(long)]
-    extra_por: Vec<bool>,
 }
 
 fn find_apps(exprs: Vec<Expr<Drawing>>, lib: Option<LibId>) -> Vec<Expr<Drawing>> {
@@ -258,7 +254,6 @@ fn main() {
             opts.beams.clone(),
             &opts.lps,
             opts.rounds,
-            opts.extra_por.clone(),
             (),
             opts.learn_constants,
             opts.max_arity,

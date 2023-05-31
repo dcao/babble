@@ -227,7 +227,6 @@ where
         beams: Vec<usize>,
         lpss: &[usize],
         rounds: usize,
-        mut extra_pors: Vec<bool>,
         extra: Extra,
         learn_constants: bool,
         max_arity: Option<usize>,
@@ -241,39 +240,31 @@ where
         assert!(!beams.is_empty(), "beams not specified");
         assert!(!lpss.is_empty(), "lps not specified");
 
-        // Defaults for if we have empty values
-        if extra_pors.is_empty() {
-            extra_pors.push(false);
-        }
-
         for beam in beams {
-            for &extra_por in &extra_pors {
-                for &lps in lpss {
-                    // TODO: be more graceful about this too
-                    assert!(lps <= beam, "lps {} greater than beam {}", lps, beam);
+            for &lps in lpss {
+                // TODO: be more graceful about this too
+                assert!(lps <= beam, "lps {} greater than beam {}", lps, beam);
 
-                    let beam_experiment = BeamExperiment::new(
-                        dsrs.to_owned(),
-                        beam,
-                        beam,
-                        lps,
-                        extra_por,
-                        extra.clone(),
-                        learn_constants,
-                        max_arity,
-                        1,
-                    );
-                    if test_exprs.is_empty() {
-                        // We always use Rounds so that we unconditionally run our
-                        // plumbing infra, in the case of e.g. nested libs
-                        res.push(Box::new(Rounds::new(rounds, beam_experiment)));
-                    } else {
-                        res.push(Box::new(Generalization::new(
-                            beam_experiment,
-                            test_exprs.to_owned(),
-                            rounds,
-                        )));
-                    }
+                let beam_experiment = BeamExperiment::new(
+                    dsrs.to_owned(),
+                    beam,
+                    beam,
+                    lps,
+                    extra.clone(),
+                    learn_constants,
+                    max_arity,
+                    1,
+                );
+                if test_exprs.is_empty() {
+                    // We always use Rounds so that we unconditionally run our
+                    // plumbing infra, in the case of e.g. nested libs
+                    res.push(Box::new(Rounds::new(rounds, beam_experiment)));
+                } else {
+                    res.push(Box::new(Generalization::new(
+                        beam_experiment,
+                        test_exprs.to_owned(),
+                        rounds,
+                    )));
                 }
             }
         }

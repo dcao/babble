@@ -3,6 +3,7 @@
 use egg::{Analysis, CostFunction, DidMerge, EGraph, Id, Language, RecExpr};
 use log::debug;
 use std::{
+    cmp::Ordering,
     collections::{BinaryHeap, HashMap},
     fmt::Debug,
 };
@@ -145,14 +146,8 @@ impl CostSet {
     /// Our pruning strategy preserves n `LibSel`s per # of libs, where
     /// n is the beam size. In other words, we preserve n `LibSel`s with
     /// 0 libs, n `LibSel`s with 1 lib, etc.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `extra_por` is `true`.
-    pub fn prune(&mut self, n: usize, lps: usize, extra_por: bool) {
+    pub fn prune(&mut self, n: usize, lps: usize) {
         use std::cmp::Reverse;
-
-        assert!(!extra_por, "extra_por unimplemented for new pruning");
 
         let old_set = std::mem::take(&mut self.set);
 
@@ -225,6 +220,7 @@ impl CostSet {
 /// corresponding cost values: the cost of the expression without the library
 /// functions, and the cost of the library functions themselves
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+
 pub struct LibSel {
     // We place this first so that it has prio in the Ord impl
     pub expr_cost: usize,
@@ -341,16 +337,16 @@ impl LibSel {
                 }
 
                 match &other.libs[oix].0.cmp(lib) {
-                    std::cmp::Ordering::Less => {
+                    Ordering::Less => {
                         // Increment oix by default
                         oix += 1;
                     }
-                    std::cmp::Ordering::Equal => {
+                    Ordering::Equal => {
                         // If other[oix] is equal to lib, continue in the outer loop and increment oix
                         oix += 1;
                         continue 'outer;
                     }
-                    std::cmp::Ordering::Greater => {
+                    Ordering::Greater => {
                         // Otherwise if it's larger, there was no element equal. Not subset, ret false.
                         return false;
                     }
@@ -368,7 +364,7 @@ impl LibSel {
 struct LibSelFC(pub(crate) LibSel);
 
 impl PartialOrd for LibSelFC {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let mut r = self.0.full_cost.cmp(&other.0.full_cost);
         if !r.is_eq() {
             return Some(r);
@@ -384,7 +380,7 @@ impl PartialOrd for LibSelFC {
 }
 
 impl Ord for LibSelFC {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap()
     }
 }
@@ -401,17 +397,15 @@ pub struct PartialLibCost {
     /// The maximum number of libs per lib selection. Any lib selections with a larger amount will
     /// be pruned.
     lps: usize,
-    extra_por: bool,
 }
 
 impl PartialLibCost {
     #[must_use]
-    pub fn new(beam_size: usize, inter_beam: usize, lps: usize, extra_por: bool) -> PartialLibCost {
+    pub fn new(beam_size: usize, inter_beam: usize, lps: usize) -> PartialLibCost {
         PartialLibCost {
             beam_size,
             inter_beam,
             lps,
-            extra_por,
         }
     }
 
@@ -421,7 +415,6 @@ impl PartialLibCost {
             beam_size: 0,
             inter_beam: 0,
             lps: 1,
-            extra_por: false,
         }
     }
 }
@@ -448,7 +441,7 @@ where
         // pruning.
         to.combine(from.clone());
         to.unify();
-        to.prune(self.beam_size, self.lps, self.extra_por);
+        to.prune(self.beam_size, self.lps);
 
         // println!("{:?}", to);
         // println!("{} {}", &a0 != to, to != &from);
@@ -467,7 +460,7 @@ where
                 // cross e1, e2 and introduce a lib!
                 let mut e = x(b).add_lib(id, x(f), self.lps);
                 e.unify();
-                e.prune(self.beam_size, self.lps, self.extra_por);
+                e.prune(self.beam_size, self.lps);
                 e
             }
             Some(_) | None => {
@@ -490,11 +483,11 @@ where
                         e = e.cross(x(cs), self.lps);
                         // Intermediate prune.
                         e.unify();
-                        e.prune(self.inter_beam, self.lps, self.extra_por);
+                        e.prune(self.inter_beam, self.lps);
                     }
 
                     e.unify();
-                    e.prune(self.beam_size, self.lps, self.extra_por);
+                    e.prune(self.beam_size, self.lps);
                     e.inc_cost();
                     e
                 }

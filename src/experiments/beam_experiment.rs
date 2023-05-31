@@ -36,8 +36,6 @@ where
     lib_iter_limit: usize,
     /// The number of libs to learn at a time
     lps: usize,
-    /// Whether to use the extra partial order reduction or not
-    extra_por: bool,
     /// Any extra data associated with this experiment
     extra_data: Extra,
     /// Whether to learn "library functions" with no arguments.
@@ -67,7 +65,6 @@ where
         final_beams: usize,
         inter_beams: usize,
         lps: usize,
-        extra_por: bool,
         extra_data: Extra,
         learn_constants: bool,
         max_arity: Option<usize>,
@@ -81,7 +78,6 @@ where
             final_beams,
             inter_beams,
             lps,
-            extra_por,
             extra_data,
             learn_constants,
             max_arity,
@@ -146,7 +142,6 @@ where
             self.final_beams,
             self.inter_beams,
             self.lps,
-            self.extra_por,
         ))
         .with_egraph(aeg.clone())
         .with_iter_limit(self.lib_iter_limit)
@@ -227,7 +222,6 @@ where
             self.final_beams,
             self.inter_beams,
             self.lps,
-            self.extra_por,
         ));
         let roots = recexprs
             .iter()
@@ -253,7 +247,6 @@ where
             self.final_beams,
             self.inter_beams,
             self.lps,
-            self.extra_por,
         ));
 
         let roots: Vec<_> = recexpr_groups
@@ -292,7 +285,6 @@ where
                 self.final_beams,
                 self.inter_beams,
                 self.lps,
-                self.extra_por,
                 self.extra_data.clone(),
                 round,
                 initial_cost,
@@ -310,13 +302,12 @@ where
             final_beams,
             inter_beams,
             lps,
-            extra_por,
             extra_data,
             ..
         } = self;
         write!(
             f,
-            "beam | final_beams: {final_beams}, inter_beams: {inter_beams}, lps: {lps:?}, extra_por: {extra_por}, extra_data: {extra_data:?}",
+            "beam | final_beams: {final_beams}, inter_beams: {inter_beams}, lps: {lps:?}, extra_data: {extra_data:?}",
         )
     }
 }

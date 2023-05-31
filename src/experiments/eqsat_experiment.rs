@@ -122,7 +122,7 @@ where
         // First, let's turn our list of exprs into a list of recexprs
         let recexprs: Vec<RecExpr<AstNode<Op>>> = exprs.into_iter().map_into().collect();
 
-        let mut egraph = EGraph::new(PartialLibCost::new(0, 0, 1, false));
+        let mut egraph = EGraph::new(PartialLibCost::new(0, 0, 1));
         let roots: Vec<_> = recexprs.iter().map(|x| egraph.add_expr(x)).collect();
         egraph.rebuild();
 
@@ -140,7 +140,7 @@ where
             .map(|group| group.into_iter().map(RecExpr::from).collect())
             .collect();
 
-        let mut egraph = EGraph::new(PartialLibCost::new(0, 0, 1, false));
+        let mut egraph = EGraph::new(PartialLibCost::new(0, 0, 1));
 
         let roots: Vec<_> = recexpr_groups
             .into_iter()
@@ -179,7 +179,6 @@ where
                 0,
                 0,
                 0,
-                false,
                 self.extra_data.clone(),
                 round,
                 initial_cost,

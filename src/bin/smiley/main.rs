@@ -64,10 +64,6 @@ struct Opts {
     /// The number of rounds of lib learning to run
     #[clap(long, default_value_t = 1)]
     rounds: usize,
-
-    /// Whether to use the additional partial order reduction step
-    #[clap(long)]
-    extra_por: Vec<bool>,
 }
 
 fn main() {
@@ -130,7 +126,6 @@ fn main() {
             opts.beams.clone(),
             &opts.lps,
             opts.rounds,
-            opts.extra_por.clone(),
             (),
             opts.learn_constants,
             opts.max_arity,
